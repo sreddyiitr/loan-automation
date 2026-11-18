@@ -15,11 +15,10 @@ in [`implementation_summary.md`](implementation_summary.md).
 
 ## What it does today
 
-Slices **S1 (walking skeleton)** and **S2 (document rules)** of a bigger build are done. It
-does one thing end to end:
+Slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income and mock catalog)** and
+**S4 (funder operations)** of a bigger build are done. End to end:
 
-> **Check a deal's documents and fund it.** Submit an application version. Four checks run **in
-> parallel**:
+> **Check a deal and fund it.** Submit an application version. Five checks run **in parallel**:
 >
 > | Check | Verifies | Stip when it fails |
 > |---|---|---|
@@ -27,10 +26,17 @@ does one thing end to end:
 > | **Price** | the RISC cash price equals the Buyer's Order price | `STIP_PRICE_MISMATCH` |
 > | **VIN** | VIN, year, make and model agree on every document and the application, and the VIN is valid | `STIP_VIN_MISMATCH` |
 > | **GAP** | the GAP form is registered for the state and effective on the contract date, and the creditor is the primary lender | `STIP_GAP_FORM_MISMATCH`, `STIP_LENDER_MISMATCH` |
+> | **Income** | the stated income is within 15% of what the Income Verification API reports (an external call with retries, timeouts and `Retry-After`; the SSN never leaves the DB except to that API) | `STIP_INCOME_VARIANCE_EXCEEDED`, `STIP_PROOF_OF_INCOME` |
 >
 > A field the OCR read with low confidence, or that is missing or unreadable, puts **just the
 > check that needs it** into review (`STIP_EXTRACTION_REVIEW_REQUIRED`). If everything passes and
 > the RISC is complete, the system pays the dealer. Otherwise the version waits for a funder.
+>
+> **Then a funder takes over** through the funder API (`X-Funder-Id` on every write): waive or
+> satisfy stips, add a manual stip, approve, reject, re-run checks, retry a failed disbursement,
+> reassign. Each action is a guarded, audited DB write, then a signal to the waiting workflow.
+> Only the status changes in spec §6 are allowed. A version not funded or rejected **30 days**
+> after it was first submitted expires.
 
 Behind that:
 
@@ -41,49 +47,53 @@ Behind that:
                       │ results, stips, audit                                          │ POST /api/v1/funding-workflows
                       │                                                                ▼
                  Temporal workers  ◀──────────────────── Spring Boot app (:8080) ──▶ Temporal (:7233)
-                 FundingWorkflow ─▶ TILA ‖ PRICE ‖ VIN ‖ GAP checks (child workflows, in parallel)
-                      │
-                      └── APPROVED ──HTTP──▶ WireMock (Docker, :8089): Disbursement API, generated stubs
+                 FundingWorkflow ─▶ TILA ‖ PRICE ‖ VIN ‖ GAP ‖ INCOME checks (child workflows, in parallel)
+                      │                                       └──HTTP──▶ WireMock: Income Verification API
+                      ├── APPROVED ──HTTP──▶ WireMock (Docker, :8089): Disbursement API, generated stubs
+                      └── otherwise waits for funder signals ◀── funder API (/api/v1/versions/…) ─ until day 30 → EXPIRED
 ```
 
 - On startup, under the `local` profile, the app:
   1. **creates the SQS queue and its DLQ** in the emulator;
-  2. **checks the seed data against the rules**, then loads the GAP form registry and **23 test
+  2. **checks the seed data against the rules**, then loads the GAP form registry and **32 test
      scenarios** (all `DRAFT`, so nothing runs yet);
-  3. **loads 89 generated WireMock stubs**;
+  3. **loads 316 generated WireMock stubs** (Disbursement and Income Verification: 252 catalog
+     entries covering every band and fault class, plus one per scenario per API);
   4. starts the local Lambda runner.
 - `make seed-submit-all` submits them all. The happy path (LA-1001) ends **FUNDED**. Each
   "broken" scenario ends **STIPULATED** with exactly the stip it targets: LA-1002 TILA sum,
-  LA-1006 price off by 1¢, LA-1007 VIN differs on the GAP, LA-1018 expired GAP form, LA-1023
-  low-confidence cash price, and so on.
+  LA-1006 price off by 1¢, LA-1007 VIN differs on the GAP, LA-1012 income over by 33%, LA-1018
+  expired GAP form, LA-1023 low-confidence cash price, and so on. LA-1016 (income API down) is
+  held in `PENDING_REVIEW`, and LA-1030 (disbursement API down) stays `APPROVED` for a funder
+  retry.
 - Test data and mock responses are **computed from the business rules**, never typed by hand. If
   someone changes a rule without updating the scenarios, the build fails (constitution P-2,
-  P-5). See [step 9](#step-9-change-a-rule-and-watch-the-gates-stop-you).
+  P-5). See [step 9](#step-10-change-a-rule-and-watch-the-gates-stop-you).
 
-The income check (an external API), the funder API, resubmissions and the 30-day expiry arrive
-in later slices ([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
+Resubmissions (a new version superseding the old one) and the volume test arrive in S5 and S6
+([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
 
 ---
 
 ## How we know it works
 
-**179 automated tests, all passing**, plus seven data gates. The functional tests run against the
+**337 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
-| Domain rules | JUnit 5, AssertJ | nothing (pure Java) | 68 | ✅ all pass |
-| Persistence | JUnit 5, Testcontainers | `postgres:18` in Docker | 24 | ✅ all pass |
-| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 17 | ✅ all pass |
+| Domain rules (incl. income, API classifier, status machine) | JUnit 5, AssertJ | nothing (pure Java) | 136 | ✅ all pass |
+| Persistence (incl. guarded status writes) | JUnit 5, Testcontainers | `postgres:18` in Docker | 25 | ✅ all pass |
+| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 29 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
-| Workflows | Temporal `TestWorkflowEnvironment`, Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 19 | ✅ 18 pass, 1 skipped (the history recorder, on request only) |
+| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 52 | ✅ 51 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API | Spring MockMvc, Temporal test env | test Temporal + Postgres | 12 | ✅ all pass |
-| **Functional** | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 27 | ✅ all pass |
-| Seed gates | `make seed-check` | — | 7 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock lock |
+| API (start API, funder API, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 30 | ✅ all pass |
+| **Functional** (every scenario, all 186 income catalog stubs, 13 funder actions) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 53 | ✅ all pass |
+| Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-<sub>Last full run: 2026-11-17, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-18, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -122,7 +132,7 @@ build yourself; the other three download on first use.
 |---|---:|---|---|
 | `aws-emulator:latest` | ~1.6 GB | **You build it once** (step 1); AWS publishes no prebuilt image | SQS queue + DLQ |
 | `postgres:18` | ~700 MB | Downloaded automatically the first time `db-env.sh` or the tests need it | The app database, and the Testcontainers tests |
-| `wiremock/wiremock:latest` | ~480 MB | Downloaded automatically by `wiremock-env.sh` | Mocks of the Disbursement (and later Income) API |
+| `wiremock/wiremock:latest` | ~480 MB | Downloaded automatically by `wiremock-env.sh` | Mocks of the Disbursement and Income Verification APIs |
 | `alpine/socat:latest` | ~16 MB | Downloaded automatically, **only if** your emulator container publishes no port | Port forwarder `funding-emulator-proxy` |
 | `testcontainers/ryuk` | ~30 MB | Downloaded automatically by Testcontainers during `make test-unit` | Removes test containers after the tests |
 
@@ -242,8 +252,8 @@ emulator-env: reusing <container> at https://127.0.0.1:9297 region=us-west-2
 db-env: reusing funding-postgres, jdbc:postgresql://127.0.0.1:55432/funding (user funding)
 wiremock-env: reusing funding-wiremock at http://127.0.0.1:8089
 ... "queues ready: https://sqs.us-west-2.amazonaws.com/000000000000/funding-pending-review-local (DLQ …-dlq)"
-... "seed data: 23 inserted, 0 replaced, 0 unchanged"
-... "loaded 89 generated stubs for env local into http://127.0.0.1:8089"
+... "seed data: 32 inserted, 0 replaced, 0 unchanged"
+... "loaded 316 generated stubs for env local into http://127.0.0.1:8089"
 ... "local Lambda runner polling (stands in for the SQS event source mapping)"
 ```
 
@@ -278,6 +288,8 @@ docker exec "$DB_CONTAINER" psql -U "$FUNDING_DB_USER" -d funding -c "
  LA-1002 | STIPULATED | STIP_TILA_MATH_DISCREPANCY                  |           |
  LA-1006 | STIPULATED | STIP_PRICE_MISMATCH                         |           |
  LA-1007 | STIPULATED | STIP_VIN_MISMATCH                           |           |
+ LA-1012 | STIPULATED | STIP_INCOME_VARIANCE_EXCEEDED               |           |
+ LA-1016 | PENDING_REVIEW |                                         |           |
  LA-1021 | STIPULATED | STIP_GAP_FORM_MISMATCH,STIP_LENDER_MISMATCH |           |
  LA-1022 | FUNDED     |                                             | COMPLETED | 28450.00
  LA-1023 | STIPULATED | STIP_EXTRACTION_REVIEW_REQUIRED             |           |
@@ -290,14 +302,39 @@ Ask the API what a workflow is doing (the API key is `local-dev-key` under `loca
 curl -s -H 'X-Trigger-Api-Key: local-dev-key' localhost:8080/api/v1/funding-workflows/2
 # {"workflowId":"funding-local-2","runStatus":"RUNNING",
 #  "state":{"step":"WAITING_FOR_FUNDER","status":"STIPULATED",
-#           "outcomes":{"TILA":"FAIL","PRICE":"PASS","VIN":"PASS","GAP":"PASS"},"attempts":{"TILA":1,"PRICE":1,"VIN":1,"GAP":1}}}
+#           "outcomes":{"TILA":"FAIL","PRICE":"PASS","VIN":"PASS","GAP":"PASS","INCOME":"PASS"},
+#           "attempts":{"TILA":1,"PRICE":1,"VIN":1,"GAP":1,"INCOME":1},"expiresAtEpochMillis":…}}
 ```
 
 Want to submit one again? Submitting works only from `DRAFT` (409 `NOT_DRAFT` otherwise).
 Restart the app after deleting its `seed_scenarios` row, or reset the volume with `make down`
 plus `docker volume rm funding-pgdata`.
 
-### Step 6: Look inside the emulator (SQS)
+### Step 6: Act as a funder
+
+The funder API needs no key, but every write needs an `X-Funder-Id` header. Errors are RFC 9457
+`application/problem+json` with a `reason` (`VERSION_EXPIRED`, `PENDING_STIPS`,
+`RISC_STIP_NOT_WAIVABLE`, …). The full contract is in
+[`contracts/funder-api.openapi.yaml`](contracts/funder-api.openapi.yaml) and in the Swagger UI.
+
+Clear LA-1006's price stip and watch it fund:
+
+```bash
+VID=$(curl -s localhost:8080/api/v1/applications/LA-1006 | python3 -c "import json,sys; print(json.load(sys.stdin)['applicationVersionId'])")
+curl -s localhost:8080/api/v1/versions/$VID/stipulations          # note the stip_id of STIP_PRICE_MISMATCH
+curl -s -X PATCH localhost:8080/api/v1/versions/$VID/stipulations/<stipId> \
+  -H 'X-Funder-Id: funder-1' -H 'Content-Type: application/json' \
+  -d '{"status":"WAIVED","reason":"1 cent, dealer confirmed"}'
+# {"stipId":…,"status":"WAIVED","versionStatus":"APPROVED"}   … a second later the version is FUNDED
+curl -s localhost:8080/api/v1/versions/$VID/audit                 # who did what, before and after
+```
+
+Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `{"reason":…}`,
+`POST …/rerun` with `{"checks":["INCOME"]}`, `POST …/retry-disbursement` (LA-1030),
+`POST …/stipulations` for a manual stip, and `PUT …/assignee`. RISC-related stips can't be
+waived or satisfied by hand; the dealer must send a corrected RISC.
+
+### Step 7: Look inside the emulator (SQS)
 
 ```bash
 source scripts/emulator-env.sh
@@ -312,7 +349,7 @@ aws sqs get-queue-attributes --attributes All \
 The queue URLs say `sqs.us-west-2.amazonaws.com`, but the SDK still sends every request to
 `AWS_ENDPOINT_URL`.
 
-### Step 7: Look inside WireMock
+### Step 8: Look inside WireMock
 
 ```bash
 curl -s localhost:8089/__admin/mappings | python3 -c "import json,sys; m=json.load(sys.stdin)['mappings']; print(len(m), 'stubs')"
@@ -322,11 +359,11 @@ curl -s localhost:8089/__admin/requests/unmatched        # must stay empty: a re
 Every stub carries `metadata.env`. The app replaces **only its own env's** stubs, so a WireMock
 container shared with another project is safe.
 
-### Step 8: Run the tests
+### Step 9: Run the tests
 
 ```bash
 make test-unit          # needs only Docker (Testcontainers postgres:18); includes the seed gates
-make seed-check         # the 7 data gates, writes nothing
+make seed-check         # the 8 data gates, writes nothing
 make test-functional    # needs Temporal + Docker; reuses your emulator, Postgres and WireMock
 ```
 
@@ -334,7 +371,7 @@ make test-functional    # needs Temporal + Docker; reuses your emulator, Postgre
 `FUNDING_ENV=it-<runId>`: its own database `funding_it_<runId>`, its own queues, task queues,
 workflow IDs and WireMock stubs. It removes all of them at the end.
 
-### Step 9: Change a rule and watch the gates stop you
+### Step 10: Change a rule and watch the gates stop you
 
 This step teaches the most about how the project works. Loosen the payment tolerance in
 `funding-domain/src/main/resources/funding-rules.properties`:
@@ -361,7 +398,7 @@ change makes a scenario's real outcome differ from its declared `expect`, `seed-
 refuses to write anything. The fix is to update the scenario intent, never to weaken the check.
 Put the tolerance back when you're done (and run `make seed-regenerate` again).
 
-### Step 10: Stop everything
+### Step 11: Stop everything
 
 - Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
 - `make down` stops only the containers **the scripts started** (label `funding.managed=true`):
@@ -381,6 +418,9 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 | **New credentials and a new CA on every emulator start** | Always `source scripts/emulator-env.sh` again after restarting it. The CA is trusted only by the AWS SDK client, never JVM-wide, so Temporal and Postgres connections are unaffected. |
 | **A transactional outbox, not "send then commit"** | The status change and the outbox row commit together. A crash between the SQS send and the "published" mark only causes a duplicate, which the start API absorbs (`200 alreadyStarted`). |
 | **Business FAIL is a value, not an exception** | Temporal retries only technical failures. A TILA mismatch is returned as an outcome and never retried. |
+| **External calls are classified, not just retried** | The income client maps 5xx, timeouts and resets to retryable, honours a capped `Retry-After` on 429, and never retries a 422 or a malformed body. Exhausted retries become an `ERROR` hold, not a stip. |
+| **Funder actions are "write, then signal"** | The API commits the guarded, audited change first and only then signals the workflow, which re-settles the status from the DB. A signal that arrives while the workflow is busy is never lost, and long-lived runs `continueAsNew` after 1000 signals. |
+| **Workflow code changes need `Workflow.getVersion`** | Adding the INCOME child and the S4 signal loop would break replay of runs already in flight. Recorded histories from earlier slices are replayed in the tests to prove they still work. |
 | **Every write re-checks "is this still the latest version?" in its own transaction** | A resubmission can't be overwritten by an older version's late result (AS-9.3). |
 | **Test data is derived, not typed** | Scenarios say "offset the total by +10.00", and the generator computes 33802.60 with the same `Amortization` code the rule uses. |
 | **Shared services need namespacing** | `FUNDING_ENV` scopes queue names, workflow IDs, task queues, the database and stub metadata, so tests and your local run can share one emulator, Postgres, WireMock and Temporal. |
@@ -400,6 +440,9 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 | `make seed-check` fails with `lock … changed` | Expected after a rule or config change: run `make seed-regenerate` and review the `rules.lock` diff |
 | `401` from `/api/v1/funding-workflows` | Send `X-Trigger-Api-Key: local-dev-key` (or your `FUNDING_TRIGGER_API_KEY`) |
 | `409 NOT_DRAFT` on submit | That version was already submitted; see the end of step 5 |
+| `400 MISSING_FUNDER_ID` from the funder API | Send `X-Funder-Id: <your id>` on every write |
+| `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
+| `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
 | A version stays `PENDING_REVIEW` | Check the Temporal UI for `funding-local-<id>`, and `curl localhost:8089/__admin/requests/unmatched` |
 | `FUNDING_DB_URL is not set: run functional tests with make test-functional` | Run functional tests with `make test-functional`, not plain `mvn verify` |
 | HTTP 403 from the emulator | Stale keys: `source scripts/emulator-env.sh` again |

@@ -10,7 +10,7 @@ Status as of **2026-11-18**: slices **S1 (walking skeleton)**, **S2 (document ru
 | Requirements | [`spec.md`](specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9; each slice's notes list deviations) |
-| Branches | S1 (PR #2) and S2 (PR #3) merged to `main`; S3 in PR #4 (`feat/001-s3-income`); S4 on `feat/001-s4-funder-ops`, stacked on S3 |
+| Branches | S1 (PR #2), S2 (PR #3) and S3 (PR #4) merged to `main`; S4 on `feat/001-s4-funder-ops` |
 
 ---
 
@@ -125,12 +125,17 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 - **Mock stubs (P-5):**
   - `contracts/disbursement.openapi.yaml` and `test/data/mocks/disbursement.catalog.yaml` hold
     8 classes × 6 amounts, plus retry depths derived from `max-attempts`.
-  - `MockStubGenerator` builds **89 WireMock stubs**: 66 from the catalog and 23 for the
-    scenarios. Delays and retry counts come from the config.
-  - Three P-5 gates:
+  - `contracts/income-verification.openapi.yaml` and `test/data/mocks/income-verification.catalog.yaml`
+    (S3) hold the variance bands × magnitudes, NOT_FOUND, response shapes and nine fault classes.
+  - `MockStubGenerator` builds **316 WireMock stubs**: 252 from the two catalogs (66
+    disbursement, 186 income) and one per scenario per API (32 + 32). Delays and retry counts
+    come from the config.
+  - Four P-5 gates (plus the flip guard in `seed-regenerate`):
     - **Contract:** every stub validates against the OpenAPI spec; only fault classes may be
       marked `violatesContract`.
     - **Coverage:** every class has at least `minPerBand` entries and every amount appears.
+    - **Band oracle:** each stub is replayed through the app's response classifier under the
+      retry budget, then the real rule, and must match the stub's independently declared outcome.
     - **`mocks.lock`:** the generated stubs match the committed lock.
   - Every mapping carries `metadata.env`, and there is no catch-all stub.
 
