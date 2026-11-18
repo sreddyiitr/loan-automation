@@ -14,7 +14,8 @@ public final class RuleEngine {
 
     public RuleEngine() {
         Map<Check, CheckRule> m = new EnumMap<>(Check.class);
-        Arrays.stream(RuleCatalog.values()).forEach(r -> m.computeIfAbsent(r.check(), c -> instantiate(r)));
+        Arrays.stream(RuleCatalog.values()).filter(r -> r.check() != null)
+                .forEach(r -> m.computeIfAbsent(r.check(), c -> instantiate(r)));
         this.rules = Collections.unmodifiableMap(m);
     }
 

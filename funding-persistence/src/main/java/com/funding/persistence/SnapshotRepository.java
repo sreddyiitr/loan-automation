@@ -3,6 +3,7 @@ package com.funding.persistence;
 import com.funding.domain.DocumentSnapshot;
 import com.funding.domain.DocumentType;
 import com.funding.domain.ExtractedField;
+import com.funding.domain.GapForm;
 import com.funding.domain.Snapshot;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -65,6 +66,14 @@ public class SnapshotRepository {
 
         VersionRow row = v.get();
         return Optional.of(new Loaded(new Snapshot(row.applicationVersionId(), row.loanApplicationId(), row.versionNumber(),
-                row.vehicleVin(), row.statedIncomeAnnual(), ssnPresent, row.dealershipId(), docs), row));
+                row.vehicleVin(), row.statedIncomeAnnual(), ssnPresent, row.dealershipId(), docs, gapForms()), row));
+    }
+
+    /** The GAP form registry (T206): passed to the pure GAP rule with the snapshot. */
+    public List<GapForm> gapForms() {
+        return jdbc.sql("SELECT state_code, form_number, effective_from, effective_to FROM gap_form_registry ORDER BY state_code, form_number, effective_from")
+                .query((rs, i) -> new GapForm(rs.getString(1).trim(), rs.getString(2), rs.getObject(3, java.time.LocalDate.class),
+                        rs.getObject(4, java.time.LocalDate.class)))
+                .list();
     }
 }

@@ -210,6 +210,23 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1003 | TILA payment wrong | `monthly_payment` 568.21; total 34092.60; FC 5642.60 (sum still balances) | FAIL | P | P | P | P | STIPULATED | TILA_MATH_DISCREPANCY | AS-2.3 |
 | LA-1004 | 0% APR promo | AF 24000.00, APR 0, 48 mo, pmt 500.00, total 24000.00, FC 0.00; cash price 27000.00 on both | PASS | P | P | P | P | FUNDED | — | AS-2.3 (r = 0) |
 | LA-1005 | Rounding edge | AF 31875.50, 8.49%, 72 mo, pmt 566.54, total 40790.88, FC 8915.38; cash price 34875.50 on both | PASS | P | P | P | P | FUNDED | — | FR-08 |
+| LA-1006 | Cash price off by 1¢ | BO `total_vehicle_cash_price` 31450.01 (RISC 31450.00; smallest step beyond the tolerance) | P | FAIL | P | P | P | STIPULATED | PRICE_MISMATCH | AS-3.2 |
+| LA-1007 | VIN differs on GAP | GAP `vin` 4T1C11AK7RU100102 (RISC and BO 4T1C11AK7RU100101) | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
+| LA-1008 | Model differs | BO `vehicle_model` `Camry SE` | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
+| LA-1009 | Case/space normalization | BO make `toyota `, GAP model ` CAMRY`, RISC VIN `4t1c11ak7ru100101` | P | P | PASS | P | P | FUNDED | — | AS-4.3 |
+| LA-1010 | Invalid VIN chars | VIN `4T1C11AK7RU1O0101` (letter O) on all docs and the application | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
+| LA-1011 | App VIN ≠ docs | `application_versions.vehicle_vin` 4T1C11AK7RU100199; docs at baseline | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
+| LA-1018 | Expired GAP form | GAP `form_number` `GAP-TX-2019-07` (expired before the contract date) | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
+| LA-1019 | Form from wrong state | GAP `state` TX, `form_number` `GAP-CA-2025-03` (registered for another state) | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
+| LA-1020 | GAP lender mismatch | GAP `creditor_name` `Coastal Credit Union` | P | P | P | P | FAIL | STIPULATED | LENDER_MISMATCH | AS-6.2 |
+| LA-1021 | Both GAP sub-checks fail | expired form `GAP-TX-2019-07` **and** lender `Coastal Credit Union` | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH + LENDER_MISMATCH | AS-6.3 |
+| LA-1022 | No GAP agreement | no GAP document | P | P | P | P | PASS | FUNDED | — | AS-6.4 |
+| LA-1023 | Low-confidence cash price | RISC `cash_price` confidence 0.89 (one step below the cut-off) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | AS-7.1 |
+| LA-1024 | Confidence at the cut-off is not flagged | RISC `apr` confidence 0.90 = `funding.confidence.flag-below` | PASS | P | P | P | P | FUNDED | — | cut-off boundary (B4) |
+| LA-1025 | Unused field flagged | RISC extra field `dealer_notes` confidence 0.89 | P | P | P | P | P | FUNDED | — | AS-7.2 |
+| LA-1026 | Missing required field | RISC has no `finance_charge` | NEEDS_REVIEW | P | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | AS-7.1 |
+| LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4: `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
+| LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (thousands separator) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | FR-14 |
 | LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
 
 `P` means PASS, the baseline outcome for that check. Stip codes omit the `STIP_` prefix.
@@ -222,34 +239,17 @@ These rows are the **intended** scenarios for later slices (`tasks.md`). They ar
 
 | ID | Scenario | Override from baseline | TILA | PRICE | VIN | INCOME | GAP | Expected status | Expected stips | Spec |
 |---|---|---|---|---|---|---|---|---|---|---|
-| LA-1006 | Cash price off by 1¢ | BO `total_vehicle_cash_price` 31450.01 | P | FAIL | P | P | P | STIPULATED | PRICE_MISMATCH | AS-3.2 |
-| LA-1007 | VIN differs on GAP | GAP `vin` …100102 | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
-| LA-1008 | Model differs | BO `vehicle_model` `Camry SE` | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
-| LA-1009 | Case/space normalization | BO make `toyota `, GAP model ` CAMRY`, RISC VIN lowercase | P | P | PASS | P | P | FUNDED | — | AS-4.3 |
-| LA-1010 | Invalid VIN chars | VIN `4T1C11AK7RU10O101` (letter O) on all docs and the application | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
-| LA-1011 | App VIN ≠ docs | `application_versions.vehicle_vin` …100199; docs at baseline | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
 | LA-1012 | Income over by 33% | stated 120000.00, `enc:tok-low` (90000) | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | AS-5.2 |
 | LA-1013 | Income exactly 15.00% | stated 115000.00, `enc:tok-100k` | P | P | P | PASS | P | FUNDED | — | AS-5.1 boundary |
 | LA-1014 | Income 15.01% | stated 115010.00, `enc:tok-100k` | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | AS-5.2 boundary |
 | LA-1015 | Under-stated income | stated 80000.00, `enc:tok-100k` (−20%, two-sided per C-3) | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | C-3 |
 | LA-1016 | Income API down | `enc:tok-down` | P | P | P | ERROR | P | PENDING_REVIEW (held) | — | AS-5.3, AS-8.4 |
 | LA-1017 | Income API flaky | `enc:tok-flaky` | P | P | P | PASS | P | FUNDED | — | NFR-03 |
-| LA-1018 | Expired GAP form | GAP `form_number` `GAP-TX-2019-07` | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
-| LA-1019 | Form from wrong state | GAP `state` TX, `form_number` `GAP-CA-2025-03` | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
-| LA-1020 | GAP lender mismatch | GAP `creditor_name` `Coastal Credit Union` | P | P | P | P | FAIL | STIPULATED | LENDER_MISMATCH | AS-6.2 |
-| LA-1021 | Both GAP sub-checks fail | expired form **and** lender mismatch | P | P | P | P | FAIL | STIPULATED | GAP_FORM + LENDER | AS-6.3 |
-| LA-1022 | No GAP agreement | no GAP document | P | P | P | P | PASS (n/a) | FUNDED | — | AS-6.4 |
-| LA-1023 | Low-confidence cash price | RISC `cash_price` confidence 0.82 | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW | AS-7.1 |
-| LA-1024 | Confidence at the cut-off is not flagged | RISC `apr` confidence = `funding.confidence.flag-below` (0.90) | PASS | P | P | P | P | FUNDED | — | cut-off boundary (B4) |
-| LA-1025 | Unused field flagged | RISC extra field `dealer_notes` confidence 0.40 | P | P | P | P | P | FUNDED | — | AS-7.2 |
-| LA-1026 | Missing required field | RISC has no `finance_charge` | NEEDS_REVIEW | P | P | P | P | STIPULATED | EXTRACTION_REVIEW | AS-7.1 |
 | LA-1027 | Multi-failure | TILA sum +$10, GAP VIN …100102, stated 120000 with `enc:tok-low` | FAIL | P | FAIL | FAIL | P | STIPULATED | TILA + VIN + INCOME (3 stips) | FR-04 |
 | LA-1028 | Resubmission fixes the deal | **v1** = LA-1006 data (seeded STIPULATED, stip PENDING); **v2** = baseline (DRAFT, latest) | v2: all PASS | | | | | v1 stays STIPULATED; **v2 FUNDED** | v1's stip kept as history | AS-9.1–9.3 |
 | LA-1029 | New document version | One app version. RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +$10; RISC **v2** (latest) at baseline | PASS (reads v2) | P | P | P | P | FUNDED | — | AS-9.4 |
 | LA-1030 | Disbursement fails | Baseline; dealer `DLR-FAIL` (mock disbursement always returns 500) | P | P | P | P | P | **APPROVED** (held) | — | C-8 |
-| LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4, and `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
 | LA-1032 | Doc fix triggers re-run | Starts as LA-1006 (STIPULATED). The test then adds **Buyer's Order v2** with 31450.00 through `POST /api/v1/dev/applications/{id}/documents` | re-run: all PASS | | | | | **FUNDED** | PRICE stip auto-SATISFIED by `system:` (AS-8.8) | AS-1.8, AS-8.8 |
-| LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (comma) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW | FR-14 |
 
 
 ## Funder-action scenarios (run against seeded results, used by functional tests)

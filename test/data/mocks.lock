@@ -426,6 +426,108 @@ stubs:
     response: 6bd855abba4637c3
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1006":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1006"
+    response: 7ccd726d8c0c1719
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1007":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1007"
+    response: 706c388aeeb0f5f6
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1008":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1008"
+    response: b2d6ecb37db7fa7b
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1009":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1009"
+    response: fe3bbbcf926ee0f9
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1010":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1010"
+    response: 3dd199489daf52e9
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1011":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1011"
+    response: 72bd4da4bbb919fd
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1018":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1018"
+    response: 44ea0db16e8ac0a0
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1019":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1019"
+    response: 8b13b0da6af74dc4
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1020":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1020"
+    response: d2ed749193463383
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1021":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1021"
+    response: 54f76e827dcccd51
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1022":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1022"
+    response: 33c51500cf609aea
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1023":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1023"
+    response: 5e952b27f9772476
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1024":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1024"
+    response: 0672513cab27d302
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1025":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1025"
+    response: fa568d41fedc3984
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1026":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1026"
+    response: 8ebb8edebbf4d83a
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1031":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1031"
+    response: 880bb56cc51bdcd8
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1033":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1033"
+    response: 8b15746f9293295c
+    expect: FUNDED
+    rules: "none"
   "DISBURSEMENT/scenario/LA-1034":
     band: SUCCESS
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1034"

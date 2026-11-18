@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 /**
  * Plan "FundingWorkflow.run": load snapshot -> fan out the check children in parallel ->
  * applyOutcome -> disburse when APPROVED, otherwise wait for funder action.
+ * The children run in parallel and independently (FR-04): one failing doesn't affect the others.
  * Signals beyond {@code stipResolved}, expiry and continueAsNew arrive in slice S4.
  */
 public class FundingWorkflowImpl implements FundingWorkflow {
@@ -118,6 +119,9 @@ public class FundingWorkflowImpl implements FundingWorkflow {
     private static Promise<CheckOutcome> start(Check check, ChildWorkflowOptions opts, CheckInput input) {
         return switch (check) {
             case TILA -> Async.function(Workflow.newChildWorkflowStub(TilaCheckWorkflow.class, opts)::run, input);
+            case PRICE -> Async.function(Workflow.newChildWorkflowStub(PriceParityWorkflow.class, opts)::run, input);
+            case VIN -> Async.function(Workflow.newChildWorkflowStub(VinConsistencyWorkflow.class, opts)::run, input);
+            case GAP -> Async.function(Workflow.newChildWorkflowStub(GapValidationWorkflow.class, opts)::run, input);
             default -> throw new IllegalStateException("no child workflow for " + check);
         };
     }

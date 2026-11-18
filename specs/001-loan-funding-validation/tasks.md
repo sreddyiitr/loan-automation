@@ -97,17 +97,29 @@ What landed differently from the task text, and why:
 **Proves:** fan-out of independent children; pure rules; config-driven confidence and parse gating.
 **Exit:** AS-3.x, AS-4.x, AS-6.x, AS-7.x, AS-8.10 (auto-approval side), AS-9.7; scenarios LA-1006–1011, 1018–1026, 1031, 1033 green.
 
-- [ ] **T201** [P] Test: `PriceParityRuleTest`: `AS_3_1_exactMatchPasses`, `AS_3_2_anyDifferenceFails` (1¢, both values in details).
-- [ ] **T202** [P] Test: `VinRuleTest`: `AS_4_1_allMatchAndValidPasses`, `AS_4_2_gapVinDiffersFails` (lists each document's value), `AS_4_2_modelDiffersFails`, `AS_4_1_letterOInVinFails`, `AS_4_1_appVinDiffersFails`, `AS_4_3_makeModelCaseAndSpaceIgnored`, `AS_4_3_vinUpperCasedOnly`, length ≠ 17 fails.
-- [ ] **T203** [P] Test: `GapRuleTest`: `AS_6_1_registeredEffectiveFormPasses`, `AS_6_1_expiredFormFails`, `AS_6_1_otherStateFormFails`, `AS_6_2_lenderMismatchFails`, `AS_6_3_bothSubChecksCanFail`, `AS_6_4_noGapIsPassNotApplicable`, effective-date boundaries (first and last effective day).
-- [ ] **T204** [P] Test: `ConfidencePolicyTest`, `FieldParsingTest`: `AS_7_1_flaggedRequiredFieldIsNeedsReview` (records the flagged keys), `confidenceAtCutOffIsNotFlagged`, `AS_7_2_unusedFlaggedFieldIgnored`, `FR_14_missingFieldIsNeedsReview`, `FR_14_commaInMoneyIsNeedsReview`, highest-confidence value wins when a key repeats across sections (§8).
-- [ ] **T205** Rules + intents **in one change** (P-2): `PriceParityRule`, `VinRule` (`VIN_FORMAT`, `VIN_CROSS_DOC`, `VEHICLE_ATTRS`, `VIN_APP_MATCH`), `GapRule` (`GAP_FORM`, `GAP_LENDER`, `GAP_OPTIONAL`), `ConfidencePolicy` (`CONFIDENCE_FLAG`, `funding.confidence.flag-below`), `RequiredFields` (`REQUIRED_FIELD`), `VinFormat`; their `RuleCatalog` entries; intents LA-1006–1011, 1018–1026, 1031, 1033 (incl. the GAP registry fixture); `make seed-regenerate`; inspect `mock-impact.md` (expect no API impact).
-- [ ] **T206** `GapFormRegistry` loaded from `gap_form_registry` (seeded from `test/data/gap-form-registry.yaml`) and passed into the pure rule through the snapshot, so the rule stays I/O-free.
-- [ ] **T207** Test: `FundingWorkflowTest` additions: `FR_04_childrenRunInParallel`, `FR_04_oneChildFailingDoesNotAffectOthers`, `AS_8_10_autoApprovalBlockedWhenRiscIncomplete`, `FR_07_sharedStipCodeIsPerCheck` (two checks raising `STIP_EXTRACTION_REVIEW_REQUIRED` produce two stips).
-- [ ] **T208** `PriceParityWorkflow`, `VinConsistencyWorkflow`, `GapValidationWorkflow`; parent fan-out with `Async.function` + `Promise.allOf`; RISC-completeness gate in `applyOutcome` (latest RISC present, every required RISC field present, parseable and unflagged, TILA PASS).
-- [ ] **T209** Test: `DocumentFreezeIT`: `AS_9_7_insertRefusedWhenApprovedFundedOrRejected` (SQLSTATE `P0001`, `DOCUMENTS_FROZEN`), allowed for DRAFT, PENDING_REVIEW and STIPULATED.
-- [ ] **T210** `V2__documents_frozen.sql`: `refuse_frozen_documents` + `trg_documents_frozen`.
-- [ ] **T211** `ScenarioE2EIT`: enable PRICE, VIN and GAP in the functional profile; the new scenarios pass. LA-1031 also asserts the multi-page section and per-field bounding boxes are persisted. Record histories for one STIPULATED and one FUNDED run.
+- [x] **T201** [P] Test: `PriceParityRuleTest`: `AS_3_1_exactMatchPasses`, `AS_3_2_anyDifferenceFails` (1¢, both values in details).
+- [x] **T202** [P] Test: `VinRuleTest`: `AS_4_1_allMatchAndValidPasses`, `AS_4_2_gapVinDiffersFails` (lists each document's value), `AS_4_2_modelDiffersFails`, `AS_4_1_letterOInVinFails`, `AS_4_1_appVinDiffersFails`, `AS_4_3_makeModelCaseAndSpaceIgnored`, `AS_4_3_vinUpperCasedOnly`, length ≠ 17 fails.
+- [x] **T203** [P] Test: `GapRuleTest`: `AS_6_1_registeredEffectiveFormPasses`, `AS_6_1_expiredFormFails`, `AS_6_1_otherStateFormFails`, `AS_6_2_lenderMismatchFails`, `AS_6_3_bothSubChecksCanFail`, `AS_6_4_noGapIsPassNotApplicable`, effective-date boundaries (first and last effective day).
+- [x] **T204** [P] Test: `ConfidencePolicyTest`, `FieldParsingTest`: `AS_7_1_flaggedRequiredFieldIsNeedsReview` (records the flagged keys), `confidenceAtCutOffIsNotFlagged`, `AS_7_2_unusedFlaggedFieldIgnored`, `FR_14_missingFieldIsNeedsReview`, `FR_14_commaInMoneyIsNeedsReview`, highest-confidence value wins when a key repeats across sections (§8).
+- [x] **T205** Rules + intents **in one change** (P-2): `PriceParityRule`, `VinRule` (`VIN_FORMAT`, `VIN_CROSS_DOC`, `VEHICLE_ATTRS`, `VIN_APP_MATCH`), `GapRule` (`GAP_FORM`, `GAP_LENDER`, `GAP_OPTIONAL`), `ConfidencePolicy` (`CONFIDENCE_FLAG`, `funding.confidence.flag-below`), `RequiredFields` (`REQUIRED_FIELD`), `VinFormat`; their `RuleCatalog` entries; intents LA-1006–1011, 1018–1026, 1031, 1033 (incl. the GAP registry fixture); `make seed-regenerate`; inspect `mock-impact.md` (expect no API impact).
+- [x] **T206** `GapFormRegistry` loaded from `gap_form_registry` (seeded from `test/data/gap-form-registry.yaml`) and passed into the pure rule through the snapshot, so the rule stays I/O-free.
+- [x] **T207** Test: `FundingWorkflowTest` additions: `FR_04_childrenRunInParallel`, `FR_04_oneChildFailingDoesNotAffectOthers`, `AS_8_10_autoApprovalBlockedWhenRiscIncomplete`, `FR_07_sharedStipCodeIsPerCheck` (two checks raising `STIP_EXTRACTION_REVIEW_REQUIRED` produce two stips).
+- [x] **T208** `PriceParityWorkflow`, `VinConsistencyWorkflow`, `GapValidationWorkflow`; parent fan-out with `Async.function` + `Promise.allOf`; RISC-completeness gate in `applyOutcome` (latest RISC present, every required RISC field present, parseable and unflagged, TILA PASS).
+- [x] **T209** Test: `DocumentFreezeIT`: `AS_9_7_insertRefusedWhenApprovedFundedOrRejected` (SQLSTATE `P0001`, `DOCUMENTS_FROZEN`), allowed for DRAFT, PENDING_REVIEW and STIPULATED.
+- [x] **T210** `V2__documents_frozen.sql`: `refuse_frozen_documents` + `trg_documents_frozen`.
+- [x] **T211** `ScenarioE2EIT`: enable PRICE, VIN and GAP in the functional profile; the new scenarios pass. LA-1031 also asserts the multi-page section and per-field bounding boxes are persisted. Record histories for one STIPULATED and one FUNDED run.
+
+### S2 notes (done 2026-11-17)
+
+- **Cross-cutting rules.** `CONFIDENCE_FLAG` and `REQUIRED_FIELD` belong to no single check (`RuleCatalog.check() == null`): they live in the shared field reading every check uses. For them the coverage gate checks a PASS side as "every check passes" and any other side as "some check is expected to have that outcome".
+- **RISC complete, all checks pass.** AS-8.10 says auto-approval doesn't happen when the RISC is incomplete. When every check passes and no stip is PENDING, `applyOutcome` holds the version in `PENDING_REVIEW` and audits `RISC_INCOMPLETE [fields]`. This is recorded in `spec.md` as a clarification awaiting owner confirmation.
+- **VIN whitespace.** AS-4.3 is applied strictly: a VIN is only upper-cased, so a VIN with surrounding whitespace is a mismatch. Make and model ignore case and surrounding whitespace.
+- **GAP registry.** The registry is `test/data/gap-form-registry.yaml`. Its hash is in `rules.lock` (`gapRegistry:`). Locally it is seed-owned: `SeedDataLoader` replaces `gap_form_registry` on start. It travels to the pure GAP rule in the snapshot.
+- **Fingerprints.** Every rule's fingerprint includes the shared `FieldReader`, `RuleSupport`, `ConfidencePolicy` and `Money`. S2's confidence gating therefore changed both TILA fingerprints. `mock-impact.md` shows no outcome flips.
+- **Derived values differ from the old planned rows.** The planned rows were hand-written targets; the generator now derives these values from the intent vocabulary:
+  - LA-1010's letter O lands at the first `0` of the serial (`…RU1O0101`).
+  - LA-1023 and LA-1025 use "one step below the cut-off" (0.89).
+- **Replay compatibility.** Replay caught that S1 histories carry a `RulesConfig` without the S2 fields. Fields added later are now filled from the file defaults when an old payload is deserialized (`RulesConfigTest`). `RulesConfig.from()` still rejects missing config at startup. Histories are recorded per slice (`S2-*.json`), and the S1 files stay.
 
 ---
 

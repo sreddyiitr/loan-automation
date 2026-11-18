@@ -1,0 +1,15 @@
+id: LA-1025
+title: Unused field flagged
+rules: [CONFIDENCE_FLAG]
+side: PASS
+variant: unused-field
+spec: AS-7.2
+summary: "RISC extra field `dealer_notes` confidence {risc.dealer_notes.confidence}"
+given:
+  risc:
+    extraFields: { dealer_notes: "Customer requested rush funding" }
+    confidence: { dealer_notes: belowFlag }
+expect:
+  checks: {}
+  status: FUNDED
+  stips: []

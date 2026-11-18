@@ -22,6 +22,6 @@ public final class FixtureSnapshots {
             docs.put(d.type(), DocumentSnapshot.resolve(d.type(), syntheticId++, rows));
         }
         return new Snapshot(0L, f.loanApplicationId(), v.versionNumber(), v.vehicleVin(),
-                v.statedIncomeAnnual(), v.ssnItinToken() != null, v.dealershipId(), docs);
+                v.statedIncomeAnnual(), v.ssnItinToken() != null, v.dealershipId(), docs, f.gapForms());
     }
 }

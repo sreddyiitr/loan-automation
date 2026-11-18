@@ -34,7 +34,7 @@ public final class TilaRule implements CheckRule {
 
     @Override
     public CheckOutcome evaluate(Snapshot s, RulesConfig config) {
-        FieldReader r = new FieldReader(s);
+        FieldReader r = new FieldReader(s, config);
         BigDecimal amountFinanced = r.money(RISC, "amount_financed");
         BigDecimal financeCharge = r.money(RISC, "finance_charge");
         BigDecimal totalOfPayments = r.money(RISC, "total_of_payments");
@@ -44,7 +44,7 @@ public final class TilaRule implements CheckRule {
         Optional<BigDecimal> finalPayment = r.optionalMoney(RISC, "final_payment");
 
         if (!r.ok()) {
-            return needsReview(r.problems());
+            return RuleSupport.needsReview(Check.TILA, r.problems());
         }
 
         BigDecimal sumTol = config.tilaSumTolerance();
@@ -73,11 +73,5 @@ public final class TilaRule implements CheckRule {
     private static Comparison compare(String name, BigDecimal expected, BigDecimal actual, BigDecimal tolerance) {
         boolean ok = expected.subtract(actual).abs().compareTo(tolerance) <= 0;
         return new Comparison(name, Money.format(expected), Money.format(actual), ok);
-    }
-
-    static CheckOutcome needsReview(List<String> fields) {
-        String description = "Extraction review required: " + String.join(", ", fields);
-        return new CheckOutcome(Check.TILA, Outcome.NEEDS_REVIEW, List.of(), fields,
-                List.of(new StipRequest(StipCodes.EXTRACTION_REVIEW_REQUIRED, description)), null);
     }
 }

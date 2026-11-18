@@ -1,0 +1,13 @@
+id: LA-1006
+title: Cash price off by 1¢
+rules: [PRICE_PARITY]
+side: FAIL_BOUNDARY
+spec: AS-3.2
+summary: "BO `total_vehicle_cash_price` {bo.total_vehicle_cash_price} (RISC {risc.cash_price}; smallest step beyond the tolerance)"
+given:
+  buyersOrder:
+    totalVehicleCashPrice: { beyondTolerance: smallest }
+expect:
+  checks: { PRICE: FAIL }
+  status: STIPULATED
+  stips: [STIP_PRICE_MISMATCH]

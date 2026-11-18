@@ -126,6 +126,56 @@ class FundingActivitiesDbTest {
         assertThat(status(id)).isEqualTo("PENDING_REVIEW");
     }
 
+    private Map<Check, CheckOutcome> evaluateAll(long id) {
+        VersionView v = db.loadVersionSnapshot(id);
+        Map<Check, CheckOutcome> out = new java.util.EnumMap<>(Check.class);
+        for (Check c : java.util.List.of(Check.TILA, Check.PRICE, Check.VIN, Check.GAP)) {
+            CheckOutcome o = engine.evaluate(c, v.snapshot(), v.config());
+            db.recordOutcome(id, o, 1);
+            out.put(c, o);
+        }
+        return out;
+    }
+
+    @Test
+    void T206_snapshotCarriesTheGapRegistry() {
+        long id = submitted("LA-1001");
+        assertThat(db.loadVersionSnapshot(id).snapshot().gapForms()).extracting(com.funding.domain.GapForm::formNumber)
+                .containsExactlyInAnyOrder("GAP-TX-2024-01", "GAP-TX-2019-07", "GAP-CA-2025-03");
+        assertThat(evaluateAll(id).get(Check.GAP).outcome()).isEqualTo(com.funding.domain.Outcome.PASS);
+    }
+
+    @Test
+    void AS_8_10_autoApprovalBlockedWhenRiscIncomplete() {
+        long id = submitted("LA-1001");
+        // A required RISC field no enabled check reads: TILA passes, but the RISC is incomplete.
+        jdbc.sql("UPDATE extracted_fields SET confidence_score = 0.50 WHERE field_key = 'vehicle_make' AND section_id IN "
+                + "(SELECT s.section_id FROM document_sections s JOIN documents d USING (document_id) WHERE d.document_type = 'RISC')").update();
+        CheckOutcome tila = evaluateTila(id);
+        assertThat(tila.outcome()).isEqualTo(com.funding.domain.Outcome.PASS);
+        db.recordOutcome(id, tila, 1);
+        assertThat(db.applyOutcome(id, Map.of(Check.TILA, tila))).isEqualTo("PENDING_REVIEW");
+        assertThat(disbursement.disburse(id)).isNull();
+        assertThat(new AuditRepository(jdbc).forEntity("APPLICATION_VERSION", Long.toString(id)))
+                .noneMatch(e -> e.after() != null && e.after().contains("APPROVED"));
+    }
+
+    @Test
+    void FR_07_sharedStipCodeIsPerCheck() {
+        long id = submitted("LA-1001");
+        // Flag a field TILA reads (apr) and one VIN reads (Buyer's Order vin): both checks raise EXTRACTION_REVIEW.
+        jdbc.sql("UPDATE extracted_fields f SET confidence_score = 0.50 FROM document_sections s JOIN documents d USING (document_id) "
+                + "WHERE f.section_id = s.section_id AND ((d.document_type = 'RISC' AND f.field_key = 'apr') "
+                + "OR (d.document_type = 'BUYERS_ORDER' AND f.field_key = 'vin'))").update();
+        Map<Check, CheckOutcome> outcomes = evaluateAll(id);
+        assertThat(new StipRepository(jdbc).pending(id))
+                .extracting(StipRepository.Stip::check, StipRepository.Stip::code)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("TILA", "STIP_EXTRACTION_REVIEW_REQUIRED"),
+                        org.assertj.core.groups.Tuple.tuple("VIN", "STIP_EXTRACTION_REVIEW_REQUIRED"));
+        assertThat(db.applyOutcome(id, outcomes)).isEqualTo("STIPULATED");
+    }
+
     @Test
     void AS_8_8_passingRerunAutoSatisfiesItsStip() {
         long id = submitted("LA-1002");

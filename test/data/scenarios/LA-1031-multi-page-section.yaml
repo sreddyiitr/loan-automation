@@ -1,0 +1,14 @@
+id: LA-1031
+title: Multi-page section
+rules: [PRICE_PARITY]
+side: PASS
+variant: multi-page
+spec: US-10.5
+summary: "Baseline, but the RISC Itemization section spans pages 3–4: `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes"
+given:
+  risc:
+    itemizationPages: [3, 4]
+expect:
+  checks: {}
+  status: FUNDED
+  stips: []

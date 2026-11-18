@@ -43,6 +43,7 @@ class SeedGatesTest {
         Files.copy(repo.seedDataDoc(), sandbox.seedDataDoc());
         Files.copy(repo.rulesLock(), sandbox.rulesLock());
         Files.copy(repo.mocksLock(), sandbox.mocksLock());
+        Files.copy(repo.gapRegistry(), sandbox.gapRegistry());
         for (Path dir : List.of(repo.mockCatalogs(), repo.contracts())) {
             Path target = tmp.resolve(repo.root().relativize(dir));
             Files.createDirectories(target);
@@ -94,7 +95,7 @@ class SeedGatesTest {
 
     @Test
     void P_2_5_lockGateFailsWhenRuleConfigChanges() {
-        RulesConfig changed = new RulesConfig(new java.math.BigDecimal("0.00"), new java.math.BigDecimal("0.02"));
+        RulesConfig changed = RulesConfig.defaults().with("funding.tila.payment-tolerance", "0.02");
         SeedConfig cfg = new SeedConfig(changed, CONFIG.properties(), "local");
         List<GateResult> results = new SeedGates(sandbox, cfg, RuleFingerprints.fromClasspath()).verifyAll();
 

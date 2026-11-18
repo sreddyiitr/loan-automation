@@ -1,0 +1,12 @@
+id: LA-1021
+title: Both GAP sub-checks fail
+rules: [GAP_FORM, GAP_LENDER]
+side: FAIL
+spec: AS-6.3
+summary: "expired form `{gap.form_number}` **and** lender `{gap.creditor_name}`"
+given:
+  gap: { form: expired, creditor: other }
+expect:
+  checks: { GAP: FAIL }
+  status: STIPULATED
+  stips: [STIP_GAP_FORM_MISMATCH, STIP_LENDER_MISMATCH]

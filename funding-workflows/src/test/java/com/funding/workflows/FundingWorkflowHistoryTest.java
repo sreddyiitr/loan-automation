@@ -50,15 +50,16 @@ class FundingWorkflowHistoryTest {
     @Test
     @EnabledIfSystemProperty(named = "record.histories", matches = "true")
     void recordHistories() throws IOException {
-        record("LA-1001-funded", false);
-        record("LA-1002-stipulated", true);
+        // Recorded per slice; older files stay so replay keeps covering in-flight runs from earlier code.
+        record("S2-LA-1001-funded", false);
+        record("S2-LA-1006-stipulated", true);
     }
 
-    private void record(String name, boolean brokenSum) throws IOException {
+    private void record(String name, boolean brokenPrice) throws IOException {
         try (TestWorkflowEnvironment env = TestWorkflowEnvironment.newInstance()) {
             FakeActivities acts = new FakeActivities();
-            if (brokenSum) {
-                acts.risc.put("total_of_payments", "33802.60");
+            if (brokenPrice) {
+                acts.risc.put("cash_price", "31450.01"); // PRICE fails; TILA, VIN and GAP pass
             }
             Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, ActivityOptionsConfig.forTests());
             env.start();

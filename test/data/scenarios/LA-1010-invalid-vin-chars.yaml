@@ -1,0 +1,13 @@
+id: LA-1010
+title: Invalid VIN chars
+rules: [VIN_FORMAT]
+side: FAIL
+spec: AS-4.1
+summary: "VIN `{risc.vin}` (letter O) on all docs and the application"
+given:
+  vehicle:
+    vin: { mutate: letterO }
+expect:
+  checks: { VIN: FAIL }
+  status: STIPULATED
+  stips: [STIP_VIN_MISMATCH]

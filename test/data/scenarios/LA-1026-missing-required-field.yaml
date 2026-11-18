@@ -1,0 +1,14 @@
+id: LA-1026
+title: Missing required field
+rules: [REQUIRED_FIELD]
+side: NEEDS_REVIEW
+variant: missing
+spec: AS-7.1
+summary: "RISC has no `finance_charge`"
+given:
+  risc:
+    omit: [finance_charge]
+expect:
+  checks: { TILA: NEEDS_REVIEW }
+  status: STIPULATED
+  stips: [STIP_EXTRACTION_REVIEW_REQUIRED]

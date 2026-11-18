@@ -12,7 +12,7 @@ public final class ScenarioTable {
 
     public static final String BEGIN = "<!-- BEGIN GENERATED";
     public static final String END = "<!-- END GENERATED -->";
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(risc|bo|gap|app)\\.([a-z_]+)}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{(risc|bo|gap|app)\\.([a-z_]+)(\\.confidence)?}");
 
     private ScenarioTable() {}
 
@@ -44,10 +44,11 @@ public final class ScenarioTable {
         Matcher m = PLACEHOLDER.matcher(summary);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
+            boolean conf = m.group(3) != null;
             String value = switch (m.group(1)) {
-                case "risc" -> doc(f, DocumentType.RISC, m.group(2));
-                case "bo" -> doc(f, DocumentType.BUYERS_ORDER, m.group(2));
-                case "gap" -> doc(f, DocumentType.GAP_AGREEMENT, m.group(2));
+                case "risc" -> doc(f, DocumentType.RISC, m.group(2), conf);
+                case "bo" -> doc(f, DocumentType.BUYERS_ORDER, m.group(2), conf);
+                case "gap" -> doc(f, DocumentType.GAP_AGREEMENT, m.group(2), conf);
                 default -> app(f, m.group(2));
             };
             m.appendReplacement(out, Matcher.quoteReplacement(value));
@@ -56,9 +57,10 @@ public final class ScenarioTable {
         return out.toString();
     }
 
-    private static String doc(Fixture f, DocumentType type, String key) {
+    private static String doc(Fixture f, DocumentType type, String key, boolean confidence) {
         return f.latest().latestDocuments().stream().filter(d -> d.type() == type).findFirst()
-                .map(d -> d.value(key))
+                .flatMap(d -> d.sections().stream().flatMap(s -> s.fields().stream()).filter(x -> x.key().equals(key)).findFirst())
+                .map(x -> confidence ? x.confidence().toPlainString() : x.value())
                 .orElseThrow(() -> new IllegalArgumentException(f.scenarioId() + ": summary references missing " + type + "." + key));
     }
 

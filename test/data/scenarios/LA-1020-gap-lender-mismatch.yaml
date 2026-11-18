@@ -1,0 +1,12 @@
+id: LA-1020
+title: GAP lender mismatch
+rules: [GAP_LENDER]
+side: FAIL
+spec: AS-6.2
+summary: "GAP `creditor_name` `{gap.creditor_name}`"
+given:
+  gap: { creditor: other }
+expect:
+  checks: { GAP: FAIL }
+  status: STIPULATED
+  stips: [STIP_LENDER_MISMATCH]

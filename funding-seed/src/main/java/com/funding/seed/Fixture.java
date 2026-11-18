@@ -1,6 +1,7 @@
 package com.funding.seed;
 
 import com.funding.domain.DocumentType;
+import com.funding.domain.GapForm;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +13,7 @@ public record Fixture(
         String loanApplicationId,
         List<Version> versions,
         Map<String, String> externals,
+        List<GapForm> gapForms,
         ScenarioIntent intent) {
 
     public Version latest() {

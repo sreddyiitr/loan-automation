@@ -5,6 +5,8 @@ import com.funding.domain.CheckOutcome;
 import com.funding.domain.DocumentSnapshot;
 import com.funding.domain.DocumentType;
 import com.funding.domain.FieldValue;
+import com.funding.domain.GapForm;
+import java.time.LocalDate;
 import com.funding.domain.Outcome;
 import com.funding.domain.RulesConfig;
 import com.funding.domain.Snapshot;
@@ -27,6 +29,8 @@ class FakeActivities implements FundingActivities, DisbursementActivities {
     volatile String status = "PENDING_REVIEW";
     volatile boolean latest = true;
     volatile boolean failRecordOutcome = false;
+    final java.util.Set<Check> failRecordOutcomeFor = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    volatile java.util.Set<Check> enabled = EnumSet.of(Check.TILA, Check.PRICE, Check.VIN, Check.GAP);
     volatile boolean pendingManualStip = false;
     volatile Map<String, String> risc = baselineRisc();
 
@@ -45,16 +49,30 @@ class FakeActivities implements FundingActivities, DisbursementActivities {
     @Override
     public VersionView loadVersionSnapshot(long id) {
         calls.add("loadVersionSnapshot");
+        String vin = "4T1C11AK7RU100101";
+        Map<String, String> r = new LinkedHashMap<>(risc);
+        r.putAll(Map.of("vin", vin, "vehicle_year", "2024", "vehicle_make", "Toyota", "vehicle_model", "Camry",
+                "creditor_name", "Summit Auto Finance", "contract_date", "2026-11-02"));
+        Snapshot s = new Snapshot(id, "LA-1", 1, vin, new BigDecimal("96000.00"), true, "DLR-100", Map.of(
+                DocumentType.RISC, doc(DocumentType.RISC, 7L, r),
+                DocumentType.BUYERS_ORDER, doc(DocumentType.BUYERS_ORDER, 8L, Map.of("total_vehicle_cash_price", "31450.00",
+                        "vin", vin, "vehicle_year", "2024", "vehicle_make", "Toyota", "vehicle_model", "Camry")),
+                DocumentType.GAP_AGREEMENT, doc(DocumentType.GAP_AGREEMENT, 9L, Map.of("form_number", "GAP-TX-2024-01", "state", "TX",
+                        "creditor_name", "Summit Auto Finance", "vin", vin, "vehicle_year", "2024", "vehicle_make", "Toyota",
+                        "vehicle_model", "Camry"))),
+                List.of(new GapForm("TX", "GAP-TX-2024-01", LocalDate.of(2024, 1, 1), null)));
+        return new VersionView(s, RulesConfig.defaults(), enabled, status, latest, 0L);
+    }
+
+    private static DocumentSnapshot doc(DocumentType t, long id, Map<String, String> fields) {
         Map<String, FieldValue> f = new LinkedHashMap<>();
-        risc.forEach((k, v) -> f.put(k, new FieldValue(v, new BigDecimal("0.97"))));
-        Snapshot s = new Snapshot(id, "LA-1", 1, "4T1C11AK7RU100101", new BigDecimal("96000.00"), true, "DLR-100",
-                Map.of(DocumentType.RISC, new DocumentSnapshot(DocumentType.RISC, 7L, f)));
-        return new VersionView(s, RulesConfig.defaults(), EnumSet.of(Check.TILA), status, latest, 0L);
+        fields.forEach((k, v) -> f.put(k, new FieldValue(v, new BigDecimal("0.97"))));
+        return new DocumentSnapshot(t, id, f);
     }
 
     @Override
     public boolean recordOutcome(long id, CheckOutcome outcome, int attempt) {
-        if (failRecordOutcome) {
+        if (failRecordOutcome || failRecordOutcomeFor.contains(outcome.check())) {
             throw ApplicationFailure.newFailure("db down", "DbDown");
         }
         calls.add("recordOutcome:" + outcome.check() + ":" + outcome.outcome());

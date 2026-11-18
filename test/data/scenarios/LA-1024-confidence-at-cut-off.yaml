@@ -1,0 +1,13 @@
+id: LA-1024
+title: Confidence at the cut-off is not flagged
+rules: [CONFIDENCE_FLAG]
+side: PASS_BOUNDARY
+spec: cut-off boundary (B4)
+summary: "RISC `apr` confidence {risc.apr.confidence} = `funding.confidence.flag-below`"
+given:
+  risc:
+    confidence: { apr: atFlag }
+expect:
+  checks: { TILA: PASS }
+  status: FUNDED
+  stips: []

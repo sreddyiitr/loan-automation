@@ -95,7 +95,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 - **AS-8.8** Given a re-run check now PASSes, then its PENDING stips from earlier runs are set to SATISFIED by actor `system:<workflowId>` with note `auto-resolved by re-run`. Given it FAILs again, the existing PENDING stip is kept (FR-07), not duplicated.
 - **AS-8.9** The disbursement amount is the RISC `amount_financed`, paid to `dealership_id`.
 - **AS-8.10 RISC must be complete before approval** (owner decision B5). A version can become `APPROVED`, automatically or by manual approve, only if its latest RISC exists, has every required RISC field (§8) present and parseable, has none flagged, and its TILA check is PASS.
-  - Otherwise auto-approval doesn't happen, and manual approve returns 409 `RISC_INCOMPLETE`.
+  - Otherwise auto-approval doesn't happen, and manual approve returns 409 `RISC_INCOMPLETE`. When every check passes and no stip is PENDING but the RISC is incomplete, the version is held in `PENDING_REVIEW` for a funder, with an audit row whose reason is `RISC_INCOMPLETE` and lists the fields (clarified 2026-11-17, slice S2; awaiting owner confirmation).
   - A stip raised against RISC fields (`STIP_EXTRACTION_REVIEW_REQUIRED` from a RISC field, `STIP_TILA_MATH_DISCREPANCY`) **cannot be WAIVED**; the API returns 409 `RISC_STIP_NOT_WAIVABLE`. It is resolved only when a corrected RISC version re-runs and passes (AS-8.8).
 
 ### US-9 Resubmission (P1)
