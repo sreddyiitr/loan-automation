@@ -1,0 +1,13 @@
+id: LA-1022
+title: No GAP agreement
+rules: [GAP_OPTIONAL]
+side: PASS
+variant: not-applicable
+spec: AS-6.4
+summary: "no GAP document"
+given:
+  gap: null
+expect:
+  checks: { GAP: PASS }
+  status: FUNDED
+  stips: []

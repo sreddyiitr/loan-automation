@@ -48,7 +48,8 @@ class FundingWorkflowTest {
         FundingResult r = workflow(1).run(new FundingInput(1, FundingInput.VALIDATE, QUEUES));
         assertThat(r.result()).isEqualTo("FUNDED");
         assertThat(acts.disburseCalls.get()).isEqualTo(1);
-        assertThat(acts.calls).containsSubsequence("loadVersionSnapshot", "recordOutcome:TILA:PASS", "applyOutcome", "disburse", "markFunded");
+        assertThat(acts.calls).contains("recordOutcome:TILA:PASS", "recordOutcome:PRICE:PASS", "recordOutcome:VIN:PASS", "recordOutcome:GAP:PASS");
+        assertThat(acts.calls).containsSubsequence("loadVersionSnapshot", "applyOutcome", "disburse", "markFunded");
     }
 
     @Test
@@ -102,6 +103,48 @@ class FundingWorkflowTest {
         FundingResult r = workflow(6).run(new FundingInput(6, FundingInput.VALIDATE, QUEUES));
         assertThat(r.result()).isEqualTo("SUPERSEDED");
         assertThat(acts.calls).noneMatch(c -> c.startsWith("recordOutcome") || c.equals("disburse"));
+    }
+
+    @Test
+    void FR_04_childrenRunInParallel() {
+        FundingWorkflow wf = workflow(8);
+        FundingResult r = wf.run(new FundingInput(8, FundingInput.VALIDATE, QUEUES));
+        assertThat(r.result()).isEqualTo("FUNDED");
+        assertThat(acts.recorded.keySet()).containsExactlyInAnyOrder(Check.TILA, Check.PRICE, Check.VIN, Check.GAP);
+        // All four children are started before any of them completes.
+        var events = client.fetchHistory(WorkflowIds.parent("test", 8)).getEvents();
+        int lastStart = -1, firstDone = Integer.MAX_VALUE;
+        for (int i = 0; i < events.size(); i++) {
+            switch (events.get(i).getEventType()) {
+                case EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED -> lastStart = i;
+                case EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_COMPLETED -> firstDone = Math.min(firstDone, i);
+                default -> { }
+            }
+        }
+        assertThat(lastStart).isLessThan(firstDone);
+    }
+
+    @Test
+    void FR_04_oneChildFailingDoesNotAffectOthers() {
+        acts.failRecordOutcomeFor.add(Check.VIN);
+        FundingWorkflow wf = workflow(9);
+        WorkflowClient.start(wf::run, new FundingInput(9, FundingInput.VALIDATE, QUEUES));
+        env.sleep(Duration.ofMinutes(10));
+        FundingState s = wf.getState();
+        assertThat(s.outcomes()).containsEntry(Check.VIN, Outcome.ERROR)
+                .containsEntry(Check.TILA, Outcome.PASS).containsEntry(Check.PRICE, Outcome.PASS).containsEntry(Check.GAP, Outcome.PASS);
+        assertThat(s.status()).isEqualTo("PENDING_REVIEW");
+    }
+
+    @Test
+    void FR_04_eachCheckFailsIndependently() {
+        acts.risc.put("cash_price", "31450.01"); // PRICE fails, the rest pass
+        FundingWorkflow wf = workflow(10);
+        WorkflowClient.start(wf::run, new FundingInput(10, FundingInput.VALIDATE, QUEUES));
+        env.sleep(Duration.ofSeconds(5));
+        assertThat(wf.getState().outcomes()).containsEntry(Check.PRICE, Outcome.FAIL)
+                .containsEntry(Check.TILA, Outcome.PASS).containsEntry(Check.VIN, Outcome.PASS).containsEntry(Check.GAP, Outcome.PASS);
+        assertThat(wf.getState().status()).isEqualTo("STIPULATED");
     }
 
     @Test

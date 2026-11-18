@@ -1,0 +1,7 @@
+# State GAP form registry (US-6, seed-data.md "GAP registry"). Loaded into gap_form_registry by
+# the local seeder and passed to the GAP rule with the snapshot. Part of rules.lock: changing it
+# needs `make seed-regenerate`.
+forms:
+  - { state: TX, form: GAP-TX-2024-01, from: 2024-01-01 }
+  - { state: TX, form: GAP-TX-2019-07, from: 2019-07-01, to: 2023-12-31 }
+  - { state: CA, form: GAP-CA-2025-03, from: 2025-03-01 }

@@ -1,0 +1,14 @@
+id: LA-1033
+title: Unparseable money
+rules: [REQUIRED_FIELD]
+side: NEEDS_REVIEW
+variant: unparseable
+spec: FR-14
+summary: "RISC `cash_price` `{risc.cash_price}` (thousands separator)"
+given:
+  risc:
+    format: { cash_price: thousandsSeparator }
+expect:
+  checks: { PRICE: NEEDS_REVIEW }
+  status: STIPULATED
+  stips: [STIP_EXTRACTION_REVIEW_REQUIRED]

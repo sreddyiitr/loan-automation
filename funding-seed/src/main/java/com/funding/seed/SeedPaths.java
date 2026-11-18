@@ -24,6 +24,7 @@ public record SeedPaths(Path root) {
 
     public Path scenarios() { return root.resolve("test/data/scenarios"); }
     public Path baseline() { return scenarios().resolve("_baseline.yaml"); }
+    public Path gapRegistry() { return root.resolve("test/data/gap-form-registry.yaml"); }
     public Path rulesLock() { return root.resolve("test/data/rules.lock"); }
     public Path mocksLock() { return root.resolve("test/data/mocks.lock"); }
     public Path ruleChanges() { return root.resolve("test/data/RULE-CHANGES.md"); }

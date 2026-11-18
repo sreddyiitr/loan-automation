@@ -1,7 +1,7 @@
 # Implementation Summary
 
 What has been built so far for spec 001 (auto loan funding validation), and what is still to come.
-Status as of **2026-11-17**: slice **S1 (walking skeleton) is done**; S2–S6 are planned in
+Status as of **2026-11-17**: slices **S1 (walking skeleton)** and **S2 (document rules)** are done; S3–S6 are planned in
 [`specs/001-loan-funding-validation/tasks.md`](specs/001-loan-funding-validation/tasks.md).
 
 | Item | Where |
@@ -9,8 +9,8 @@ Status as of **2026-11-17**: slice **S1 (walking skeleton) is done**; S2–S6 ar
 | Principles | [`specs/constitution.md`](specs/constitution.md) (P-1 … P-5) |
 | Requirements | [`spec.md`](specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
-| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32 tasks done; "S1 notes" lists deviations) |
-| Branches | `tasks/001-loan-funding-validation` → `feat/001-s1-walking-skeleton` (local only, not pushed) |
+| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11; "S1 notes" and "S2 notes" list deviations) |
+| Branches | S1 merged to `main` (PR #2); S2 on `feat/001-s2-document-rules` |
 
 ---
 
@@ -28,23 +28,25 @@ POST /api/v1/dev/applications/{id}/submit        (stands in for OCR finishing)
                       └─ POST /api/v1/funding-workflows  (X-Trigger-Api-Key)
                            └─ Temporal: FundingWorkflow funding-<env>-<versionId>
                                 ├─ loadVersionSnapshot (latest docs, no SSN)
-                                ├─ TilaCheckWorkflow child → pure TILA rule → result + stips
-                                ├─ applyOutcome → APPROVED / STIPULATED / PENDING_REVIEW (audited)
+                                ├─ in parallel: TILA, PRICE, VIN, GAP children → pure rule → result + stips
+                                ├─ applyOutcome → APPROVED / STIPULATED / PENDING_REVIEW (audited;
+                                │                 APPROVED needs a complete RISC and TILA PASS, AS-8.10)
                                 └─ APPROVED → disburse (WireMock, idempotency key = workflow ID) → FUNDED
 ```
 
 Measured on the developer machine: submit → first validation result in **under 1 s** (AS-1.1
-allows 10 s). All six S1 scenarios reach their expected status; WireMock reports **0 unmatched
-requests**.
+allows 10 s). All **23** generated scenarios reach their expected status and stips; WireMock
+reports **0 unmatched requests**. The full table, generated from the intents, is in
+[`seed-data.md`](specs/001-loan-funding-validation/seed-data.md#scenarios).
 
-| Scenario | What it tests | Result |
+| Area | Scenarios | Result |
 |---|---|---|
-| LA-1001 | Happy path | FUNDED, one disbursement of 28450.00 to DLR-100 |
-| LA-1002 | TILA sum broken (+$10) | STIPULATED, `STIP_TILA_MATH_DISCREPANCY` |
-| LA-1003 | Monthly payment wrong (sum still balances) | STIPULATED, `STIP_TILA_MATH_DISCREPANCY` |
-| LA-1004 | 0% APR promo (P = A/n) | FUNDED |
-| LA-1005 | Rounding edge (8.49%, 72 months) | FUNDED |
-| LA-1034 | Different final payment (C-9) | FUNDED |
+| Happy path | LA-1001 | FUNDED, one disbursement of 28450.00 to DLR-100 |
+| TILA (US-2) | LA-1002, 1003 fail; LA-1004 (0% APR), 1005 (rounding), 1034 (final payment) pass | STIPULATED `STIP_TILA_MATH_DISCREPANCY` / FUNDED |
+| Price parity (US-3) | LA-1006: Buyer's Order 1¢ beyond the tolerance | STIPULATED `STIP_PRICE_MISMATCH` |
+| VIN and vehicle (US-4) | LA-1007 (VIN on GAP), 1008 (model), 1010 (letter O), 1011 (app VIN) fail; LA-1009 (case/space) passes | STIPULATED `STIP_VIN_MISMATCH` / FUNDED |
+| GAP (US-6) | LA-1018 (expired form), 1019 (other state), 1020 (lender), 1021 (both) fail; LA-1022 (no GAP) passes | STIPULATED `STIP_GAP_FORM_MISMATCH` and/or `STIP_LENDER_MISMATCH` / FUNDED |
+| Confidence and parsing (US-7, FR-14) | LA-1023 (flagged), 1026 (missing), 1033 (`31,450.00`) need review; LA-1024 (exactly at the cut-off), 1025 (unused field flagged), 1031 (multi-page section) pass | STIPULATED `STIP_EXTRACTION_REVIEW_REQUIRED` / FUNDED |
 
 ---
 
@@ -63,6 +65,33 @@ requests**.
 
   A failure yields FAIL plus `STIP_TILA_MATH_DISCREPANCY`, with expected and actual values. A
   missing or unparseable field yields NEEDS_REVIEW plus `STIP_EXTRACTION_REVIEW_REQUIRED`.
+- **Price parity rule (US-3):** `PRICE_PARITY` compares the RISC `cash_price` with the Buyer's
+  Order `total_vehicle_cash_price` within `funding.price.tolerance` (0.00). A difference yields
+  `STIP_PRICE_MISMATCH` with both values.
+- **VIN rule (US-4):** four rule ids.
+  - `VIN_FORMAT`: 17 characters, no I/O/Q.
+  - `VIN_CROSS_DOC`: the same VIN on every document; the GAP Agreement takes part only when
+    present.
+  - `VEHICLE_ATTRS`: year, make and model match.
+  - `VIN_APP_MATCH`: the documents' VIN equals `application_versions.vehicle_vin`.
+
+  The VIN is compared after upper-casing only; make and model ignore case and surrounding
+  whitespace (AS-4.3). A mismatch yields `STIP_VIN_MISMATCH`, listing each document's values.
+- **GAP rule (US-6):** two independent sub-checks (AS-6.3) and an optional document.
+  - `GAP_FORM`: the form is in the registry for the GAP state and effective on the contract
+    date. Failure yields `STIP_GAP_FORM_MISMATCH`.
+  - `GAP_LENDER`: both creditor names equal the primary lender. Failure yields
+    `STIP_LENDER_MISMATCH`.
+  - `GAP_OPTIONAL`: no GAP Agreement is PASS, `not_applicable`.
+
+  The registry travels with the snapshot, so the rule stays I/O-free.
+- **Confidence and parsing (US-7, FR-14):** cross-cutting rules `CONFIDENCE_FLAG` and
+  `REQUIRED_FIELD`. A required field that is below `funding.confidence.flag-below` (0.90), missing
+  or unparseable makes **only the checks that read it** NEEDS_REVIEW (AS-7.2), records the
+  flagged keys, and raises `STIP_EXTRACTION_REVIEW_REQUIRED`. A field exactly at the cut-off is
+  not flagged.
+- **RISC completeness (AS-8.10):** `RiscCompleteness` lists required RISC fields that are missing,
+  unparseable or flagged.
 - **`RuleCatalog` and `RuleEngine`:** the catalog lists every rule, with its check, its source
   classes, the config keys it reads, the external APIs it uses, and the scenario sides it must
   cover. `RuleEngine` evaluates a `Snapshot` purely.
@@ -90,7 +119,7 @@ requests**.
 - **Mock stubs (P-5):**
   - `contracts/disbursement.openapi.yaml` and `test/data/mocks/disbursement.catalog.yaml` hold
     8 classes × 6 amounts, plus retry depths derived from `max-attempts`.
-  - `MockStubGenerator` builds **72 WireMock stubs**: 66 from the catalog and 6 for the
+  - `MockStubGenerator` builds **89 WireMock stubs**: 66 from the catalog and 23 for the
     scenarios. Delays and retry counts come from the config.
   - Three P-5 gates:
     - **Contract:** every stub validates against the OpenAPI spec; only fault classes may be
@@ -101,6 +130,10 @@ requests**.
 
 ### `funding-persistence`: Postgres 18 schema and repositories
 
+- `V2__documents_frozen.sql` (S2, AS-9.7): inserting a document for an APPROVED, FUNDED, REJECTED
+  or EXPIRED version fails with SQLSTATE `P0001` `DOCUMENTS_FROZEN`.
+- The GAP registry is loaded into the snapshot, and `GapRegistryRepository` replaces it from
+  `test/data/gap-form-registry.yaml` when seeding locally.
 - `V1__baseline.sql`: the spec 001 data model (versions, documents, sections, fields, stips,
   results, outbox, audit, GAP registry, disbursements). It doesn't contain the S2
   document-freeze trigger or the S5 document-added trigger. A `local`-only migration adds
@@ -150,7 +183,8 @@ requests**.
 
 - **`FundingWorkflow`:**
   - loads the snapshot;
-  - fans out the enabled checks that have a rule (TILA today) as children `<id>-TILA-a<attempt>`;
+  - fans out the enabled checks that have a rule (TILA, PRICE, VIN and GAP; INCOME arrives in
+    S3) **in parallel** as children `<id>-<CHECK>-a<attempt>` (FR-04);
   - turns a child's technical failure into `ERROR` (held in PENDING_REVIEW);
   - runs `applyOutcome`;
   - when APPROVED, disburses and then marks the version FUNDED.
@@ -164,7 +198,8 @@ requests**.
 - **`applyOutcome`:**
   - ERROR → PENDING_REVIEW;
   - any PENDING stip → STIPULATED;
-  - otherwise APPROVED.
+  - otherwise APPROVED, but only with a complete RISC and TILA PASS (AS-8.10). Otherwise the
+    version is held in PENDING_REVIEW, audited `RISC_INCOMPLETE`.
 
   A check that passes now auto-satisfies its own earlier stips (AS-8.8).
 - **`disburse`:**
@@ -172,8 +207,10 @@ requests**.
   - pays the RISC `amount_financed` to the dealer (AS-8.9);
   - is idempotent: one `disbursements` row, no second payment on retry;
   - 5xx is retried; 4xx and malformed responses are not, and write an ERROR audit row.
-- **Recorded histories** (LA-1001, LA-1002) are replayed in `make test-unit`, which is
-  groundwork for NFR-07.
+- **Recorded histories** (S1: LA-1001, LA-1002; S2: LA-1001, LA-1006) are replayed in
+  `make test-unit`, which is groundwork for NFR-07. Replay caught a real break in S2: old
+  payloads lacked the new config fields. `RulesConfig` now fills fields added later from the file
+  defaults when replaying.
 
 ### `funding-api`: the Spring Boot app (one process: API, workers, relay)
 
@@ -224,25 +261,28 @@ requests**.
 
 | Suite | Runs against | Tests | Result |
 |---|---|---:|---|
-| `funding-domain` unit | nothing (pure) | 32 | ✅ |
-| `funding-persistence` | Testcontainers `postgres:18` | 17 | ✅ |
+| `funding-domain` unit (TILA, price, VIN, GAP, confidence/parsing, RISC completeness, config) | nothing (pure) | 68 | ✅ |
+| `funding-persistence` (incl. document freeze) | Testcontainers `postgres:18` | 24 | ✅ |
 | `funding-seed` (P-2 and P-5 gates, plus "each gate really fails" tests) | repository data | 17 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
-| `funding-workflows` | Temporal `TestWorkflowEnvironment`; Postgres + generated stubs; history replay | 13 | ✅ (1 skipped: the history recorder, runs only on request) |
+| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07) | Temporal `TestWorkflowEnvironment`; Postgres + generated stubs; history replay | 19 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
 | `funding-api` unit (start API, seed loader) | MockMvc + Temporal test env + Postgres | 12 | ✅ |
-| **Functional** `TriggerPathIT`, `ScenarioE2EIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 9 | ✅ |
+| **Functional** `TriggerPathIT`, `ScenarioE2EIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 27 | ✅ |
 
-**Total: 112 tests** (103 unit, 1 of them skipped, and 9 functional). Test names trace to the
+**Total: 179 tests** (152 unit, 1 of them skipped, and 27 functional). Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
 
 - **AS-1.1:** a workflow starts within 10 s.
-- **AS-1.2:** three deliveries of the same message produce one run, one result and one stip.
+- **AS-1.2:** three deliveries of the same message produce one run, one result per check and
+  one stip.
 - **AS-1.5:** a 503 from the API leaves the message for redelivery, and it reaches the real
   emulator DLQ after 5 receives, while the other message in the batch is acknowledged.
-- **Every generated scenario** reaches its expected status and stips.
+- **Every generated scenario** (23) reaches its expected status and stips.
+- **LA-1031:** the RISC Itemization section spanning pages 3–4 and its per-field bounding boxes
+  are persisted.
 
 Each run isolates itself as `FUNDING_ENV=it-<runId>`, with its own database, queues, task
 queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
@@ -251,20 +291,37 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 
 ## 4. Acceptance scenarios covered so far
 
-| Area | Covered in S1 |
+| Area | Covered in S1 and S2 |
 |---|---|
 | US-1 Trigger | AS-1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7 (AS-1.8 is S5) |
 | US-2 TILA | AS-2.1, 2.2, 2.3 |
-| US-8 Outcome | AS-8.1, 8.2, 8.9; AS-8.3 and 8.8 implemented, their full tests are S4 |
-| US-9 Versioning | AS-9.3, 9.5 groundwork (latest-version guard, `SUPERSEDED`) |
-| FR | FR-02, 03, 05, 06, 07, 08, 10, 11, 12, 13, 14, 16 |
+| US-3 Price parity | AS-3.1, 3.2 |
+| US-4 VIN and vehicle | AS-4.1, 4.2, 4.3 |
+| US-6 GAP | AS-6.1, 6.2, 6.3, 6.4 |
+| US-7 Confidence | AS-7.1, 7.2 |
+| US-8 Outcome | AS-8.1, 8.2, 8.9, 8.10 (auto-approval side; manual approve is S4); AS-8.3 and 8.8 implemented, their full tests are S4 |
+| US-9 Versioning | AS-9.7; AS-9.3, 9.5 groundwork (latest-version guard, `SUPERSEDED`) |
+| FR | FR-02, 03, 04, 05, 06, 07, 08, 10, 11, 12, 13, 14, 16 |
 | NFR | NFR-03, 04, 06, 08; NFR-05 partly; NFR-07 groundwork |
 
 ---
 
-## 5. Decisions and deviations made during S1
+## 5. Decisions and deviations
 
-These are recorded in full under "S1 notes" in `tasks.md`.
+These are recorded in full under "S1 notes" and "S2 notes" in `tasks.md`.
+
+S2:
+
+- **Needs your confirmation:** a version whose checks all pass but whose RISC is incomplete is
+  held in `PENDING_REVIEW` with audit reason `RISC_INCOMPLETE`. AS-8.10 didn't say which status;
+  this is added to `spec.md` as a clarification awaiting owner confirmation.
+- Confidence and required-field gating are cross-cutting rules with no single check; the
+  coverage gate handles them.
+- A VIN with surrounding whitespace is a mismatch (AS-4.3 allows only upper-casing).
+- The GAP registry file is part of `rules.lock`, and is seed-owned locally.
+- Histories are recorded per slice, and old ones keep replaying.
+
+S1:
 
 - Docker-only Testcontainers tests are named `*Test` so they run in `make test-unit`. `*IT` is
   reserved for tests against the shared local services.
@@ -281,7 +338,6 @@ These are recorded in full under "S1 notes" in `tasks.md`.
 
 | Slice | Adds |
 |---|---|
-| **S2 – Document rules** | PRICE, VIN and GAP checks; confidence gating (`funding.confidence.flag-below`); the RISC-completeness gate (AS-8.10); the document-freeze trigger (AS-9.7) |
 | **S3 – Income + mock catalog** | The income API via WireMock (about 150 catalog stubs), retries and timeouts, the SSN-never-logged test, the `mocks.lock` outcome-flip guard, `MockControl` |
 | **S4 – Funder operations** | Funder API, approve/reject/re-run/retry signals, manual stips, the status-machine enforcer, **30-day expiry** (until then, STIPULATED workflows stay open in local Temporal) |
 | **S5 – Versioning** | Resubmission and supersede, document-version re-runs (AS-1.8), dev add-version/add-document endpoints |

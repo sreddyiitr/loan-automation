@@ -2,6 +2,7 @@ package com.funding.api.seed;
 
 import com.funding.domain.RuleCatalog;
 import com.funding.persistence.ApplicationWriter;
+import com.funding.persistence.GapRegistryRepository;
 import com.funding.seed.Fixture;
 import com.funding.seed.GateResult;
 import com.funding.seed.RuleFingerprints;
@@ -64,6 +65,10 @@ public class SeedDataLoader implements ApplicationRunner {
                     + "Hint: run `make seed-regenerate` after updating the scenario intent.");
         }
         SeedGates.Generated g = gates.generate();
+        // T206: the GAP registry is seed-owned locally; replace it so it always matches the rules' fixture.
+        if (!g.fixtures().isEmpty()) {
+            tx.executeWithoutResult(s -> new GapRegistryRepository(jdbc).replaceAll(g.fixtures().get(0).gapForms()));
+        }
         RuleFingerprints fp = RuleFingerprints.fromClasspath();
         int inserted = 0, replaced = 0, unchanged = 0;
         for (Fixture f : g.fixtures()) {

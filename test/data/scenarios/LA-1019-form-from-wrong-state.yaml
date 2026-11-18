@@ -1,0 +1,13 @@
+id: LA-1019
+title: Form from wrong state
+rules: [GAP_FORM]
+side: FAIL
+variant: other-state
+spec: AS-6.1
+summary: "GAP `state` {gap.state}, `form_number` `{gap.form_number}` (registered for another state)"
+given:
+  gap: { form: otherState }
+expect:
+  checks: { GAP: FAIL }
+  status: STIPULATED
+  stips: [STIP_GAP_FORM_MISMATCH]

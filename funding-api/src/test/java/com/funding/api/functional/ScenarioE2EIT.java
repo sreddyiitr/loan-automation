@@ -47,6 +47,23 @@ class ScenarioE2EIT extends FunctionalTestBase {
         }
     }
 
+    @org.junit.jupiter.api.Test
+    void LA_1031_multiPageSectionAndBoundingBoxesArePersisted() {
+        var rows = jdbc.sql("""
+                SELECT s.start_page, s.end_page, f.field_key, f.page_number, f.bounding_box::text AS box
+                  FROM documents d JOIN application_versions v USING (application_version_id)
+                  JOIN document_sections s USING (document_id) JOIN extracted_fields f USING (section_id)
+                 WHERE v.loan_application_id = 'LA-1031' AND d.document_type = 'RISC'
+                   AND f.field_key IN ('cash_price', 'amount_financed') ORDER BY f.field_key""").query().listOfRows();
+        assertThat(rows).hasSize(2).allSatisfy(r -> {
+            assertThat(r.get("start_page")).isEqualTo(3);
+            assertThat(r.get("end_page")).isEqualTo(4);
+            assertThat((String) r.get("box")).startsWith("[");
+        });
+        assertThat(rows).extracting(r -> r.get("field_key") + "@" + r.get("page_number"))
+                .containsExactly("amount_financed@4", "cash_price@3");
+    }
+
     @AfterAll
     void P_5_7_noUnmatchedRequests() throws Exception {
         assertThat(unmatchedForThisEnv()).isZero();

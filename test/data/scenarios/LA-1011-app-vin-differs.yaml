@@ -1,0 +1,13 @@
+id: LA-1011
+title: App VIN ≠ docs
+rules: [VIN_APP_MATCH]
+side: FAIL
+spec: AS-4.1
+summary: "`application_versions.vehicle_vin` {app.vehicle_vin}; docs at baseline"
+given:
+  application:
+    vehicleVin: 4T1C11AK7RU100199
+expect:
+  checks: { VIN: FAIL }
+  status: STIPULATED
+  stips: [STIP_VIN_MISMATCH]

@@ -67,13 +67,15 @@ class SeedDataLoaderTest {
 
     @Test
     void seedsLatestVersionsAsDraftAndIsIdempotent() {
+        int scenarios = new SeedGates(new SeedPaths(sandboxRoot), config(), RuleFingerprints.fromClasspath()).generate().fixtures().size();
         SeedDataLoader.Summary first = loader(config()).load();
-        assertThat(first.inserted()).isEqualTo(6);
+        assertThat(first.inserted()).isEqualTo(scenarios);
+        assertThat(count("SELECT count(*) FROM gap_form_registry")).isEqualTo(3); // T206: registry seeded
         assertThat(count("SELECT count(*) FROM application_versions WHERE version_status <> 'DRAFT'")).isZero();
         assertThat(count("SELECT count(*) FROM outbox_events")).isZero(); // nothing triggers at startup
 
         SeedDataLoader.Summary again = loader(config()).load();
-        assertThat(again.unchanged()).isEqualTo(6);
+        assertThat(again.unchanged()).isEqualTo(scenarios);
         assertThat(again.inserted() + again.replaced()).isZero();
     }
 
@@ -82,7 +84,7 @@ class SeedDataLoaderTest {
         loader(config()).load();
         jdbc.sql("UPDATE application_versions SET version_status = 'STIPULATED' WHERE loan_application_id = 'LA-1001'").update();
         // Same intent, different effective rule config: every TILA scenario's fingerprint changes.
-        RulesConfig changed = new RulesConfig(new BigDecimal("0.00"), new BigDecimal("0.02"));
+        RulesConfig changed = RulesConfig.defaults().with("funding.tila.payment-tolerance", "0.02");
         SeedConfig cfg = new SeedConfig(changed, config().properties(), "t");
         SeedGates gates = new SeedGates(new SeedPaths(sandboxRoot), cfg, RuleFingerprints.fromClasspath());
         // The lock gate (correctly) fails for changed config, so check the fingerprint logic directly.

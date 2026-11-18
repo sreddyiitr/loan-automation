@@ -79,7 +79,10 @@ class TriggerPathIT extends FunctionalTestBase {
         String runId = workflow(v).path("runId").asText();
         Thread.sleep(3000); // let any late duplicate arrive
         assertThat(workflow(v).path("runId").asText()).isEqualTo(runId);
-        assertThat(jdbc.sql("SELECT count(*) FROM validation_results WHERE application_version_id = ?").param(v).query(Integer.class).single()).isEqualTo(1);
+        // One run: exactly one result row per check, none of them a second attempt.
+        assertThat(jdbc.sql("SELECT count(*) - count(DISTINCT validation_check) FROM validation_results WHERE application_version_id = ?")
+                .param(v).query(Integer.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT max(attempt) FROM validation_results WHERE application_version_id = ?").param(v).query(Integer.class).single()).isEqualTo(1);
         assertThat(jdbc.sql("SELECT count(*) FROM stipulations WHERE application_version_id = ?").param(v).query(Integer.class).single()).isEqualTo(1);
     }
 

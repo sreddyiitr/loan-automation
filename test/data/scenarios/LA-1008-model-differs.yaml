@@ -1,0 +1,13 @@
+id: LA-1008
+title: Model differs
+rules: [VEHICLE_ATTRS]
+side: FAIL
+spec: AS-4.2
+summary: "BO `vehicle_model` `{bo.vehicle_model}`"
+given:
+  buyersOrder:
+    vehicleModel: Camry SE
+expect:
+  checks: { VIN: FAIL }
+  status: STIPULATED
+  stips: [STIP_VIN_MISMATCH]

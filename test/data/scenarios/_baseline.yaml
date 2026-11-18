@@ -17,4 +17,4 @@ risc:
   creditor: primary          # = funding.gap.primary-lender-name
   contractDate: 2026-11-02
 buyersOrder: { pages: 2 }    # total_vehicle_cash_price = risc.cashPrice unless a scenario breaks it
-gap: { pages: 3, formNumber: GAP-TX-2024-01, state: TX, creditor: primary }
+gap: { pages: 3, form: valid, state: TX, creditor: primary }   # form: picked from test/data/gap-form-registry.yaml

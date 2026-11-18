@@ -1,0 +1,13 @@
+id: LA-1018
+title: Expired GAP form
+rules: [GAP_FORM]
+side: FAIL
+variant: expired
+spec: AS-6.1
+summary: "GAP `form_number` `{gap.form_number}` (expired before the contract date)"
+given:
+  gap: { form: expired }
+expect:
+  checks: { GAP: FAIL }
+  status: STIPULATED
+  stips: [STIP_GAP_FORM_MISMATCH]

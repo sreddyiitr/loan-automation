@@ -19,7 +19,9 @@ import com.funding.workflows.VersionView;
 import com.funding.workflows.WorkflowIds;
 import io.temporal.activity.Activity;
 import io.temporal.failure.ApplicationFailure;
+import com.funding.domain.rules.RiscCompleteness;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -120,9 +122,23 @@ public class FundingActivitiesImpl implements FundingActivities {
                                     Map.of("status", "PENDING"), Map.of("status", "SATISFIED", "note", "auto-resolved by re-run"))));
             boolean error = outcomes.values().stream().anyMatch(o -> o.outcome() == Outcome.ERROR);
             boolean pending = !stips.pending(versionId).isEmpty();
-            // ERROR holds in PENDING_REVIEW (AS-8.4); any PENDING stip -> STIPULATED (AS-8.2); else APPROVED (AS-8.1, AS-8.3).
-            String next = error ? "PENDING_REVIEW" : pending ? "STIPULATED" : "APPROVED";
-            transition(v, next, actor, "VALIDATION_OUTCOME");
+            // ERROR holds in PENDING_REVIEW (AS-8.4); any PENDING stip -> STIPULATED (AS-8.2); else APPROVED (AS-8.1, AS-8.3),
+            // but only with a complete RISC and TILA PASS (AS-8.10); otherwise held for a funder.
+            String next;
+            String reason = "VALIDATION_OUTCOME";
+            if (error) {
+                next = "PENDING_REVIEW";
+            } else if (pending) {
+                next = "STIPULATED";
+            } else {
+                List<String> incomplete = riscIncomplete(versionId, outcomes);
+                next = incomplete.isEmpty() ? "APPROVED" : "PENDING_REVIEW";
+                if (!incomplete.isEmpty()) {
+                    reason = "RISC_INCOMPLETE " + incomplete;
+                    LOG.warn("version {}: not auto-approving, RISC incomplete or TILA not PASS: {}", versionId, incomplete);
+                }
+            }
+            transition(v, next, actor, reason);
             return next;
         });
     }
@@ -143,6 +159,17 @@ public class FundingActivitiesImpl implements FundingActivities {
             }
             return v.status();
         });
+    }
+
+    /** AS-8.10: problems blocking approval; empty when the RISC is complete and TILA passed. */
+    private List<String> riscIncomplete(long versionId, Map<Check, CheckOutcome> outcomes) {
+        List<String> problems = new java.util.ArrayList<>(snapshots.load(versionId)
+                .map(l -> RiscCompleteness.problems(l.snapshot(), config.get())).orElse(List.of("RISC")));
+        CheckOutcome tila = outcomes.get(Check.TILA);
+        if (tila == null || tila.outcome() != Outcome.PASS) {
+            problems.add("TILA not PASS");
+        }
+        return problems;
     }
 
     private void transition(VersionRow v, String next, String actor, String reason) {

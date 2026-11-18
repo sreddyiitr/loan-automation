@@ -35,6 +35,9 @@ final class Fixtures {
                         d.latest(), d.fileName(), d.totalPages(), d.sections().stream().map(s -> new ApplicationWriter.NewSection(
                         s.name(), s.startPage(), s.endPage(), s.fields().stream().map(x -> new ApplicationWriter.NewField(
                         x.key(), x.value(), x.confidence(), x.boundingBox(), x.page())).toList())).toList())).toList())).toList();
+        if (jdbc.sql("SELECT count(*) FROM gap_form_registry").query(Integer.class).single() == 0) {
+            new com.funding.persistence.GapRegistryRepository(jdbc).replaceAll(f.gapForms());
+        }
         List<Long> ids = new ApplicationWriter(jdbc).insert(f.loanApplicationId(), versions);
         return ids.get(f.versions().indexOf(f.latest()));
     }

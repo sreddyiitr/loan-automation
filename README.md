@@ -15,13 +15,22 @@ in [`implementation_summary.md`](implementation_summary.md).
 
 ## What it does today
 
-This is the first thin slice (**S1, the walking skeleton**) of a bigger build. It does one
-thing end to end:
+Slices **S1 (walking skeleton)** and **S2 (document rules)** of a bigger build are done. It
+does one thing end to end:
 
-> **Validate a deal's TILA math and fund it.** Submit an application version. The system checks
-> that `amount_financed + finance_charge = total_of_payments` and that the monthly payment
-> matches the amortization formula. If both pass, it pays the dealer. If not, it raises
-> `STIP_TILA_MATH_DISCREPANCY` and waits for a funder.
+> **Check a deal's documents and fund it.** Submit an application version. Four checks run **in
+> parallel**:
+>
+> | Check | Verifies | Stip when it fails |
+> |---|---|---|
+> | **TILA** | `amount_financed + finance_charge = total_of_payments`, and the monthly payment matches the amortization formula | `STIP_TILA_MATH_DISCREPANCY` |
+> | **Price** | the RISC cash price equals the Buyer's Order price | `STIP_PRICE_MISMATCH` |
+> | **VIN** | VIN, year, make and model agree on every document and the application, and the VIN is valid | `STIP_VIN_MISMATCH` |
+> | **GAP** | the GAP form is registered for the state and effective on the contract date, and the creditor is the primary lender | `STIP_GAP_FORM_MISMATCH`, `STIP_LENDER_MISMATCH` |
+>
+> A field the OCR read with low confidence, or that is missing or unreadable, puts **just the
+> check that needs it** into review (`STIP_EXTRACTION_REVIEW_REQUIRED`). If everything passes and
+> the RISC is complete, the system pays the dealer. Otherwise the version waits for a funder.
 
 Behind that:
 
@@ -32,44 +41,46 @@ Behind that:
                       │ results, stips, audit                                          │ POST /api/v1/funding-workflows
                       │                                                                ▼
                  Temporal workers  ◀──────────────────── Spring Boot app (:8080) ──▶ Temporal (:7233)
-                 FundingWorkflow ─▶ TilaCheckWorkflow                                  
+                 FundingWorkflow ─▶ TILA ‖ PRICE ‖ VIN ‖ GAP checks (child workflows, in parallel)
                       │
                       └── APPROVED ──HTTP──▶ WireMock (Docker, :8089): Disbursement API, generated stubs
 ```
 
 - On startup, under the `local` profile, the app:
   1. **creates the SQS queue and its DLQ** in the emulator;
-  2. **checks the seed data against the rules** and loads **6 test scenarios** (all `DRAFT`, so
-     nothing runs yet);
-  3. **loads 72 generated WireMock stubs**;
+  2. **checks the seed data against the rules**, then loads the GAP form registry and **23 test
+     scenarios** (all `DRAFT`, so nothing runs yet);
+  3. **loads 89 generated WireMock stubs**;
   4. starts the local Lambda runner.
-- `make seed-submit-all` submits them all. The happy path (LA-1001) ends **FUNDED**; the broken
-  sum (LA-1002) ends **STIPULATED**.
+- `make seed-submit-all` submits them all. The happy path (LA-1001) ends **FUNDED**. Each
+  "broken" scenario ends **STIPULATED** with exactly the stip it targets: LA-1002 TILA sum,
+  LA-1006 price off by 1¢, LA-1007 VIN differs on the GAP, LA-1018 expired GAP form, LA-1023
+  low-confidence cash price, and so on.
 - Test data and mock responses are **computed from the business rules**, never typed by hand. If
   someone changes a rule without updating the scenarios, the build fails (constitution P-2,
   P-5). See [step 9](#step-9-change-a-rule-and-watch-the-gates-stop-you).
 
-The other four checks (price, VIN, income, GAP), the funder API, resubmissions and the 30-day
-expiry arrive in later slices ([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
+The income check (an external API), the funder API, resubmissions and the 30-day expiry arrive
+in later slices ([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
 
 ---
 
 ## How we know it works
 
-**112 automated tests, all passing**, plus seven data gates. The functional tests run against the
+**179 automated tests, all passing**, plus seven data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
-| Domain rules | JUnit 5, AssertJ | nothing (pure Java) | 32 | ✅ all pass |
-| Persistence | JUnit 5, Testcontainers | `postgres:18` in Docker | 17 | ✅ all pass |
+| Domain rules | JUnit 5, AssertJ | nothing (pure Java) | 68 | ✅ all pass |
+| Persistence | JUnit 5, Testcontainers | `postgres:18` in Docker | 24 | ✅ all pass |
 | Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 17 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
-| Workflows | Temporal `TestWorkflowEnvironment`, Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 13 | ✅ 12 pass, 1 skipped (the history recorder, on request only) |
+| Workflows | Temporal `TestWorkflowEnvironment`, Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 19 | ✅ 18 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
 | API | Spring MockMvc, Temporal test env | test Temporal + Postgres | 12 | ✅ all pass |
-| **Functional** | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 9 | ✅ all pass |
+| **Functional** | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 27 | ✅ all pass |
 | Seed gates | `make seed-check` | — | 7 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock lock |
 
 <sub>Last full run: 2026-11-17, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
@@ -231,8 +242,8 @@ emulator-env: reusing <container> at https://127.0.0.1:9297 region=us-west-2
 db-env: reusing funding-postgres, jdbc:postgresql://127.0.0.1:55432/funding (user funding)
 wiremock-env: reusing funding-wiremock at http://127.0.0.1:8089
 ... "queues ready: https://sqs.us-west-2.amazonaws.com/000000000000/funding-pending-review-local (DLQ …-dlq)"
-... "seed data: 6 inserted, 0 replaced, 0 unchanged"
-... "loaded 72 generated stubs for env local into http://127.0.0.1:8089"
+... "seed data: 23 inserted, 0 replaced, 0 unchanged"
+... "loaded 89 generated stubs for env local into http://127.0.0.1:8089"
 ... "local Lambda runner polling (stands in for the SQS event source mapping)"
 ```
 
@@ -263,10 +274,13 @@ docker exec "$DB_CONTAINER" psql -U "$FUNDING_DB_USER" -d funding -c "
 ```
 
 ```
- LA-1001 | FUNDED     |                            | COMPLETED | 28450.00
- LA-1002 | STIPULATED | STIP_TILA_MATH_DISCREPANCY |           |
- LA-1003 | STIPULATED | STIP_TILA_MATH_DISCREPANCY |           |
- LA-1004 | FUNDED     |                            | COMPLETED | 24000.00
+ LA-1001 | FUNDED     |                                             | COMPLETED | 28450.00
+ LA-1002 | STIPULATED | STIP_TILA_MATH_DISCREPANCY                  |           |
+ LA-1006 | STIPULATED | STIP_PRICE_MISMATCH                         |           |
+ LA-1007 | STIPULATED | STIP_VIN_MISMATCH                           |           |
+ LA-1021 | STIPULATED | STIP_GAP_FORM_MISMATCH,STIP_LENDER_MISMATCH |           |
+ LA-1022 | FUNDED     |                                             | COMPLETED | 28450.00
+ LA-1023 | STIPULATED | STIP_EXTRACTION_REVIEW_REQUIRED             |           |
  ...
 ```
 
@@ -275,7 +289,8 @@ Ask the API what a workflow is doing (the API key is `local-dev-key` under `loca
 ```bash
 curl -s -H 'X-Trigger-Api-Key: local-dev-key' localhost:8080/api/v1/funding-workflows/2
 # {"workflowId":"funding-local-2","runStatus":"RUNNING",
-#  "state":{"step":"WAITING_FOR_FUNDER","status":"STIPULATED","outcomes":{"TILA":"FAIL"},"attempts":{"TILA":1}}}
+#  "state":{"step":"WAITING_FOR_FUNDER","status":"STIPULATED",
+#           "outcomes":{"TILA":"FAIL","PRICE":"PASS","VIN":"PASS","GAP":"PASS"},"attempts":{"TILA":1,"PRICE":1,"VIN":1,"GAP":1}}}
 ```
 
 Want to submit one again? Submitting works only from `DRAFT` (409 `NOT_DRAFT` otherwise).
@@ -331,7 +346,7 @@ funding.tila.payment-tolerance=0.02
 ```bash
 make seed-check
 #   FAIL lock
-#        - TILA_PAYMENT: rule source or config changed (fingerprint 6fda3ba81260 -> …). Run `make seed-regenerate` …
+#        - TILA_PAYMENT: rule source or config changed (fingerprint 6f19a3ea4efb -> …). Run `make seed-regenerate` …
 ```
 
 The rule changed, so every scenario that depends on it must be re-verified:

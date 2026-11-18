@@ -1,0 +1,18 @@
+id: LA-1009
+title: Case/space normalization
+rules: [VIN_CROSS_DOC, VEHICLE_ATTRS]
+side: PASS
+variant: normalized
+spec: AS-4.3
+summary: "BO make `{bo.vehicle_make}`, GAP model `{gap.vehicle_model}`, RISC VIN `{risc.vin}`"
+given:
+  risc:
+    vin: { mutate: lowercase }
+  buyersOrder:
+    vehicleMake: "toyota "
+  gap:
+    vehicleModel: " CAMRY"
+expect:
+  checks: { VIN: PASS }
+  status: FUNDED
+  stips: []

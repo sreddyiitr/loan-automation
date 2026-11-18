@@ -14,6 +14,9 @@ public final class Workers {
 
         Worker validation = factory.newWorker(q.validation());
         validation.registerWorkflowImplementationFactory(TilaCheckWorkflow.class, () -> new TilaCheckWorkflowImpl(options));
+        validation.registerWorkflowImplementationFactory(PriceParityWorkflow.class, () -> new PriceParityWorkflowImpl(options));
+        validation.registerWorkflowImplementationFactory(VinConsistencyWorkflow.class, () -> new VinConsistencyWorkflowImpl(options));
+        validation.registerWorkflowImplementationFactory(GapValidationWorkflow.class, () -> new GapValidationWorkflowImpl(options));
         validation.registerActivitiesImplementations(db);
 
         Worker external = factory.newWorker(q.external());

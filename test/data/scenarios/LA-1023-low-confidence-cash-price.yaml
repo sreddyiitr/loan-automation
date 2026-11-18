@@ -1,0 +1,13 @@
+id: LA-1023
+title: Low-confidence cash price
+rules: [CONFIDENCE_FLAG]
+side: NEEDS_REVIEW
+spec: AS-7.1
+summary: "RISC `cash_price` confidence {risc.cash_price.confidence} (one step below the cut-off)"
+given:
+  risc:
+    confidence: { cash_price: belowFlag }
+expect:
+  checks: { PRICE: NEEDS_REVIEW }
+  status: STIPULATED
+  stips: [STIP_EXTRACTION_REVIEW_REQUIRED]

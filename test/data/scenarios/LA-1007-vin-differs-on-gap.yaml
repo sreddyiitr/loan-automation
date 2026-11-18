@@ -1,0 +1,13 @@
+id: LA-1007
+title: VIN differs on GAP
+rules: [VIN_CROSS_DOC]
+side: FAIL
+spec: AS-4.2
+summary: "GAP `vin` {gap.vin} (RISC and BO {risc.vin})"
+given:
+  gap:
+    vin: { mutate: lastChar }
+expect:
+  checks: { VIN: FAIL }
+  status: STIPULATED
+  stips: [STIP_VIN_MISMATCH]

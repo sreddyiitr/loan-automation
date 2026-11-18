@@ -49,7 +49,7 @@ public final class SeedGates {
     public Generated generate() {
         JsonNode baseline = loader.baseline();
         List<ScenarioIntent> intents = loader.scenarios();
-        SeedGenerator gen = new SeedGenerator(config);
+        SeedGenerator gen = new SeedGenerator(config, GapRegistryFile.load(paths.gapRegistry()));
         List<Fixture> fixtures = intents.stream().map(i -> gen.generate(i, baseline)).toList();
         return new Generated(baseline, ScenarioLoader.sha256(paths.baseline()), intents, fixtures);
     }
@@ -102,7 +102,9 @@ public final class SeedGates {
             if (!wantStips.equals(gotStips)) {
                 failures.add(i.id() + " " + i.rules() + ": stips expected " + wantStips + " but were " + gotStips);
             }
-            String status = ExpectedStatus.derive(actual.values(), f.externals().get("disbursement"));
+            var snapshot = FixtureSnapshots.of(f);
+            String status = ExpectedStatus.derive(actual.values(), f.externals().get("disbursement"),
+                    com.funding.domain.rules.RiscCompleteness.problems(snapshot, config.rules()));
             if (!status.equals(i.expect().status())) {
                 failures.add(i.id() + " " + i.rules() + ": status expected " + i.expect().status() + " but outcomes lead to " + status);
             }
@@ -130,9 +132,19 @@ public final class SeedGates {
                 }
                 for (ScenarioIntent i : covering) {
                     Outcome want = expectedFor(side);
-                    Outcome declared = i.expect().check(rule.check());
-                    if (declared != want) {
-                        failures.add(i.id() + ": claims " + rule + " " + side + " but expects " + rule.check() + " " + declared);
+                    if (rule.check() != null) {
+                        Outcome declared = i.expect().check(rule.check());
+                        if (declared != want) {
+                            failures.add(i.id() + ": claims " + rule + " " + side + " but expects " + rule.check() + " " + declared);
+                        }
+                        continue;
+                    }
+                    // Cross-cutting rule: a PASS side means every check passes; otherwise some check has the side's outcome.
+                    boolean ok = want == Outcome.PASS
+                            ? Arrays.stream(Check.values()).allMatch(c -> i.expect().check(c) == Outcome.PASS)
+                            : Arrays.stream(Check.values()).anyMatch(c -> i.expect().check(c) == want);
+                    if (!ok) {
+                        failures.add(i.id() + ": claims " + rule + " " + side + " but no check is expected to be " + want);
                     }
                 }
             }
@@ -142,8 +154,7 @@ public final class SeedGates {
 
     /** P-2.5: {@code rules.lock} matches the current rule sources, config and scenario intents. */
     public GateResult lock(Generated g) {
-        String expected = RulesLock.render(g.intents(), g.baselineHash(), config.rules(), fingerprints);
-        return new GateResult("lock", RulesLock.diff(paths.rulesLock(), expected));
+        return new GateResult("lock", RulesLock.diff(paths.rulesLock(), renderLock(g)));
     }
 
     /** P-2.7: the generated table in {@code seed-data.md} matches. */
@@ -155,7 +166,11 @@ public final class SeedGates {
     }
 
     public String renderLock(Generated g) {
-        return RulesLock.render(g.intents(), g.baselineHash(), config.rules(), fingerprints);
+        return RulesLock.render(g.intents(), g.baselineHash(), registryHash(), config.rules(), fingerprints);
+    }
+
+    private String registryHash() {
+        return java.nio.file.Files.exists(paths.gapRegistry()) ? ScenarioLoader.sha256(paths.gapRegistry()) : "none";
     }
 
     static Outcome expectedFor(String side) {
