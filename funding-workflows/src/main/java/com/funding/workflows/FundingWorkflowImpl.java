@@ -97,7 +97,7 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                     .setWorkflowId(WorkflowIds.child(parentId, check, attempt))
                     .setTaskQueue(q.validation())
                     .build();
-            CheckInput input = new CheckInput(check, attempt, view.snapshot(), view.config());
+            CheckInput input = new CheckInput(check, attempt, view.snapshot(), view.config(), q.external());
             running.put(check, start(check, opts, input));
         }
         running.forEach((check, p) -> {
@@ -122,7 +122,7 @@ public class FundingWorkflowImpl implements FundingWorkflow {
             case PRICE -> Async.function(Workflow.newChildWorkflowStub(PriceParityWorkflow.class, opts)::run, input);
             case VIN -> Async.function(Workflow.newChildWorkflowStub(VinConsistencyWorkflow.class, opts)::run, input);
             case GAP -> Async.function(Workflow.newChildWorkflowStub(GapValidationWorkflow.class, opts)::run, input);
-            default -> throw new IllegalStateException("no child workflow for " + check);
+            case INCOME -> Async.function(Workflow.newChildWorkflowStub(IncomeVerificationWorkflow.class, opts)::run, input);
         };
     }
 

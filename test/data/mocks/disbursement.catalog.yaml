@@ -4,7 +4,7 @@
 # that the config determines.
 api: DISBURSEMENT
 contract: disbursement.openapi.yaml
-amounts: ["9850.00", "24000.00", "28450.00", "31875.50", "89999.99", "150000.00"]
+magnitudes: ["9850.00", "24000.00", "28450.00", "31875.50", "89999.99", "150000.00"]
 classes:
   SUCCESS:               { expect: FUNDED }
   IDEMPOTENT_REPLAY:     { expect: FUNDED }     # 2nd call with the same key -> 200, same reference

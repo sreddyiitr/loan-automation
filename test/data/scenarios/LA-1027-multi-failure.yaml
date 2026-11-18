@@ -1,0 +1,18 @@
+id: LA-1027
+title: Multi-failure
+rules: [TILA_SUM, VIN_CROSS_DOC, INCOME_VARIANCE]
+side: FAIL
+spec: FR-04
+summary: "TILA total {risc.total_of_payments}, GAP VIN {gap.vin}, stated {app.stated_income_annual} with intent `low`"
+given:
+  application: { statedIncomeAnnual: "120000.00" }
+  risc:
+    totalOfPayments: { offset: "+10.00" }
+  gap:
+    vin: { mutate: lastChar }
+externals:
+  income: { respond: low }
+expect:
+  checks: { TILA: FAIL, VIN: FAIL, INCOME: FAIL }
+  status: STIPULATED
+  stips: [STIP_TILA_MATH_DISCREPANCY, STIP_VIN_MISMATCH, STIP_INCOME_VARIANCE_EXCEEDED]

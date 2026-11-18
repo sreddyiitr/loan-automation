@@ -27,8 +27,8 @@ public final class MockSet {
         return m;
     }
 
-    public static List<MockStub> generate(String env, MockBudget budget, List<Fixture> fixtures,
+    public static List<MockStub> generate(String env, MockBudget budget, java.math.BigDecimal varianceThreshold, List<Fixture> fixtures,
                                           Map<ExternalApi, MockCatalog> catalogs) {
-        return new MockStubGenerator(env, budget).generate(fixtures, catalogs);
+        return new MockStubGenerator(env, budget, varianceThreshold).generate(fixtures, catalogs);
     }
 }

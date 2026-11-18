@@ -216,6 +216,12 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1009 | Case/space normalization | BO make `toyota `, GAP model ` CAMRY`, RISC VIN `4t1c11ak7ru100101` | P | P | PASS | P | P | FUNDED | — | AS-4.3 |
 | LA-1010 | Invalid VIN chars | VIN `4T1C11AK7RU1O0101` (letter O) on all docs and the application | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
 | LA-1011 | App VIN ≠ docs | `application_versions.vehicle_vin` 4T1C11AK7RU100199; docs at baseline | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.1 |
+| LA-1012 | Income over by 33% | stated 120000.00, income intent `low` (verified 90000.00) | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE_EXCEEDED | AS-5.2 |
+| LA-1013 | Income exactly at the threshold | stated 115000.00 = verified × (1 + t), intent `ok-100k` | P | P | P | PASS | P | FUNDED | — | AS-5.1 boundary |
+| LA-1014 | Income just over the threshold | stated 115010.00 = verified × (1 + t + 0.0001), intent `ok-100k` | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE_EXCEEDED | AS-5.2 boundary |
+| LA-1015 | Under-stated income | stated 80000.00 (variance −20%, two-sided per C-3), intent `ok-100k` | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE_EXCEEDED | C-3 |
+| LA-1016 | Income API down | income intent `down` (503 on every attempt) | P | P | P | ERROR | P | PENDING_REVIEW | — | AS-5.3, AS-8.4 |
+| LA-1017 | Income API flaky | income intent `flaky` (503 until the last attempt of the retry budget, then 200) | P | P | P | PASS | P | FUNDED | — | NFR-03 |
 | LA-1018 | Expired GAP form | GAP `form_number` `GAP-TX-2019-07` (expired before the contract date) | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
 | LA-1019 | Form from wrong state | GAP `state` TX, `form_number` `GAP-CA-2025-03` (registered for another state) | P | P | P | P | FAIL | STIPULATED | GAP_FORM_MISMATCH | AS-6.1 |
 | LA-1020 | GAP lender mismatch | GAP `creditor_name` `Coastal Credit Union` | P | P | P | P | FAIL | STIPULATED | LENDER_MISMATCH | AS-6.2 |
@@ -225,9 +231,11 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1024 | Confidence at the cut-off is not flagged | RISC `apr` confidence 0.90 = `funding.confidence.flag-below` | PASS | P | P | P | P | FUNDED | — | cut-off boundary (B4) |
 | LA-1025 | Unused field flagged | RISC extra field `dealer_notes` confidence 0.89 | P | P | P | P | P | FUNDED | — | AS-7.2 |
 | LA-1026 | Missing required field | RISC has no `finance_charge` | NEEDS_REVIEW | P | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | AS-7.1 |
+| LA-1027 | Multi-failure | TILA total 33802.60, GAP VIN 4T1C11AK7RU100102, stated 120000.00 with intent `low` | FAIL | P | FAIL | FAIL | P | STIPULATED | TILA_MATH_DISCREPANCY + VIN_MISMATCH + INCOME_VARIANCE_EXCEEDED | FR-04 |
 | LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4: `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
 | LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (thousands separator) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | FR-14 |
 | LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
+| LA-1035 | Income record not found | income intent `not-found` (no payroll record) | P | P | P | NEEDS_REVIEW | P | STIPULATED | PROOF_OF_INCOME | C-12 |
 
 `P` means PASS, the baseline outcome for that check. Stip codes omit the `STIP_` prefix.
 
@@ -239,13 +247,6 @@ These rows are the **intended** scenarios for later slices (`tasks.md`). They ar
 
 | ID | Scenario | Override from baseline | TILA | PRICE | VIN | INCOME | GAP | Expected status | Expected stips | Spec |
 |---|---|---|---|---|---|---|---|---|---|---|
-| LA-1012 | Income over by 33% | stated 120000.00, `enc:tok-low` (90000) | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | AS-5.2 |
-| LA-1013 | Income exactly 15.00% | stated 115000.00, `enc:tok-100k` | P | P | P | PASS | P | FUNDED | — | AS-5.1 boundary |
-| LA-1014 | Income 15.01% | stated 115010.00, `enc:tok-100k` | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | AS-5.2 boundary |
-| LA-1015 | Under-stated income | stated 80000.00, `enc:tok-100k` (−20%, two-sided per C-3) | P | P | P | FAIL | P | STIPULATED | INCOME_VARIANCE | C-3 |
-| LA-1016 | Income API down | `enc:tok-down` | P | P | P | ERROR | P | PENDING_REVIEW (held) | — | AS-5.3, AS-8.4 |
-| LA-1017 | Income API flaky | `enc:tok-flaky` | P | P | P | PASS | P | FUNDED | — | NFR-03 |
-| LA-1027 | Multi-failure | TILA sum +$10, GAP VIN …100102, stated 120000 with `enc:tok-low` | FAIL | P | FAIL | FAIL | P | STIPULATED | TILA + VIN + INCOME (3 stips) | FR-04 |
 | LA-1028 | Resubmission fixes the deal | **v1** = LA-1006 data (seeded STIPULATED, stip PENDING); **v2** = baseline (DRAFT, latest) | v2: all PASS | | | | | v1 stays STIPULATED; **v2 FUNDED** | v1's stip kept as history | AS-9.1–9.3 |
 | LA-1029 | New document version | One app version. RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +$10; RISC **v2** (latest) at baseline | PASS (reads v2) | P | P | P | P | FUNDED | — | AS-9.4 |
 | LA-1030 | Disbursement fails | Baseline; dealer `DLR-FAIL` (mock disbursement always returns 500) | P | P | P | P | P | **APPROVED** (held) | — | C-8 |

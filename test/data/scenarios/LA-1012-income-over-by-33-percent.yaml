@@ -1,0 +1,15 @@
+id: LA-1012
+title: Income over by 33%
+rules: [INCOME_VARIANCE]
+side: FAIL
+variant: over
+spec: AS-5.2
+summary: "stated {app.stated_income_annual}, income intent `low` (verified 90000.00)"
+given:
+  application: { statedIncomeAnnual: "120000.00" }
+externals:
+  income: { respond: low }
+expect:
+  checks: { INCOME: FAIL }
+  status: STIPULATED
+  stips: [STIP_INCOME_VARIANCE_EXCEEDED]

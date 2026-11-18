@@ -49,7 +49,8 @@ public final class SeedGates {
     public Generated generate() {
         JsonNode baseline = loader.baseline();
         List<ScenarioIntent> intents = loader.scenarios();
-        SeedGenerator gen = new SeedGenerator(config, GapRegistryFile.load(paths.gapRegistry()));
+        MockCatalog income = MockSet.catalogs(paths).get(com.funding.domain.ExternalApi.INCOME_VERIFICATION);
+        SeedGenerator gen = new SeedGenerator(config, GapRegistryFile.load(paths.gapRegistry()), income);
         List<Fixture> fixtures = intents.stream().map(i -> gen.generate(i, baseline)).toList();
         return new Generated(baseline, ScenarioLoader.sha256(paths.baseline()), intents, fixtures);
     }
@@ -63,7 +64,7 @@ public final class SeedGates {
 
     /** Env-neutral stub set, as {@code mocks.lock} records it. */
     public List<MockStub> lockStubs(Generated g) {
-        return MockSet.generate(LOCK_ENV, MockBudget.from(config), g.fixtures(), MockSet.catalogs(paths));
+        return MockSet.generate(LOCK_ENV, MockBudget.from(config), config.rules().incomeVarianceThreshold(), g.fixtures(), MockSet.catalogs(paths));
     }
 
     public static final String LOCK_ENV = "{env}";
@@ -76,10 +77,11 @@ public final class SeedGates {
     public List<GateResult> mockGates(Generated g) {
         Map<com.funding.domain.ExternalApi, MockCatalog> catalogs = MockSet.catalogs(paths);
         MockBudget budget = MockBudget.from(config);
-        List<MockStub> stubs = MockSet.generate(config.env(), budget, g.fixtures(), catalogs);
+        List<MockStub> stubs = MockSet.generate(config.env(), budget, config.rules().incomeVarianceThreshold(), g.fixtures(), catalogs);
         return List.of(
                 MockGates.contract(stubs, catalogs, paths.contracts()),
                 MockGates.coverage(stubs, catalogs, budget),
+                MockGates.bandOracle(stubs, config.rules(), budget),
                 new GateResult("mock-lock", MocksLock.diff(paths.mocksLock(), mockLockEntries(g))));
     }
 
@@ -88,7 +90,10 @@ public final class SeedGates {
         List<String> failures = new ArrayList<>();
         for (Fixture f : fixtures) {
             ScenarioIntent i = f.intent();
-            Map<Check, CheckOutcome> actual = engine.evaluate(FixtureSnapshots.of(f), config.rules());
+            Map<Check, CheckOutcome> actual = new java.util.EnumMap<>(engine.evaluate(FixtureSnapshots.of(f), config.rules()));
+            if (actual.containsKey(Check.INCOME)) {
+                actual.put(Check.INCOME, incomeOutcome(f)); // through the scenario's own generated income stub
+            }
             for (Map.Entry<Check, CheckOutcome> e : actual.entrySet()) {
                 Outcome want = i.expect().check(e.getKey());
                 if (e.getValue().outcome() != want) {
@@ -167,6 +172,23 @@ public final class SeedGates {
 
     public String renderLock(Generated g) {
         return RulesLock.render(g.intents(), g.baselineHash(), registryHash(), config.rules(), fingerprints);
+    }
+
+    /**
+     * INCOME for a scenario: replay its generated income stub through the app's response classifier
+     * under the retry budget (so "down" is ERROR and "flaky" passes within the budget), then run the rule.
+     */
+    private CheckOutcome incomeOutcome(Fixture f) {
+        MockCatalog income = MockSet.catalogs(paths).get(com.funding.domain.ExternalApi.INCOME_VERIFICATION);
+        String intent = f.externals().get("income");
+        MockBudget budget = MockBudget.from(config);
+        MockStub stub = new com.funding.seed.mock.MockStubGenerator(LOCK_ENV, budget, config.rules().incomeVarianceThreshold())
+                .scenarioIncome(f, intent, income);
+        com.funding.domain.income.IncomeVerification v = com.funding.seed.mock.ClientSimulator.income(stub.interactions(), budget);
+        if (v == null) {
+            return CheckOutcome.error(Check.INCOME, "income API: retries exhausted or response not usable");
+        }
+        return engine.evaluate(Check.INCOME, FixtureSnapshots.of(f).withIncome(v), config.rules());
     }
 
     private String registryHash() {

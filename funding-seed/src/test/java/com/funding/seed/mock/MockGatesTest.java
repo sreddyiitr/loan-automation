@@ -30,7 +30,7 @@ class MockGatesTest {
         SeedGates gates = new SeedGates(paths, config, RuleFingerprints.fromClasspath());
         catalogs = MockSet.catalogs(paths);
         budget = MockBudget.from(config);
-        stubs = MockSet.generate(config.env(), budget, gates.generate().fixtures(), catalogs);
+        stubs = MockSet.generate(config.env(), budget, config.rules().incomeVarianceThreshold(), gates.generate().fixtures(), catalogs);
     }
 
     @Test
@@ -88,7 +88,7 @@ class MockGatesTest {
 
     @Test
     void P_5_7_noCatchAllStubAndEveryMappingCarriesEnv() throws Exception {
-        JsonNode root = new ObjectMapper().readTree(new MockStubGenerator(config.env(), budget).toWireMockImport(stubs));
+        JsonNode root = new ObjectMapper().readTree(new MockStubGenerator(config.env(), budget, config.rules().incomeVarianceThreshold()).toWireMockImport(stubs));
         assertThat(root.path("mappings")).isNotEmpty();
         for (JsonNode m : root.path("mappings")) {
             assertThat(m.path("metadata").path("env").asText()).isEqualTo("it-test");
@@ -106,12 +106,68 @@ class MockGatesTest {
         assertThat(s.exampleRequest().path("amount").asText()).isEqualTo("28450.00"); // AS-8.9 RISC amount_financed
     }
 
+    @Test
+    void P_5_bandOracleAgreesWithTheRealRuleForEveryStub() {
+        assertThat(MockGates.bandOracle(stubs, config.rules(), budget).failures()).isEmpty();
+    }
+
+    @Test
+    void P_5_bandOracleCatchesAWrongExpectation() {
+        MockStub s = byId("INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/96000.37");
+        MockStub lying = new MockStub(s.id(), s.api(), s.source(), s.band(), s.requestKey(), s.method(), s.path(), s.requestMatch(),
+                s.exampleHeaders(), s.exampleRequest(), s.interactions(), "PASS", s.violatesContract(), s.attributes());
+        assertThat(MockGates.bandOracle(List.of(lying), config.rules(), budget).failures())
+                .singleElement().asString().contains("band expects PASS but the client + rule give FAIL");
+    }
+
+    @Test
+    void FR_15_boundaryEntriesLandOnTheirSideAfterCentRounding() {
+        // Every magnitude, including 96000.37, at exactly t passes and at t + 0.0001 fails.
+        for (String mag : List.of("18500.00", "45000.00", "96000.00", "96000.37", "250000.00", "1250000.00")) {
+            assertThat(MockGates.incomeOutcome(byId("INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/" + mag), config.rules(), budget,
+                    new com.funding.domain.RuleEngine())).as(mag).isEqualTo("PASS");
+            assertThat(MockGates.incomeOutcome(byId("INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/" + mag), config.rules(), budget,
+                    new com.funding.domain.RuleEngine())).as(mag).isEqualTo("FAIL");
+        }
+    }
+
+    @Test
+    void P_5_5_aChangedThresholdMovesTheBandsWithoutFlippingOutcomes() {
+        SeedConfig looser = new SeedConfig(config.rules().with("funding.income.variance-threshold", "0.20"), config.properties(), config.env());
+        SeedGates g20 = new SeedGates(paths, looser, RuleFingerprints.fromClasspath());
+        SeedGates g15 = new SeedGates(paths, config, RuleFingerprints.fromClasspath());
+        var was = g15.mockLockEntries(g15.generate());
+        var now = g20.mockLockEntries(g20.generate());
+        assertThat(MockLockGate.flips(was, now)).isEmpty();
+        // ...but the bodies moved: the boundary entry now sits at 20%.
+        assertThat(now.get("INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/96000.00").response())
+                .isNotEqualTo(was.get("INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/96000.00").response());
+        MockStub at20 = MockSet.generate("x", budget, new java.math.BigDecimal("0.20"), g20.generate().fixtures(), catalogs).stream()
+                .filter(s -> s.id().equals("INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/96000.00")).findFirst().orElseThrow();
+        assertThat(at20.attributes().get("verified")).isEqualTo("80000.00");
+    }
+
+    @Test
+    void P_5_2_incomeFaultClassesFollowTheBudget() {
+        MockStub timeout = byId("INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/96000.00");
+        assertThat(timeout.interactions().get(0).delayMillis()).isGreaterThan(budget.startToClose().toMillis());
+        assertThat(byId("INCOME_VERIFICATION/catalog/RATE_LIMITED/96000.00").interactions().get(0).headers()).containsEntry("Retry-After", "2");
+        assertThat(byId("INCOME_VERIFICATION/catalog/CONNECTION_RESET/96000.00").interactions().get(0).fault()).isEqualTo("CONNECTION_RESET_BY_PEER");
+        assertThat(byId("INCOME_VERIFICATION/scenario/LA-1017").interactions()).hasSize(budget.maxAttempts());
+    }
+
+    @Test
+    void AS_5_4_scenarioIncomeStubsMatchOnTheEncryptedTokenOnly() {
+        MockStub s = byId("INCOME_VERIFICATION/scenario/LA-1012");
+        assertThat(s.requestMatch().bodyEquals()).containsExactly(java.util.Map.entry("ssnItinEncrypted", "enc:it-test:LA-1012"));
+    }
+
     private MockStub byId(String id) {
         return stubs.stream().filter(s -> s.id().equals(id)).findFirst().orElseThrow(() -> new AssertionError("no stub " + id));
     }
 
     private static MockStub withInteractions(MockStub s, List<Interaction> calls, boolean violates) {
         return new MockStub(s.id(), s.api(), s.source(), s.band(), s.requestKey(), s.method(), s.path(), s.requestMatch(),
-                s.exampleHeaders(), s.exampleRequest(), calls, s.expected(), violates);
+                s.exampleHeaders(), s.exampleRequest(), calls, s.expected(), violates, s.attributes());
     }
 }

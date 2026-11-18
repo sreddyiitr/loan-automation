@@ -1,0 +1,13 @@
+id: LA-1035
+title: Income record not found
+rules: [INCOME_API]
+side: NEEDS_REVIEW
+variant: not-found
+spec: C-12
+summary: "income intent `not-found` (no payroll record)"
+externals:
+  income: { respond: not-found }
+expect:
+  checks: { INCOME: NEEDS_REVIEW }
+  status: STIPULATED
+  stips: [STIP_PROOF_OF_INCOME]

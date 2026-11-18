@@ -1,0 +1,12 @@
+id: LA-1013
+title: Income exactly at the threshold
+rules: [INCOME_VARIANCE]
+side: PASS_BOUNDARY
+spec: AS-5.1 boundary
+summary: "stated {app.stated_income_annual} = verified × (1 + t), intent `ok-100k`"
+given:
+  application: { statedIncomeAnnual: { relativeToThreshold: "0" } }
+expect:
+  checks: { INCOME: PASS }
+  status: FUNDED
+  stips: []

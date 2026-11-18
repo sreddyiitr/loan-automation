@@ -1,0 +1,41 @@
+# Income Verification mock data catalog (constitution P-5, seed-data.md "Income Verification").
+# Intent only. Variance points are relative to t = funding.income.variance-threshold; the generator
+# fixes the stated income (a magnitude) and solves for the verified income, rounding toward the
+# band's side. Retry counts and delays come from funding.activity.*. Each class's `expect` is the
+# independent oracle the band-oracle gate and the matrix IT check the real rule against.
+api: INCOME_VERIFICATION
+contract: income-verification.openapi.yaml
+magnitudes: ["18500.00", "45000.00", "96000.00", "96000.37", "250000.00", "1250000.00"]   # stated income
+
+# Per-scenario response intents (seed-data.md "Scenario response intents"). `verified` is the
+# payroll system's data for that scenario, not a derived number.
+scenarioIntents:
+  ok-100k:   { respond: ok, verified: "100000.00" }
+  low:       { respond: ok, verified: "90000.00" }
+  down:      { respond: down }                        # 503 on every attempt
+  flaky:     { respond: flaky, verified: "100000.00" } # 503 x (maxAttempts - 1), then 200
+  not-found: { respond: not-found }
+
+classes:
+  # --- variance bands ---
+  EXACT:         { expect: PASS, points: ["0"] }
+  SMALL_OVER:    { expect: PASS, points: ["t/4", "t/2"] }
+  SMALL_UNDER:   { expect: PASS, points: ["-t/4", "-t/2"] }
+  BOUNDARY_PASS: { expect: PASS, points: ["t-0.0001", "t", "-t"] }
+  BOUNDARY_FAIL: { expect: FAIL, points: ["t+0.0001", "t+0.01", "-(t+0.0001)"] }
+  LARGE_OVER:    { expect: FAIL, points: ["2t", "5t"] }
+  LARGE_UNDER:   { expect: FAIL, points: ["-0.5", "-0.9"] }
+  # --- record not found (C-12) ---
+  NOT_FOUND:     { expect: NEEDS_REVIEW }
+  # --- response shapes: the first point of each listed band, on one magnitude ---
+  SHAPES:        { shapes: [MULTI_EMPLOYER, OPTIONAL_ABSENT, EXTRA_FIELDS], from: [EXACT, SMALL_OVER, BOUNDARY_PASS, BOUNDARY_FAIL], magnitudes: ["96000.00"] }
+  # --- fault classes (the success part uses point t/2, so it passes once the call succeeds) ---
+  RETRY_THEN_OK:    { expect: PASS, point: "t/2", k: retryBudget }
+  EXHAUSTED:        { expect: ERROR }
+  TIMEOUT_THEN_OK:  { expect: PASS, point: "t/2" }
+  TIMEOUT_ALWAYS:   { expect: ERROR }
+  RATE_LIMITED:     { expect: PASS, point: "t/2", retryAfterSeconds: 2 }
+  CONNECTION_RESET: { expect: PASS, point: "t/2" }
+  MALFORMED:        { expect: ERROR, violatesContract: true }
+  SCHEMA_INVALID:   { expect: ERROR, violatesContract: true }
+  CLIENT_ERROR:     { expect: ERROR, statuses: [400, 422] }

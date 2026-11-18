@@ -1,0 +1,12 @@
+id: LA-1016
+title: Income API down
+rules: [INCOME_API]
+side: ERROR
+spec: AS-5.3, AS-8.4
+summary: "income intent `down` (503 on every attempt)"
+externals:
+  income: { respond: down }
+expect:
+  checks: { INCOME: ERROR }
+  status: PENDING_REVIEW
+  stips: []

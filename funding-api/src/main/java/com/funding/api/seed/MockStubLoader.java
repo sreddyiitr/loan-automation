@@ -59,14 +59,14 @@ public class MockStubLoader implements ApplicationRunner {
         SeedPaths paths = SeedPaths.discover();
         var catalogs = MockSet.catalogs(paths);
         MockBudget budget = MockBudget.from(config);
-        List<MockStub> stubs = MockSet.generate(config.env(), budget, gates.generate().fixtures(), catalogs);
+        List<MockStub> stubs = MockSet.generate(config.env(), budget, config.rules().incomeVarianceThreshold(), gates.generate().fixtures(), catalogs);
         GateResult contract = MockGates.contract(stubs, catalogs, paths.contracts());
         if (!contract.passed()) {
             throw new IllegalStateException("refusing to load WireMock stubs: contract gate failed\n" + String.join("\n", contract.failures()));
         }
         post("/__admin/mappings/remove-by-metadata",
                 "{\"matchesJsonPath\":{\"expression\":\"$.env\",\"equalTo\":\"" + config.env() + "\"}}");
-        post("/__admin/mappings/import", new MockStubGenerator(config.env(), budget).toWireMockImport(stubs));
+        post("/__admin/mappings/import", new MockStubGenerator(config.env(), budget, config.rules().incomeVarianceThreshold()).toWireMockImport(stubs));
         LOG.info("loaded {} generated stubs for env {} into {}", stubs.size(), config.env(), wiremockUrl);
         return stubs.size();
     }

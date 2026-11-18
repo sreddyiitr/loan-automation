@@ -11,10 +11,11 @@ class RulesConfigTest {
     @Test
     void NFR_07_fieldsAddedLaterAreFilledWhenReplayingOldPayloads() {
         // An S1 history only knows the TILA tolerances.
-        RulesConfig old = new RulesConfig(new BigDecimal("0.00"), new BigDecimal("0.01"), null, null, null);
+        RulesConfig old = new RulesConfig(new BigDecimal("0.00"), new BigDecimal("0.01"), null, null, null, null);
         assertThat(old.priceTolerance()).isEqualByComparingTo("0.00");
         assertThat(old.confidenceFlagBelow()).isEqualByComparingTo("0.90");
         assertThat(old.primaryLenderName()).isEqualTo("Summit Auto Finance");
+        assertThat(old.incomeVarianceThreshold()).isEqualByComparingTo("0.15");
     }
 
     @Test

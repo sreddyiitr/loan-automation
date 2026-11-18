@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import com.funding.seed.mock.MockImpactReport;
+import com.funding.seed.mock.MockLockGate;
 import com.funding.seed.mock.MocksLock;
 
 /**
@@ -56,6 +57,16 @@ public final class SeedRegenerateMain {
         var nowMocks = gates.mockLockEntries(g);
         Files.createDirectories(paths.report());
         Files.writeString(paths.report().resolve("mock-impact.md"), MockImpactReport.render(wasMocks, nowMocks, changedRules));
+        // P-5.5: no silent outcome flips.
+        String accept = System.getProperty("funding.seed.accept-outcome-changes", "");
+        java.util.Set<String> accepted = java.util.Arrays.stream(accept.split("[,\\s]+")).filter(x -> !x.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
+        String ruleChanges = Files.exists(paths.ruleChanges()) ? Files.readString(paths.ruleChanges()) : null;
+        List<String> refused = MockLockGate.refusals(MockLockGate.flips(wasMocks, nowMocks), accepted, ruleChanges);
+        if (!refused.isEmpty()) {
+            System.err.println("not writing any lock: expected mock outcomes flipped (see target/seed-report/mock-impact.md)");
+            return List.of(new GateResult("mock-flip-guard", refused));
+        }
         Files.writeString(paths.mocksLock(), MocksLock.render(nowMocks));
         Files.writeString(paths.rulesLock(), gates.renderLock(g));
         String doc = SeedGates.read(paths.seedDataDoc());

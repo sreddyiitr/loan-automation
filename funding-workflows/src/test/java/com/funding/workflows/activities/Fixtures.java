@@ -43,7 +43,8 @@ final class Fixtures {
     }
 
     static String wireMockImport() {
-        return new MockStubGenerator(ENV, MockBudget.from(CONFIG))
-                .toWireMockImport(MockSet.generate(ENV, MockBudget.from(CONFIG), GENERATED.fixtures(), MockSet.catalogs(SeedPaths.discover())));
+        java.math.BigDecimal t = CONFIG.rules().incomeVarianceThreshold();
+        return new MockStubGenerator(ENV, MockBudget.from(CONFIG), t)
+                .toWireMockImport(MockSet.generate(ENV, MockBudget.from(CONFIG), t, GENERATED.fixtures(), MockSet.catalogs(SeedPaths.discover())));
     }
 }

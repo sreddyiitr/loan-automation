@@ -61,7 +61,7 @@ class FundingWorkflowHistoryTest {
             if (brokenPrice) {
                 acts.risc.put("cash_price", "31450.01"); // PRICE fails; TILA, VIN and GAP pass
             }
-            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, ActivityOptionsConfig.forTests());
+            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, acts, ActivityOptionsConfig.forTests());
             env.start();
             FundingWorkflow wf = env.getWorkflowClient().newWorkflowStub(FundingWorkflow.class, WorkflowOptions.newBuilder()
                     .setWorkflowId("funding-history-" + name).setTaskQueue(QUEUES.orchestration()).build());
