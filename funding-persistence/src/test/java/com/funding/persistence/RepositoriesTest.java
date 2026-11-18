@@ -97,6 +97,21 @@ class RepositoriesTest {
     }
 
     @Test
+    void FR_09_setStatusRejectsAnIllegalTransitionAndWritesNothing() {
+        VersionRepository versions = new VersionRepository(jdbc);
+        VersionRow v = versions.lockLatest(versionId);
+        String before = v.status();
+        assertThatThrownBy(() -> versions.setStatus(v, "FUNDED"))
+                .isInstanceOf(com.funding.domain.status.VersionStatus.IllegalTransitionException.class);
+        assertThat(versions.find(versionId).orElseThrow().status()).isEqualTo(before);
+
+        versions.setStatus(v, "PENDING_REVIEW");
+        assertThat(versions.find(versionId).orElseThrow().status()).isEqualTo("PENDING_REVIEW");
+        // A stale row (status changed since it was read) is refused rather than overwriting the newer status.
+        assertThatThrownBy(() -> versions.setStatus(v, "PENDING_REVIEW")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
     void outboxClaimMarkAndPurge() {
         OutboxRepository outbox = new OutboxRepository(jdbc);
         jdbc.sql("UPDATE application_versions SET version_status = 'PENDING_REVIEW' WHERE application_version_id = ?").param(versionId).update();

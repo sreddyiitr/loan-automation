@@ -1,7 +1,7 @@
 # Implementation Summary
 
 What has been built so far for spec 001 (auto loan funding validation), and what is still to come.
-Status as of **2026-11-18**: slices **S1 (walking skeleton)**, **S2 (document rules)** and **S3 (income + mock catalog)** are done; S4–S6 are planned in
+Status as of **2026-11-18**: slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income + mock catalog)** and **S4 (funder operations)** are done; S5–S6 are planned in
 [`specs/001-loan-funding-validation/tasks.md`](specs/001-loan-funding-validation/tasks.md).
 
 | Item | Where |
@@ -9,8 +9,8 @@ Status as of **2026-11-18**: slices **S1 (walking skeleton)**, **S2 (document ru
 | Principles | [`specs/constitution.md`](specs/constitution.md) (P-1 … P-5) |
 | Requirements | [`spec.md`](specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
-| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14; "S1 notes", "S2 notes" and "S3 notes" list deviations) |
-| Branches | S1 (PR #2) and S2 (PR #3) merged to `main`; S3 on `feat/001-s3-income` |
+| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9; each slice's notes list deviations) |
+| Branches | S1 (PR #2) and S2 (PR #3) merged to `main`; S3 in PR #4 (`feat/001-s3-income`); S4 on `feat/001-s4-funder-ops`, stacked on S3 |
 
 ---
 
@@ -32,11 +32,14 @@ POST /api/v1/dev/applications/{id}/submit        (stands in for OCR finishing)
                                 │    (INCOME first calls the Income Verification API on the external queue; WireMock)
                                 ├─ applyOutcome → APPROVED / STIPULATED / PENDING_REVIEW (audited;
                                 │                 APPROVED needs a complete RISC and TILA PASS, AS-8.10)
-                                └─ APPROVED → disburse (WireMock, idempotency key = workflow ID) → FUNDED
+                                ├─ APPROVED → disburse (WireMock, idempotency key = workflow ID) → FUNDED
+                                └─ otherwise wait for a funder until submitted_at + 30 days → EXPIRED
+                                     funder API (X-Funder-Id): resolve/add stips, approve, reject, re-run,
+                                     retry disbursement, reassign → guarded, audited DB write → signal
 ```
 
 Measured on the developer machine: submit → first validation result in **under 1 s** (AS-1.1
-allows 10 s). All **31** generated scenarios reach their expected status, check outcomes and stips; WireMock
+allows 10 s). All **32** generated scenarios reach their expected status, check outcomes and stips; WireMock
 reports **0 unmatched requests**. The full table, generated from the intents, is in
 [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md#scenarios).
 
@@ -48,6 +51,7 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | VIN and vehicle (US-4) | LA-1007 (VIN on GAP), 1008 (model), 1010 (letter O), 1011 (app VIN) fail; LA-1009 (case/space) passes | STIPULATED `STIP_VIN_MISMATCH` / FUNDED |
 | GAP (US-6) | LA-1018 (expired form), 1019 (other state), 1020 (lender), 1021 (both) fail; LA-1022 (no GAP) passes | STIPULATED `STIP_GAP_FORM_MISMATCH` and/or `STIP_LENDER_MISMATCH` / FUNDED |
 | Income (US-5) | LA-1012 (over by 33%), 1014 (1 bp over), 1015 (under-stated), 1027 (with TILA and VIN) fail; LA-1013 (exactly 15%), 1017 (flaky API) pass; LA-1016 (API down) errors; LA-1035 (no payroll record) needs review | STIPULATED `STIP_INCOME_VARIANCE_EXCEEDED` / FUNDED / PENDING_REVIEW held / STIPULATED `STIP_PROOF_OF_INCOME` |
+| Disbursement (C-8) | LA-1030: disbursement API down | APPROVED, held for a funder retry |
 | Confidence and parsing (US-7, FR-14) | LA-1023 (flagged), 1026 (missing), 1033 (`31,450.00`) need review; LA-1024 (exactly at the cut-off), 1025 (unused field flagged), 1031 (multi-page section) pass | STIPULATED `STIP_EXTRACTION_REVIEW_REQUIRED` / FUNDED |
 
 ---
@@ -192,9 +196,14 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   - runs `applyOutcome`;
   - when APPROVED, disburses and then marks the version FUNDED.
 
-  Otherwise it waits. The `stipResolved` signal wakes it, and it re-applies the outcome
-  (AS-8.3). A superseded version completes as `SUPERSEDED` (AS-9.5). The `getState()` query
+  Otherwise it waits for a funder until `submitted_at + funding.workflow.expire-after` (P30D),
+  then expires the version (AS-8.6). Funder actions are DB writes made by the API; the signals
+  (`stipResolved`, `approve`, `reject`, `rerunChecks`, `retryDisbursement`) are wake-ups after which
+  it re-runs requested checks (next attempt, fresh snapshot) and re-settles (AS-8.3, 8.4, 8.5, 8.7).
+  After 1,000 signals it continues as new, carrying outcomes, attempts and the deadline. A superseded version completes as `SUPERSEDED` (AS-9.5). The `getState()` query
   returns the step, status, outcomes and attempts.
+- **Status machine** (FR-09): `VersionStatus` holds spec §6; `VersionRepository.setStatus` is the
+  only status writer and rejects any other transition (not retried).
 - **Task queues** per env: orchestration, validation and external.
 - **Activity retries** follow NFR-03 (1 s, ×2, 1 min max, 5 attempts). A business FAIL is a
   return value and is never retried.
@@ -216,13 +225,23 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   and other 4xx responses are not. NOT_FOUND is an answer (C-12), not a failure. The response
   classifier is shared with the seed gates, so mocks are judged exactly as the app judges them.
 - **Recorded histories** (S1: LA-1001, LA-1002; S2: LA-1001, LA-1006, and LA-1006 with INCOME
-  enabled as production ran it; S3: LA-1001, LA-1006) are replayed in
+  enabled as production ran it; S3: LA-1001, LA-1006; S4: a signal-heavy run and an expired run)
+  are replayed in
   `make test-unit`, which is groundwork for NFR-07. Replay caught a real break in S2: old
   payloads lacked the new config fields. `RulesConfig` now fills fields added later from the file
   defaults when replaying. In S3 it caught a second one: a pre-S3 run would have scheduled an
   INCOME child on replay; the `income-check` version marker fixes that.
 
 ### `funding-api`: the Spring Boot app (one process: API, workers, relay)
+
+- **Funder API** (US-10, `FunderController`/`FunderService`; contract checked in as
+  `contracts/funder-api.openapi.yaml` for spec 002): overview, version history, stips (list,
+  manual create, SATISFIED/WAIVED with a reason and a conditional update), reassign, results with
+  expected vs actual (`history=true`), documents and fields with confidence and boxes, approve,
+  reject, re-run, retry disbursement, audit trail. Every write needs `X-Funder-Id`, locks the
+  version, refuses non-latest or terminal versions with 409 (`VERSION_EXPIRED` for expired ones),
+  writes and audits in one transaction, then signals the workflow. RISC-bound stips can't be
+  resolved by hand (409 `RISC_STIP_NOT_WAIVABLE`).
 
 - **Start-workflow API (FR-03):**
   - `POST /api/v1/funding-workflows` returns:
@@ -271,16 +290,16 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 
 | Suite | Runs against | Tests | Result |
 |---|---|---:|---|
-| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, config) | nothing (pure) | 84 | ✅ |
-| `funding-persistence` (incl. document freeze) | Testcontainers `postgres:18` | 24 | ✅ |
+| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) | nothing (pure) | 136 | ✅ |
+| `funding-persistence` (incl. document freeze, guarded status writes) | Testcontainers `postgres:18` | 25 | ✅ |
 | `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests) | repository data | 29 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
-| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks) | Temporal `TestWorkflowEnvironment`; Postgres + generated stubs; history replay | 30 | ✅ (1 skipped: the history recorder, runs only on request) |
+| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 52 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API, seed loader) | MockMvc + Temporal test env + Postgres | 12 | ✅ |
-| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 39 | ✅ |
+| `funding-api` unit (start API, seed loader, funder API, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 30 | ✅ |
+| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 53 | ✅ |
 
-**Total: 230 tests** (191 unit, 1 of them skipped, and 39 functional). Test names trace to the
+**Total: 337 tests** (284 unit, 1 of them skipped, and 53 functional). Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -290,10 +309,14 @@ What the functional tests check:
   one stip.
 - **AS-1.5:** a 503 from the API leaves the message for redelivery, and it reaches the real
   emulator DLQ after 5 receives, while the other message in the batch is acknowledged.
-- **Every generated scenario** (31) reaches its expected check outcomes, status and stips.
+- **Every generated scenario** (32) reaches its expected check outcomes, status and stips.
 - **Every Income Verification catalog stub** (186: variance bands × magnitudes, NOT_FOUND,
   response shapes, nine fault classes) goes through the real HTTP client, the production retry
   policy and the INCOME rule, and matches its band's independent expected outcome.
+- **Funder actions** (13 cases from `seed-data.md`): waive and satisfy to FUNDED, partial
+  resolution, switch the income intent and re-run, manual approve over ERROR, manual stip before
+  disbursement, retry after a down disbursement, two expiries (stip kept, audit, 409
+  `VERSION_EXPIRED`), reject, terminal 409s, RISC stips not waivable, reassign.
 - **`MockControl`** swaps a scenario to another generated intent, restores it and counts calls,
   and rejects intents the generator doesn't produce.
 - **LA-1031:** the RISC Itemization section spanning pages 3–4 and its per-field bounding boxes
@@ -306,7 +329,7 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 
 ## 4. Acceptance scenarios covered so far
 
-| Area | Covered in S1–S3 |
+| Area | Covered in S1–S4 |
 |---|---|
 | US-1 Trigger | AS-1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7 (AS-1.8 is S5) |
 | US-2 TILA | AS-2.1, 2.2, 2.3 |
@@ -315,16 +338,29 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | US-5 Income | AS-5.1, 5.2, 5.3, 5.4; C-3, C-12, C-13 |
 | US-6 GAP | AS-6.1, 6.2, 6.3, 6.4 |
 | US-7 Confidence | AS-7.1, 7.2 |
-| US-8 Outcome | AS-8.1, 8.2, 8.4 (first half: ERROR holds the version), 8.9, 8.10 (auto-approval side; manual approve is S4); AS-8.3 and 8.8 implemented, their full tests are S4 |
+| US-8 Outcome | AS-8.1–8.10 (auto-approval side; manual approve is S4); AS-8.3 and 8.8 implemented, their full tests are S4 |
+| US-10 Funder API | AS-10.1–10.9 |
 | US-9 Versioning | AS-9.7; AS-9.3, 9.5 groundwork (latest-version guard, `SUPERSEDED`) |
-| FR | FR-02, 03, 04, 05, 06, 07, 08, 10, 11, 12, 13, 14, 15, 16 |
+| FR | FR-02 to FR-17 |
 | NFR | NFR-03, 04, 06, 08; NFR-05 partly; NFR-07 groundwork |
 
 ---
 
 ## 5. Decisions and deviations
 
-These are recorded in full under "S1 notes", "S2 notes" and "S3 notes" in `tasks.md`.
+These are recorded in full under each slice's notes in `tasks.md`.
+
+S4:
+
+- **Needs your confirmation:** C-15 to C-19 in `spec.md` (RISC stips can't be SATISFIED by hand
+  either; manual stip and reject wait while a disbursement is in flight; only a funder retry
+  re-pays; which statuses accept which actions; no results after a version closed).
+- The API writes, the workflow follows: signals are wake-ups after a guarded, audited DB write.
+- S4's loop is behind the `funder-signals` version marker; runs from before S4 don't expire.
+- The self-review fixed lost signals (a signal arriving while the run was busy) and made
+  continueAsNew wait for unhandled signals.
+- The functional expiry test back-dates `submitted_at` instead of setting `expire-after=PT20S`.
+- The build uses only the jakarta `swagger-core` (the javax copy broke `/v3/api-docs`).
 
 S3:
 
@@ -366,6 +402,5 @@ S1:
 
 | Slice | Adds |
 |---|---|
-| **S4 – Funder operations** | Funder API, approve/reject/re-run/retry signals, manual stips, the status-machine enforcer, **30-day expiry** (until then, STIPULATED workflows stay open in local Temporal) |
 | **S5 – Versioning** | Resubmission and supersede, document-version re-runs (AS-1.8), dev add-version/add-document endpoints |
 | **S6 – Breadth & hardening** | Disbursement matrix IT, volume seed and test, the full replay suite, worker-restart test, observability |

@@ -125,7 +125,7 @@ The intent lives in `test/data/scenarios/_baseline.yaml`. Derived rows (payment,
 | `down` | `respond: down` | 503 on every attempt (= `funding.activity.retry.max-attempts`) |
 | `flaky` | `respond: { failTimes: maxAttempts − 1, then: ok }` | 503 … then 200. Stays inside the retry budget even if the budget changes. |
 
-Disbursement stubs are matched on the idempotency key `funding-<env>-<versionId>` and `dealershipId`. LA-1030's intent is `respond: down`.
+Disbursement stubs are matched on the idempotency key `funding-<env>-<versionId>` and `dealershipId`. LA-1030's intent is `respond: EXHAUSTED` (503 on every attempt).
 
 **Runtime control in tests:** the `MockControl` test helper uses WireMock's admin API: it swaps a scenario's stub for another *generated* intent, resets it, and verifies the calls made. The hand-written `/api/v1/dev/mocks/**` endpoints are gone. A test can only switch to an intent the generator produced, never to a hand-typed body.
 
@@ -232,6 +232,7 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1025 | Unused field flagged | RISC extra field `dealer_notes` confidence 0.89 | P | P | P | P | P | FUNDED | — | AS-7.2 |
 | LA-1026 | Missing required field | RISC has no `finance_charge` | NEEDS_REVIEW | P | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | AS-7.1 |
 | LA-1027 | Multi-failure | TILA total 33802.60, GAP VIN 4T1C11AK7RU100102, stated 120000.00 with intent `low` | FAIL | P | FAIL | FAIL | P | STIPULATED | TILA_MATH_DISCREPANCY + VIN_MISMATCH + INCOME_VARIANCE_EXCEEDED | FR-04 |
+| LA-1030 | Disbursement fails | every check passes; dealer `DLR-FAIL`, disbursement intent `EXHAUSTED` (503 on every attempt): held APPROVED until a funder retries | PASS | PASS | PASS | PASS | PASS | APPROVED | — | C-8, AS-8.6 |
 | LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4: `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
 | LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (thousands separator) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | FR-14 |
 | LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
@@ -249,7 +250,6 @@ These rows are the **intended** scenarios for later slices (`tasks.md`). They ar
 |---|---|---|---|---|---|---|---|---|---|---|
 | LA-1028 | Resubmission fixes the deal | **v1** = LA-1006 data (seeded STIPULATED, stip PENDING); **v2** = baseline (DRAFT, latest) | v2: all PASS | | | | | v1 stays STIPULATED; **v2 FUNDED** | v1's stip kept as history | AS-9.1–9.3 |
 | LA-1029 | New document version | One app version. RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +$10; RISC **v2** (latest) at baseline | PASS (reads v2) | P | P | P | P | FUNDED | — | AS-9.4 |
-| LA-1030 | Disbursement fails | Baseline; dealer `DLR-FAIL` (mock disbursement always returns 500) | P | P | P | P | P | **APPROVED** (held) | — | C-8 |
 | LA-1032 | Doc fix triggers re-run | Starts as LA-1006 (STIPULATED). The test then adds **Buyer's Order v2** with 31450.00 through `POST /api/v1/dev/applications/{id}/documents` | re-run: all PASS | | | | | **FUNDED** | PRICE stip auto-SATISFIED by `system:` (AS-8.8) | AS-1.8, AS-8.8 |
 
 
@@ -259,13 +259,13 @@ These rows are the **intended** scenarios for later slices (`tasks.md`). They ar
 |---|---|---|
 | LA-1006 STIPULATED | Waive `STIP_PRICE_MISMATCH` with a reason | Stip WAIVED, `resolved_at` set → workflow continues → FUNDED; audit row written |
 | LA-1012 STIPULATED | Mark the income stip SATISFIED | → FUNDED |
-| LA-1027 STIPULATED | Resolve 2 of 3 stips | Stays STIPULATED until the 3rd is resolved |
+| LA-1027 STIPULATED | Resolve the VIN and income stips | Stays STIPULATED: the 3rd (TILA) stip is RISC-bound and resolves only via a corrected RISC version (C-15, slice S5) |
 | LA-1016 held (ERROR) | `MockControl.switchIntent(LA-1016, income, ok-100k)`, then `rerunChecks({INCOME})` | INCOME PASS (attempt 2) → FUNDED |
 | LA-1006 STIPULATED | Manual approve while the price stip is PENDING | 409 `PENDING_STIPS` (AS-8.7) |
 | LA-1016 held (ERROR) | Manual approve (no PENDING stips) | APPROVED → FUNDED (AS-8.7 override) |
-| LA-1001 before disbursement (`MockControl.switchIntent(…, disbursement, TIMEOUT_ALWAYS)`) | Add manual `STIP_PROOF_OF_INCOME` | STIPULATED (AS-10.8) |
+| LA-1001 before disbursement (`MockControl.switchIntent(…, disbursement, EXHAUSTED)`) | Add manual `STIP_PROOF_OF_INCOME` | STIPULATED (AS-10.8) |
 | LA-1030 APPROVED (held) | `MockControl.switchIntent(LA-1030, disbursement, SUCCESS)`, then `retryDisbursement` | FUNDED |
-| LA-1012 STIPULATED, `expire-after` elapsed (functional env sets `funding.workflow.expire-after=PT20S`; workflow test uses time-skipping at P30D) | — | **EXPIRED**; stip stays PENDING as history; audit `EXPIRED_AFTER_…` (AS-8.6) |
+| LA-1012 STIPULATED, `expire-after` elapsed (the functional test back-dates the DRAFT's `submitted_at` so P30D ends 20 s after submit; the workflow test uses time-skipping at P30D) | — | **EXPIRED**; stip stays PENDING as history; audit `EXPIRED_AFTER_…` (AS-8.6) |
 | LA-1012 EXPIRED | Satisfy the stip | 409 `VERSION_EXPIRED` |
 | LA-1012 EXPIRED | Add a Buyer's Order v2 | Refused: `DOCUMENTS_FROZEN` |
 | LA-1030 APPROVED (disbursement down), `expire-after` elapsed | — | **EXPIRED**, no disbursement row COMPLETED |

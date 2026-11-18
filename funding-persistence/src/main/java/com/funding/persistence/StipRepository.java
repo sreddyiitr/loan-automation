@@ -38,6 +38,35 @@ public class StipRepository {
         return forVersion(versionId).stream().filter(s -> "PENDING".equals(s.status())).toList();
     }
 
+    public java.util.Optional<Stip> find(long stipId) {
+        return jdbc.sql("SELECT stip_id, application_version_id, validation_check, stip_code, description, status FROM stipulations WHERE stip_id = ?")
+                .param(stipId)
+                .query((rs, i) -> new Stip(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6)))
+                .optional();
+    }
+
+    /**
+     * AS-10.2: PENDING -> SATISFIED or WAIVED, conditional on still being PENDING, so of two
+     * concurrent funders only one wins. Empty when it was already resolved.
+     */
+    public java.util.Optional<Stip> resolve(long stipId, String status, String actor, String note) {
+        if (!"SATISFIED".equals(status) && !"WAIVED".equals(status)) {
+            throw new IllegalArgumentException("a stip is resolved as SATISFIED or WAIVED, not " + status);
+        }
+        return jdbc.sql("""
+                UPDATE stipulations SET status = ?, resolved_by = ?, resolution_note = ?, resolved_at = CURRENT_TIMESTAMP
+                 WHERE stip_id = ? AND status = 'PENDING'
+                RETURNING stip_id, application_version_id, validation_check, stip_code, description, status""")
+                .params(status, actor, note, stipId)
+                .query((rs, i) -> new Stip(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6)))
+                .optional();
+    }
+
+    /** AS-10.8: a funder's stip, owned by no check ({@code validation_check = NULL}). Idempotent per code (FR-07). */
+    public Long createManual(long versionId, String code, String description) {
+        return createIfAbsent(versionId, null, new StipRequest(code, description), null);
+    }
+
     /** AS-8.8: a check that now passes resolves its own PENDING stips. Returns the resolved stips. */
     public List<Stip> autoSatisfy(long versionId, Check check, String actor, String note) {
         return jdbc.sql("""

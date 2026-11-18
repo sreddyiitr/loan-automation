@@ -11,7 +11,7 @@ public interface FundingActivities {
 
     VersionView loadVersionSnapshot(long applicationVersionId);
 
-    /** Persists the result row and creates the check's stips. Returns false if the version was superseded. */
+    /** Persists the result row and creates the check's stips. Returns false (and writes nothing) if the version was superseded or is terminal. */
     boolean recordOutcome(long applicationVersionId, CheckOutcome outcome, int attempt);
 
     /** Sets APPROVED / STIPULATED / PENDING_REVIEW from the outcomes; returns the status, or SUPERSEDED. */
@@ -19,4 +19,11 @@ public interface FundingActivities {
 
     /** APPROVED -> FUNDED, audited. Returns the status, or SUPERSEDED. */
     String markFunded(long applicationVersionId);
+
+    /**
+     * AS-8.6: a non-terminal latest version becomes EXPIRED, audited by {@code system:<workflowId>}
+     * with reason {@code EXPIRED_AFTER_<expire-after>}; PENDING stips stay. Returns the status after
+     * (EXPIRED, or the terminal status it already had), or SUPERSEDED.
+     */
+    String expire(long applicationVersionId);
 }

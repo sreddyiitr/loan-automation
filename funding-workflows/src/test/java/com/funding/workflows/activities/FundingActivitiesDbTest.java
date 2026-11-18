@@ -46,7 +46,7 @@ class FundingActivitiesDbTest {
         TestDatabase t = TestDatabase.fresh();
         jdbc = t.jdbc();
         TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(t.dataSource()));
-        db = new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.of(Check.TILA));
+        db = new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.of(Check.TILA), Duration.ofDays(30));
         disbursement = new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), Duration.ofSeconds(5));
         HttpResponse<String> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create(wm.baseUrl() + "/__admin/mappings/import"))
                 .POST(HttpRequest.BodyPublishers.ofString(Fixtures.wireMockImport())).build(), HttpResponse.BodyHandlers.ofString());
@@ -187,5 +187,58 @@ class FundingActivitiesDbTest {
         db.recordOutcome(id, pass, 2);
         assertThat(db.applyOutcome(id, Map.of(Check.TILA, pass))).isEqualTo("APPROVED");
         assertThat(new StipRepository(jdbc).forVersion(id)).singleElement().satisfies(s -> assertThat(s.status()).isEqualTo("SATISFIED"));
+    }
+
+    @Test
+    void AS_8_6_expireIsAuditedKeepsStipsAndIsTerminal() {
+        long id = submitted("LA-1002");
+        CheckOutcome tila = evaluateTila(id);
+        db.recordOutcome(id, tila, 1);
+        assertThat(db.applyOutcome(id, Map.of(Check.TILA, tila))).isEqualTo("STIPULATED");
+        assertThat(db.loadVersionSnapshot(id).expiresAtEpochMillis() - db.loadVersionSnapshot(id).submittedAtEpochMillis())
+                .isEqualTo(Duration.ofDays(30).toMillis());
+
+        assertThat(db.expire(id)).isEqualTo("EXPIRED");
+        assertThat(status(id)).isEqualTo("EXPIRED");
+        assertThat(new StipRepository(jdbc).pending(id)).singleElement() // PENDING stips stay as history
+                .satisfies(st -> assertThat(st.code()).isEqualTo("STIP_TILA_MATH_DISCREPANCY"));
+        assertThat(new AuditRepository(jdbc).forEntity("APPLICATION_VERSION", Long.toString(id)))
+                .filteredOn(e -> e.after() != null && e.after().contains("EXPIRED"))
+                .singleElement().satisfies(e -> {
+                    assertThat(e.actor()).isEqualTo("system:funding-test-" + id);
+                    assertThat(e.after()).contains("EXPIRED_AFTER_P30D");
+                });
+        assertThat(db.expire(id)).isEqualTo("EXPIRED"); // retried activity: no second transition
+        assertThat(db.applyOutcome(id, Map.of(Check.TILA, tila))).isEqualTo("EXPIRED"); // terminal
+    }
+
+    @Test
+    void AS_8_7_manualApproveOverridingErrorStaysApproved() {
+        long id = submitted("LA-1001");
+        CheckOutcome error = CheckOutcome.error(Check.INCOME, "income API down");
+        db.recordOutcome(id, error, 1);
+        assertThat(db.applyOutcome(id, Map.of(Check.INCOME, error))).isEqualTo("PENDING_REVIEW");
+        jdbc.sql("UPDATE application_versions SET version_status = 'APPROVED' WHERE application_version_id = ?").param(id).update(); // funder API
+        assertThat(db.applyOutcome(id, Map.of(Check.INCOME, error))).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void FR_09_illegalTransitionIsRefused() {
+        long id = submitted("LA-1001");
+        assertThat(FundingActivitiesImpl.iso(Duration.ofDays(30))).isEqualTo("P30D");
+        assertThat(FundingActivitiesImpl.iso(Duration.ofSeconds(20))).isEqualTo("PT20S");
+        jdbc.sql("UPDATE application_versions SET version_status = 'DRAFT' WHERE application_version_id = ?").param(id).update();
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> db.expire(id)))
+                .isInstanceOf(com.funding.domain.status.VersionStatus.IllegalTransitionException.class);
+        assertThat(status(id)).isEqualTo("DRAFT");
+    }
+
+    @Test
+    void AS_10_7_noResultsOrStipsAfterTheVersionClosed() {
+        long id = submitted("LA-1002");
+        jdbc.sql("UPDATE application_versions SET version_status = 'REJECTED' WHERE application_version_id = ?").param(id).update();
+        assertThat(db.recordOutcome(id, evaluateTila(id), 1)).isFalse(); // rejected while TILA was still running
+        assertThat(jdbc.sql("SELECT count(*) FROM validation_results").query(Integer.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM stipulations").query(Integer.class).single()).isZero();
     }
 }

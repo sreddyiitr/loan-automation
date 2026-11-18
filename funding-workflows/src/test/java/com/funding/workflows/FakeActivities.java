@@ -35,6 +35,15 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
             com.funding.domain.income.IncomeVerification.verified(new BigDecimal("100000.00"));
     volatile boolean incomeDown = false;
     volatile boolean pendingManualStip = false;
+    /** PENDING stips by owner: a check name, or "MANUAL" for a funder's stip (AS-10.8). */
+    final java.util.Set<String> pendingStips = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    volatile long submittedAt = 0L;
+    volatile java.time.Duration expireAfter = java.time.Duration.ofDays(30);
+    volatile boolean disburseDown = false;
+    volatile java.time.Duration disburseTakes = java.time.Duration.ZERO;
+    final AtomicInteger expireCalls = new AtomicInteger();
+    /** Workflow (server) time at which expire was scheduled; 0 until then. */
+    volatile long expireScheduledAt = 0L;
     volatile Map<String, String> risc = baselineRisc();
 
     static Map<String, String> baselineRisc() {
@@ -64,7 +73,8 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
                         "creditor_name", "Summit Auto Finance", "vin", vin, "vehicle_year", "2024", "vehicle_make", "Toyota",
                         "vehicle_model", "Camry"))),
                 List.of(new GapForm("TX", "GAP-TX-2024-01", LocalDate.of(2024, 1, 1), null)));
-        return new VersionView(s, RulesConfig.defaults(), enabled, status, latest, 0L);
+        return new VersionView(s, RulesConfig.defaults(), enabled, status, latest, submittedAt,
+                submittedAt == 0L ? 0L : submittedAt + expireAfter.toMillis());
     }
 
     private static DocumentSnapshot doc(DocumentType t, long id, Map<String, String> fields) {
@@ -79,6 +89,9 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
             throw ApplicationFailure.newFailure("db down", "DbDown");
         }
         calls.add("recordOutcome:" + outcome.check() + ":" + outcome.outcome());
+        if (outcome.outcome() == Outcome.FAIL || outcome.outcome() == Outcome.NEEDS_REVIEW) {
+            pendingStips.add(outcome.check().name()); // FR-07: one PENDING stip per check, however often it fails
+        }
         recorded.computeIfAbsent(outcome.check(), c -> Collections.synchronizedList(new ArrayList<>())).add(outcome);
         return latest;
     }
@@ -89,9 +102,22 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
         if (!latest) {
             return "SUPERSEDED";
         }
+        if (java.util.Set.of("FUNDED", "REJECTED", "EXPIRED").contains(status)) {
+            return status;
+        }
+        // AS-8.8: a check passing now auto-satisfies its own earlier stip.
+        outcomes.values().stream().filter(o -> o.outcome() == Outcome.PASS).forEach(o -> {
+            if (pendingStips.remove(o.check().name())) {
+                calls.add("autoSatisfied:" + o.check());
+            }
+        });
         boolean error = outcomes.values().stream().anyMatch(o -> o.outcome() == Outcome.ERROR);
-        boolean stip = outcomes.values().stream().anyMatch(o -> o.outcome() == Outcome.FAIL || o.outcome() == Outcome.NEEDS_REVIEW);
-        status = error ? "PENDING_REVIEW" : stip ? "STIPULATED" : "APPROVED";
+        boolean stip = !pendingStips.isEmpty();
+        if ("APPROVED".equals(status)) {
+            status = stip ? "STIPULATED" : "APPROVED";
+        } else {
+            status = error ? "PENDING_REVIEW" : stip ? "STIPULATED" : "APPROVED";
+        }
         return status;
     }
 
@@ -99,6 +125,20 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
     public String markFunded(long id) {
         calls.add("markFunded");
         status = "FUNDED";
+        return status;
+    }
+
+    @Override
+    public String expire(long id) {
+        calls.add("expire");
+        expireCalls.incrementAndGet();
+        expireScheduledAt = io.temporal.activity.Activity.getExecutionContext().getInfo().getScheduledTimestamp();
+        if (!latest) {
+            return "SUPERSEDED";
+        }
+        if (!java.util.Set.of("FUNDED", "REJECTED", "EXPIRED").contains(status)) {
+            status = "EXPIRED";
+        }
         return status;
     }
 
@@ -115,7 +155,17 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
     public String disburse(long id) {
         calls.add("disburse");
         disburseCalls.incrementAndGet();
-        if (!"APPROVED".equals(status) || pendingManualStip) {
+        if (!disburseTakes.isZero()) {
+            try {
+                Thread.sleep(disburseTakes.toMillis());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        if (disburseDown) {
+            throw ApplicationFailure.newFailure("disbursement API: server error (503)", "DisbursementUnavailable");
+        }
+        if (!"APPROVED".equals(status) || pendingManualStip || !pendingStips.isEmpty()) {
             return null;
         }
         return "DSB-1";

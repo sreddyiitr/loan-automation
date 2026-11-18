@@ -40,7 +40,11 @@ class StartWorkflowApiTest {
         private boolean done;
         @Override public FundingResult run(FundingInput input) { RUNS.incrementAndGet(); Workflow.await(() -> done); return new FundingResult("X"); }
         @Override public void stipResolved() { done = true; }
-        @Override public FundingState getState() { return new FundingState("WAITING_FOR_FUNDER", "STIPULATED", Map.of(), Map.of()); }
+        @Override public void approve(String actor) { }
+        @Override public void reject(String actor, String reason) { }
+        @Override public void rerunChecks(java.util.List<com.funding.domain.Check> checks) { }
+        @Override public void retryDisbursement(String actor) { }
+        @Override public FundingState getState() { return new FundingState("WAITING_FOR_FUNDER", "STIPULATED", Map.of(), Map.of(), 0L, false); }
     }
 
     private TestWorkflowEnvironment temporal;

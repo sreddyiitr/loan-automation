@@ -33,14 +33,36 @@ final class MockControl {
     private final String wiremockUrl;
     private final MockStubGenerator generator;
     private final Map<ExternalApi, MockCatalog> catalogs;
-    private final List<Fixture> fixtures;
+    private final List<Fixture> fixtures = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     MockControl(String env, String wiremockUrl, SeedConfig config, List<Fixture> fixtures) {
         this.env = env;
         this.wiremockUrl = wiremockUrl.replaceAll("/+$", "");
         this.generator = new MockStubGenerator(env, MockBudget.from(config), config.rules().incomeVarianceThreshold());
         this.catalogs = MockSet.catalogs(SeedPaths.discover());
-        this.fixtures = List.copyOf(fixtures);
+        this.fixtures.addAll(fixtures);
+    }
+
+    /**
+     * A copy of a generated scenario under {@code <scenarioId>-<suffix>} (its own application ID and
+     * SSN token), so a test can act on it without competing for the seeded one. Its stubs come from
+     * the same generator, for the copy (P-5.1); write its rows with {@code FixtureRows}.
+     */
+    Fixture cloneScenario(String scenarioId, String suffix) throws IOException, InterruptedException {
+        Fixture f = fixture(scenarioId);
+        String id = scenarioId + "-" + suffix;
+        List<Fixture.Version> versions = f.versions().stream().map(v -> new Fixture.Version(v.versionNumber(), v.latest(), v.status(),
+                v.borrowerName(), v.coBorrowerName(), "enc:" + env + ":" + id, v.statedIncomeAnnual(), v.vehicleVin(),
+                v.dealershipName(), v.dealershipId(), v.documents())).toList();
+        Fixture copy = new Fixture(id, f.title(), id, versions, f.externals(), f.gapForms(), f.intent());
+        fixtures.add(copy);
+        for (ExternalApi api : ExternalApi.values()) {
+            String intent = copy.externals().get(MockStubGenerator.externalsKey(api));
+            if (intent != null) {
+                swap(id, api, intent);
+            }
+        }
+        return copy;
     }
 
     /** Replaces the scenario's stub for {@code api} with the generated stub for {@code intent}; returns it. */
