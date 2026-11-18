@@ -1,0 +1,10 @@
+id: LA-1001
+title: Happy path
+rules: [TILA_SUM, TILA_PAYMENT]
+side: PASS
+spec: AS-8.1
+summary: "—"
+expect:
+  checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+  status: FUNDED
+  stips: []

@@ -1,0 +1,13 @@
+id: LA-1004
+title: 0% APR promo
+rules: [TILA_PAYMENT]
+side: PASS
+variant: zero-apr
+spec: AS-2.3 (r = 0)
+summary: "AF {risc.amount_financed}, APR {risc.apr}, {risc.term_months} mo, pmt {risc.monthly_payment}, total {risc.total_of_payments}, FC {risc.finance_charge}; cash price {risc.cash_price} on both"
+given:
+  risc: { amountFinanced: "24000.00", apr: "0", term: 48, cashPrice: "27000.00" }
+expect:
+  checks: { TILA: PASS }
+  status: FUNDED
+  stips: []

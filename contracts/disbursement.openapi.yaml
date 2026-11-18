@@ -1,0 +1,80 @@
+openapi: 3.0.3
+info:
+  title: Disbursement API
+  version: "1.0"
+  description: |
+    Releases funds to the dealer for an approved application version (spec 001 US-8, AS-8.1, AS-8.9).
+    Mocked locally by generated WireMock stubs only (constitution P-5). The idempotency key is the
+    funding workflow ID `funding-<env>-<application_version_id>`; replays with the same key return
+    the original disbursement.
+paths:
+  /api/v1/external/disbursements:
+    post:
+      operationId: createDisbursement
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DisbursementRequest' }
+      responses:
+        '201':
+          description: Disbursement completed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disbursement' }
+        '200':
+          description: Replay of an earlier request with the same idempotency key
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Disbursement' }
+        '409':
+          description: Idempotency key reused with a different amount or dealer
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: The request can never succeed (for example an invalid dealer account)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: Temporarily unavailable; retry
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  schemas:
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+      example: "28450.00"
+    DisbursementRequest:
+      type: object
+      additionalProperties: false
+      required: [applicationVersionId, loanApplicationId, dealershipId, amount]
+      properties:
+        applicationVersionId: { type: integer, format: int64, minimum: 1 }
+        loanApplicationId: { type: string, minLength: 1, maxLength: 64 }
+        dealershipId: { type: string, minLength: 1, maxLength: 64 }
+        amount: { $ref: '#/components/schemas/Money' }
+    Disbursement:
+      type: object
+      required: [status, reference]
+      properties:
+        status: { type: string, enum: [COMPLETED] }
+        reference: { type: string, minLength: 1, maxLength: 100 }
+        amount: { $ref: '#/components/schemas/Money' }
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }

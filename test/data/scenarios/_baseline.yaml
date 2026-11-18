@@ -1,0 +1,20 @@
+# Shared baseline intent (seed-data.md "Shared baseline"). Scenarios override parts of it under `given`.
+# Derived values (monthly payment, total of payments, finance charge) are NOT here: the generator
+# computes them with the domain Amortization calculator (constitution P-2.1).
+application:
+  borrowerName: Jordan Rivera
+  coBorrowerName: Casey Rivera
+  statedIncomeAnnual: "96000.00"
+  dealer: { name: Lone Star Motors, id: DLR-100 }
+vehicle: { vin: 4T1C11AK7RU100101, year: 2024, make: Toyota, model: Camry }
+confidence: "0.97"
+risc:
+  pages: 5
+  cashPrice: "31450.00"
+  amountFinanced: "28450.00"
+  apr: "6.99"
+  term: 60
+  creditor: primary          # = funding.gap.primary-lender-name
+  contractDate: 2026-11-02
+buyersOrder: { pages: 2 }    # total_vehicle_cash_price = risc.cashPrice unless a scenario breaks it
+gap: { pages: 3, formNumber: GAP-TX-2024-01, state: TX, creditor: primary }

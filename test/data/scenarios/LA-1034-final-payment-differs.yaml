@@ -1,0 +1,14 @@
+id: LA-1034
+title: Final payment differs
+rules: [TILA_PAYMENT]
+side: PASS
+variant: final-payment
+spec: C-9
+summary: "`monthly_payment` {risc.monthly_payment}, `final_payment` {risc.final_payment}, total {risc.total_of_payments}, FC {risc.finance_charge}"
+given:
+  risc:
+    finalPayment: { offset: "+0.15" }
+expect:
+  checks: { TILA: PASS }
+  status: FUNDED
+  stips: []

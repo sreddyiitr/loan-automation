@@ -11,7 +11,7 @@ file="$(jq -r '.tool_input.file_path // .tool_response.filePath // empty' 2>/dev
 rel="${file#"$root"/}"
 
 case "$rel" in
-  funding-domain/*/rules/*|*/RuleCatalog*.java|test/data/scenarios/*|test/data/mocks/*|test/data/_baseline.yaml|test/data/gap-form-registry*|contracts/*) ;;
+  funding-domain/src/main/*|*/RuleCatalog*.java|test/data/scenarios/*|test/data/mocks/*|test/data/_baseline.yaml|test/data/gap-form-registry*|contracts/*) ;;
   funding-*/src/main/resources/application*.yml|funding-*/src/main/resources/application*.yaml) ;;
   *) exit 0 ;;
 esac

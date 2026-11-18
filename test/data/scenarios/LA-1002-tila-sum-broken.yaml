@@ -1,0 +1,13 @@
+id: LA-1002
+title: TILA sum broken
+rules: [TILA_SUM]
+side: FAIL
+spec: AS-2.2
+summary: "`total_of_payments` {risc.total_of_payments} (finance charge unchanged)"
+given:
+  risc:
+    totalOfPayments: { offset: "+10.00" }
+expect:
+  checks: { TILA: FAIL }
+  status: STIPULATED
+  stips: [STIP_TILA_MATH_DISCREPANCY]
