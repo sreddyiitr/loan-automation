@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Clarified: all §9 items answered by the owner (2026-11-17). Ready for `tasks.md`. |
+| **Status** | Clarified: all §9 items answered by the owner (2026-11-17). `tasks.md` generated. |
 | **Source** | `auto_funding_tasks.md` |
 | **Scope** | Backend only: data model, event trigger, Temporal orchestration, five validation domains, stipulations, mock external APIs, funder REST API |
 | **Out of scope** | ADK A2UI funder dashboard (future spec 002), OCR/extraction itself, real payroll/disbursement integrations, authN/authZ (a header stands in for the actor), AWS deployment/IaC (only the constraints it must respect are recorded in `plan.md`) |
