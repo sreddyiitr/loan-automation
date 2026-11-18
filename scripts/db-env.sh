@@ -23,16 +23,21 @@ _fd_pick() {
       || { _fd_fail "DB_CONTAINER=$DB_CONTAINER is not running"; return 1; }
     return 0
   fi
-  local found=() name
+  # Plain strings, no arrays: sourced from bash and zsh, whose arrays index differently.
+  local found="" count=0 name
   while read -r name; do
     [ -n "$name" ] || continue
-    docker port "$name" 5432/tcp 2>/dev/null | grep -qE '^(127\.0\.0\.1|0\.0\.0\.0):' && found+=("$name")
-  done < <(docker ps --filter "ancestor=$DB_IMAGE" --format '{{.Names}}')
-  if [ "${#found[@]}" -gt 1 ]; then
-    _fd_fail "several $DB_IMAGE containers publish a port; choose one with DB_CONTAINER=<name>: ${found[*]}"
+    if docker port "$name" 5432/tcp 2>/dev/null | grep -qE '^(127\.0\.0\.1|0\.0\.0\.0):'; then
+      found="$found $name"; count=$((count + 1))
+    fi
+  done <<EOF_PS
+$(docker ps --filter "ancestor=$DB_IMAGE" --format '{{.Names}}')
+EOF_PS
+  if [ "$count" -gt 1 ]; then
+    _fd_fail "several $DB_IMAGE containers publish a port; choose one with DB_CONTAINER=<name>:$found"
     return 1
   fi
-  DB_CONTAINER="${found[0]:-}"
+  DB_CONTAINER="${found# }"
 }
 
 _fd_creds() {

@@ -70,7 +70,8 @@ _fe_endpoint() {
   local ip
   ip="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$EMULATOR_CONTAINER" | awk '{print $1}')"
   [ -n "$ip" ] || { _fe_fail "$EMULATOR_CONTAINER has no published port and no bridge IP"; return 1; }
-  local want="TCP-LISTEN:$_FE_INTERNAL_PORT,fork,reuseaddr TCP:$ip:$_FE_INTERNAL_PORT"
+  local listen="TCP-LISTEN:$_FE_INTERNAL_PORT,fork,reuseaddr" target="TCP:$ip:$_FE_INTERNAL_PORT"
+  local want="$listen $target"
   if _fe_running "$_FE_PROXY_NAME"; then
     local have
     have="$(docker inspect -f '{{join .Config.Cmd " "}}' "$_FE_PROXY_NAME" 2>/dev/null)"
@@ -82,9 +83,9 @@ _fe_endpoint() {
   if ! _fe_running "$_FE_PROXY_NAME"; then
     docker rm -f "$_FE_PROXY_NAME" >/dev/null 2>&1 || true
     echo "emulator-env: $EMULATOR_CONTAINER publishes no port; starting forwarder $_FE_PROXY_NAME on 127.0.0.1:$_FE_INTERNAL_PORT" >&2
-    # shellcheck disable=SC2086
+    # Two explicit args (zsh doesn't word-split an unquoted $var).
     docker run -d --name "$_FE_PROXY_NAME" --label "$_FE_LABEL" --restart unless-stopped \
-      -p "127.0.0.1:$_FE_INTERNAL_PORT:$_FE_INTERNAL_PORT" alpine/socat $want >/dev/null \
+      -p "127.0.0.1:$_FE_INTERNAL_PORT:$_FE_INTERNAL_PORT" alpine/socat "$listen" "$target" >/dev/null \
       || { _fe_fail "could not start $_FE_PROXY_NAME (is port $_FE_INTERNAL_PORT free?)"; return 1; }
   fi
   _FE_HOST_PORT="$_FE_INTERNAL_PORT"
@@ -146,12 +147,17 @@ _fe_identity_ok() {
 _fe_start_own() {
   docker image inspect "$EMULATOR_IMAGE" >/dev/null 2>&1 \
     || { _fe_fail "image $EMULATOR_IMAGE not found (build it from ../aws-emulator/Dockerfile)"; return 1; }
-  docker rm -f "$_FE_OWN_NAME" >/dev/null 2>&1 || true
+  if _fe_running "$_FE_OWN_NAME"; then
+    EMULATOR_CONTAINER="$_FE_OWN_NAME"   # never remove a running emulator: its state is in memory
+    return 0
+  fi
+  docker rm "$_FE_OWN_NAME" >/dev/null 2>&1 || true   # a stopped leftover only
   mkdir -p "$HOME/.aws/emulator"
   echo "emulator-env: no usable emulator found; starting $_FE_OWN_NAME on 127.0.0.1:$EMULATOR_PORT" >&2
-  local user_flag=()
-  [ "$(uname -s)" = "Linux" ] && user_flag=(--user "$(id -u):$(id -g)")
-  docker run -d --rm --name "$_FE_OWN_NAME" --label "$_FE_LABEL" "${user_flag[@]}" \
+  local user_flag="--user=$(id -u):$(id -g)"
+  # On Linux, files in the bind mount must belong to you; elsewhere a harmless label fills the slot.
+  [ "$(uname -s)" = "Linux" ] || user_flag="--label=funding.user=$(id -u)"
+  docker run -d --rm --name "$_FE_OWN_NAME" --label "$_FE_LABEL" "$user_flag" \
     --memory=2g --memory-swap=2g \
     -p "127.0.0.1:$EMULATOR_PORT:$EMULATOR_PORT" \
     -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" \

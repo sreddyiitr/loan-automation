@@ -23,21 +23,32 @@ _fw_pick() {
       || { _fw_fail "WIREMOCK_CONTAINER=$WIREMOCK_CONTAINER is not running"; return 1; }
     return 0
   fi
-  local found=() name image
+  # Plain strings, no arrays: this file is sourced from bash and zsh (macOS default), whose
+  # arrays index differently.
+  local found="" count=0 name image
   while read -r name image; do
     [ -n "$name" ] || continue
     case "$image" in "$WIREMOCK_IMAGE"|"$WIREMOCK_IMAGE":*) ;; *) continue ;; esac
-    docker port "$name" 8080/tcp 2>/dev/null | grep -qE '^(127\.0\.0\.1|0\.0\.0\.0):' && found+=("$name")
-  done < <(docker ps --format '{{.Names}} {{.Image}}')
-  if [ "${#found[@]}" -gt 1 ]; then
-    _fw_fail "several WireMock containers publish a port; choose one with WIREMOCK_CONTAINER=<name>: ${found[*]}"
+    if docker port "$name" 8080/tcp 2>/dev/null | grep -qE '^(127\.0\.0\.1|0\.0\.0\.0):'; then
+      found="$found $name"; count=$((count + 1))
+    fi
+  done <<EOF_PS
+$(docker ps --format '{{.Names}} {{.Image}}')
+EOF_PS
+  if [ "$count" -gt 1 ]; then
+    _fw_fail "several WireMock containers publish a port; choose one with WIREMOCK_CONTAINER=<name>:$found"
     return 1
   fi
-  WIREMOCK_CONTAINER="${found[0]:-}"
+  WIREMOCK_CONTAINER="${found# }"
 }
 
 _fw_start_own() {
-  docker rm -f "$_FW_OWN_NAME" >/dev/null 2>&1 || true
+  # Never remove a running container: if ours is up, reuse it (discovery can miss it transiently).
+  if [ "$(docker inspect -f '{{.State.Running}}' "$_FW_OWN_NAME" 2>/dev/null)" = "true" ]; then
+    WIREMOCK_CONTAINER="$_FW_OWN_NAME"
+    return 0
+  fi
+  docker rm "$_FW_OWN_NAME" >/dev/null 2>&1 || true   # a stopped leftover only
   echo "wiremock-env: no reachable WireMock; starting $_FW_OWN_NAME on 127.0.0.1:$_FW_PORT" >&2
   docker run -d --name "$_FW_OWN_NAME" --label funding.managed=true \
     -p "127.0.0.1:$_FW_PORT:8080" "$WIREMOCK_IMAGE" --disable-banner >/dev/null \
