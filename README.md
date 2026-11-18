@@ -78,20 +78,69 @@ scenario through the full trigger path.
 
 ## Before you start
 
-| You need | Check with | Notes |
-|---|---|---|
-| Docker Desktop | `docker ps` | must be running |
-| Java 21 | `java -version` | e.g. `brew install openjdk@21`; Homebrew's keg-only install is found automatically (`scripts/java-env.sh`) |
-| Maven 3.9+ | `mvn -v` | |
-| Temporal CLI | `temporal --version` | `brew install temporal`; provides the dev server on `localhost:7233` |
-| AWS CLI v2 | `aws --version` | optional; used for the identity check and to explore the emulator (step 6) |
+You need the tools below, **a running Temporal server**, and four Docker images. One image you
+build yourself; the other three download on first use.
+
+### 1. Tools to install
+
+| You need | Check with | Install (macOS) | Why |
+|---|---|---|---|
+| Docker Desktop | `docker ps` | [docker.com](https://www.docker.com/products/docker-desktop/) | Runs the emulator, Postgres and WireMock, plus the Testcontainers tests. **It must be running.** Give it at least 4 GB of memory, because the emulator alone is capped at 2 GiB. |
+| Java 21 | `java -version` | `brew install openjdk@21` | Builds and runs the app. Homebrew's keg-only install is found automatically (`scripts/java-env.sh`). |
+| Maven 3.9+ | `mvn -v` | `brew install maven` | Builds the modules. The first build downloads the dependencies into `~/.m2`. |
+| Temporal CLI | `temporal --version` | `brew install temporal` | Provides the local Temporal server (step 2). Tested with CLI 1.10.1 / server 1.32.2. |
+| `curl`, `nc`, `python3` | `which curl nc python3` | preinstalled on macOS | `curl` for health checks, `nc` for the Temporal reachability check, `python3` in some example commands. |
+| `jq` | `jq --version` | `brew install jq` | Used by the Claude Code seed-check hook (`scripts/hooks/seed-check-hook.sh`). Optional if you don't use Claude Code. |
+| AWS CLI v2 | `aws --version` | `brew install awscli` | Optional, but recommended. `emulator-env.sh` uses it to prove it's talking to the emulator (account `000000000000`), and step 6 uses it to explore SQS. |
 
 > **You never need real AWS credentials.** The emulator creates its own keys on every start, and
 > the scripts read them for you.
->
-> **You don't need to start Postgres or WireMock yourself.** The scripts reuse a running
-> `postgres:18` or `wiremock/wiremock` container if one publishes a port. Otherwise they start
-> their own (`funding-postgres` on 55432, `funding-wiremock` on 8089).
+
+### 2. Services that must be running
+
+| Service | Who starts it | Address | Notes |
+|---|---|---|---|
+| **Temporal** | **you**: `temporal server start-dev` (step 2) | gRPC `localhost:7233`, UI http://localhost:8233 | **Required** for `make run` and `make test-functional`; the scripts never start it for you. `make test-unit` doesn't need it, because it uses Temporal's in-memory test server. Another address goes in `TEMPORAL_ADDRESS=host:port`. |
+| AWS Emulator (SQS) | the scripts, or you (step 3) | `https://127.0.0.1:9297` | The scripts reuse a running `aws-emulator:latest` container, otherwise they start `funding-emulator`. |
+| PostgreSQL 18 | the scripts | `127.0.0.1:55432` | The scripts reuse a running `postgres:18` container that publishes a port, otherwise they start `funding-postgres` (volume `funding-pgdata`). |
+| WireMock | the scripts | `http://127.0.0.1:8089` | The scripts reuse a running `wiremock/wiremock` container that publishes a port, otherwise they start `funding-wiremock`. |
+
+### 3. Docker images
+
+| Image | Size | How you get it | Used for |
+|---|---:|---|---|
+| `aws-emulator:latest` | ~1.6 GB | **You build it once** (step 1); AWS publishes no prebuilt image | SQS queue + DLQ |
+| `postgres:18` | ~700 MB | Downloaded automatically the first time `db-env.sh` or the tests need it | The app database, and the Testcontainers tests |
+| `wiremock/wiremock:latest` | ~480 MB | Downloaded automatically by `wiremock-env.sh` | Mocks of the Disbursement (and later Income) API |
+| `alpine/socat:latest` | ~16 MB | Downloaded automatically, **only if** your emulator container publishes no port | Port forwarder `funding-emulator-proxy` |
+| `testcontainers/ryuk` | ~30 MB | Downloaded automatically by Testcontainers during `make test-unit` | Removes test containers after the tests |
+
+To download everything up front (useful on a slow or metered network):
+
+```bash
+docker pull postgres:18
+docker pull wiremock/wiremock:latest
+docker pull alpine/socat:latest
+# aws-emulator: build it, see step 1
+```
+
+### 4. Free ports
+
+`8080` (app), `7233` and `8233` (Temporal), `9297` (emulator), `55432` (Postgres), `8089` (WireMock).
+Check with `lsof -nP -iTCP:8080 -sTCP:LISTEN`. Already used by a container the scripts can reuse?
+That's fine. Already used by something else? See [Troubleshooting](#troubleshooting).
+
+### 5. Pre-flight check
+
+Paste this to confirm everything is in place before step 4:
+
+```bash
+docker ps >/dev/null && echo "docker: ok"
+java -version 2>&1 | grep -q '"21' && echo "java 21: ok"
+mvn -v >/dev/null && echo "maven: ok"
+nc -z localhost 7233 2>/dev/null && echo "temporal: ok (running)" || echo "temporal: NOT running -> temporal server start-dev"
+docker image inspect aws-emulator:latest >/dev/null 2>&1 && echo "aws-emulator image: ok" || echo "aws-emulator image: MISSING -> step 1"
+```
 
 ---
 
@@ -120,14 +169,21 @@ ENTRYPOINT ["aws-emulator", "-b", "0.0.0.0"]
 docker build -t aws-emulator .
 ```
 
-### Step 2: Start Temporal (in its own terminal)
+### Step 2: Start Temporal (required, in its own terminal)
 
 ```bash
 temporal server start-dev        # gRPC on localhost:7233, web UI on http://localhost:8233
 ```
 
-If a Temporal server is already running on `localhost:7233`, use it. A different address goes
-in `TEMPORAL_ADDRESS=host:port`.
+Leave it running for as long as you use the app or run `make test-functional`. If it isn't
+running, `make run` stops with `run-local: Temporal is not reachable at localhost:7233`.
+
+- `start-dev` keeps workflows **in memory**: stopping it forgets every run. To keep them across
+  restarts, use `temporal server start-dev --db-filename ~/.temporal/funding.db`.
+- If a Temporal server is already running on `localhost:7233` (for example for another project),
+  just use it. This app's workflow IDs and task queues are prefixed with `FUNDING_ENV`, so they
+  don't collide with anything else.
+- A server at a different address goes in `TEMPORAL_ADDRESS=host:port`.
 
 ### Step 3: Start the emulator (optional)
 
