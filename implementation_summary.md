@@ -357,7 +357,7 @@ These are recorded in full under each slice's notes in `tasks.md`.
 
 S4:
 
-- **Needs your confirmation:** C-15 to C-19 in `spec.md` (RISC stips can't be SATISFIED by hand
+- **Confirmed by the owner (2026-11-18):** C-15 to C-19 in `spec.md` (RISC stips can't be SATISFIED by hand
   either; manual stip and reject wait while a disbursement is in flight; only a funder retry
   re-pays; which statuses accept which actions; no results after a version closed).
 - The API writes, the workflow follows: signals are wake-ups after a guarded, audited DB write.

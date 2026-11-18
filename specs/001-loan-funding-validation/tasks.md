@@ -177,7 +177,7 @@ What landed differently from the task text, and why:
 
 ### S4 notes (done 2026-11-18)
 
-What landed differently from the task text, and why. Behaviour choices the spec didn't settle are recorded in `spec.md` as C-15 to C-19, awaiting owner confirmation.
+What landed differently from the task text, and why. Behaviour choices the spec didn't settle are recorded in `spec.md` as C-15 to C-19 (confirmed by the owner 2026-11-18).
 
 - **One status writer.** `VersionStatus` (funding-domain) holds the §6 table; `VersionRepository.setStatus(currentRow, next)` is the only status write, rejects any other pair with `IllegalTransitionException` (never retried: it's in the retry policy's do-not-retry list), and writes only if the status is still the one it locked.
 - **The API writes, the workflow follows.** Approve, reject, manual stips, stip resolutions and the STIPULATED -> PENDING_REVIEW of a re-run are DB writes made by the API (locked, guarded, audited); the signal is only a wake-up. After any signal the workflow runs requested re-runs and re-settles with `applyOutcome`, which now keeps an APPROVED version approved (the AS-8.7 override of ERROR) unless a PENDING stip appeared.

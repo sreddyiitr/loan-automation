@@ -210,9 +210,9 @@ DRAFT ──OCR done──▶ PENDING_REVIEW ──all PASS / manual approve (no
 | C-13 | The income API returns 429. How is it handled? | **Confirmed:** retryable, honoring `Retry-After` (capped at the activity's retry maximum interval). |
 | C-14 | Which other external APIs do the business rules call? | **Resolved (owner, 2026-11-17):** only Income Verification and Disbursement for now. The GAP state registry stays a local table (`gap_form_registry`). A future API needs a contract, a catalog and a `RuleCatalog` dependency (P-5). |
 
-### Clarifications from slice S4 (awaiting owner confirmation, 2026-11-18)
+### Clarifications from slice S4 (confirmed by the owner, 2026-11-18)
 
-| # | Question | Proposed answer (implemented) |
+| # | Question | Answer (implemented) |
 |---|---|---|
 | C-15 | AS-8.10 says a RISC-bound stip can't be WAIVED and "is resolved only when a corrected RISC version re-runs and passes". Can a funder mark it SATISFIED instead? | **No.** SATISFIED and WAIVED are both refused with 409 `RISC_STIP_NOT_WAIVABLE`; only a passing re-run on a corrected RISC resolves it (AS-8.8). |
 | C-16 | AS-10.8 lets a manual stip move an APPROVED version to STIPULATED, and AS-8.5 allows a reject from APPROVED. What if the disbursement call is already in flight? | Once the disbursement activity has re-checked the version and decided to pay (AS-8.1), nothing can stop the call. While the workflow reports `DISBURSING`, a manual stip or reject returns 409 `DISBURSEMENT_IN_PROGRESS` (try again after it returns). After a failed disbursement (C-8) both are allowed. |
