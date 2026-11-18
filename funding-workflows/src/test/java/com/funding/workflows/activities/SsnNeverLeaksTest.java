@@ -79,7 +79,7 @@ class SsnNeverLeaksTest {
 
         env = TestWorkflowEnvironment.newInstance();
         Workers.register(env.getWorkerFactory(), QUEUES,
-                new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.allOf(Check.class)),
+                new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.allOf(Check.class), Duration.ofDays(30)),
                 new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), OPTIONS.externalStartToClose()),
                 new IncomeActivitiesImpl(Fixtures.ENV, jdbc, wm.baseUrl(), OPTIONS.externalStartToClose(), OPTIONS.maximumInterval()),
                 OPTIONS);

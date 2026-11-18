@@ -9,8 +9,14 @@ public final class Workers {
 
     public static void register(WorkerFactory factory, TaskQueues q, FundingActivities db,
                                 DisbursementActivities disbursement, IncomeActivities income, ActivityOptionsConfig options) {
+        register(factory, q, db, disbursement, income, options, FundingWorkflowImpl.MAX_SIGNALS_PER_RUN);
+    }
+
+    /** {@code maxSignalsPerRun}: when the parent continues as new (plan step 7); tests lower it. */
+    public static void register(WorkerFactory factory, TaskQueues q, FundingActivities db, DisbursementActivities disbursement,
+                                IncomeActivities income, ActivityOptionsConfig options, int maxSignalsPerRun) {
         Worker orchestration = factory.newWorker(q.orchestration());
-        orchestration.registerWorkflowImplementationFactory(FundingWorkflow.class, () -> new FundingWorkflowImpl(options));
+        orchestration.registerWorkflowImplementationFactory(FundingWorkflow.class, () -> new FundingWorkflowImpl(options, maxSignalsPerRun));
 
         Worker validation = factory.newWorker(q.validation());
         validation.registerWorkflowImplementationFactory(TilaCheckWorkflow.class, () -> new TilaCheckWorkflowImpl(options));

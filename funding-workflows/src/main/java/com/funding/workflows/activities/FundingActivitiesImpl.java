@@ -7,6 +7,7 @@ import com.funding.domain.DocumentType;
 import com.funding.domain.Outcome;
 import com.funding.domain.RulesConfig;
 import com.funding.domain.StipRequest;
+import com.funding.domain.status.VersionStatus;
 import com.funding.persistence.AuditRepository;
 import com.funding.persistence.ResultRepository;
 import com.funding.persistence.SnapshotRepository;
@@ -20,6 +21,7 @@ import com.funding.workflows.WorkflowIds;
 import io.temporal.activity.Activity;
 import io.temporal.failure.ApplicationFailure;
 import com.funding.domain.rules.RiscCompleteness;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +55,11 @@ public class FundingActivitiesImpl implements FundingActivities {
     private final AuditRepository audit;
     private final Supplier<RulesConfig> config;
     private final Set<Check> enabledChecks;
+    private final Duration expireAfter;
 
+    /** @param expireAfter {@code funding.workflow.expire-after}: how long after {@code submitted_at} a version expires (AS-8.6) */
     public FundingActivitiesImpl(String env, JdbcClient jdbc, TransactionTemplate tx, Supplier<RulesConfig> config,
-                                 Set<Check> enabledChecks) {
+                                 Set<Check> enabledChecks, Duration expireAfter) {
         this.env = env;
         this.tx = tx;
         this.snapshots = new SnapshotRepository(jdbc);
@@ -65,6 +69,7 @@ public class FundingActivitiesImpl implements FundingActivities {
         this.audit = new AuditRepository(jdbc);
         this.config = config;
         this.enabledChecks = Set.copyOf(enabledChecks);
+        this.expireAfter = expireAfter;
     }
 
     @Override
@@ -73,18 +78,25 @@ public class FundingActivitiesImpl implements FundingActivities {
         SnapshotRepository.Loaded l = snapshots.load(versionId)
                 .orElseThrow(() -> ApplicationFailure.newNonRetryableFailure("no application version " + versionId, "NotFound"));
         VersionRow v = l.version();
-        return new VersionView(l.snapshot(), config.get(), enabledChecks, v.status(), v.latest(),
-                v.submittedAt() == null ? 0L : v.submittedAt().toInstant().toEpochMilli());
+        long submitted = v.submittedAt() == null ? 0L : v.submittedAt().toInstant().toEpochMilli();
+        return new VersionView(l.snapshot(), config.get(), enabledChecks, v.status(), v.latest(), submitted,
+                submitted == 0L ? 0L : submitted + expireAfter.toMillis());
     }
 
     @Override
     public boolean recordOutcome(long versionId, CheckOutcome outcome, int attempt) {
         mdc(versionId);
         return Boolean.TRUE.equals(tx.execute(s -> {
+            VersionRow v;
             try {
-                versions.lockLatest(versionId);
+                v = versions.lockLatest(versionId);
             } catch (SupersededException e) {
                 LOG.info("version {} superseded; not recording {} result", versionId, outcome.check());
+                return false;
+            }
+            if (VersionStatus.valueOf(v.status()).terminal()) {
+                // e.g. rejected while its checks were still running: no new results or stips on a closed version
+                LOG.info("version {} is {}; not recording {} result", versionId, v.status(), outcome.check());
                 return false;
             }
             Map<String, Long> docIds = documentIds(versionId);
@@ -111,10 +123,11 @@ public class FundingActivitiesImpl implements FundingActivities {
             } catch (SupersededException e) {
                 return "SUPERSEDED";
             }
-            if (Set.of("FUNDED", "REJECTED", "EXPIRED").contains(v.status())) {
+            if (VersionStatus.valueOf(v.status()).terminal()) {
                 return v.status();
             }
             String actor = actor(versionId);
+            boolean approved = "APPROVED".equals(v.status());
             // AS-8.8: a check that passes now resolves the PENDING stips it raised earlier.
             outcomes.values().stream().filter(o -> o.outcome() == Outcome.PASS).forEach(o ->
                     stips.autoSatisfy(versionId, o.check(), actor, "auto-resolved by re-run").forEach(st ->
@@ -126,7 +139,12 @@ public class FundingActivitiesImpl implements FundingActivities {
             // but only with a complete RISC and TILA PASS (AS-8.10); otherwise held for a funder.
             String next;
             String reason = "VALIDATION_OUTCOME";
-            if (error) {
+            if (approved) {
+                // Already APPROVED (automatically, or by a funder's manual approve overriding ERROR, AS-8.7):
+                // it stays approved unless a PENDING stip appeared (manual stip, AS-10.8).
+                next = pending ? "STIPULATED" : "APPROVED";
+                reason = pending ? "MANUAL_STIP" : reason;
+            } else if (error) {
                 next = "PENDING_REVIEW";
             } else if (pending) {
                 next = "STIPULATED";
@@ -161,6 +179,29 @@ public class FundingActivitiesImpl implements FundingActivities {
         });
     }
 
+    @Override
+    public String expire(long versionId) {
+        mdc(versionId);
+        return tx.execute(s -> {
+            VersionRow v;
+            try {
+                v = versions.lockLatest(versionId);
+            } catch (SupersededException e) {
+                return "SUPERSEDED";
+            }
+            if (VersionStatus.valueOf(v.status()).terminal()) {
+                return v.status();
+            }
+            transition(v, "EXPIRED", actor(versionId), "EXPIRED_AFTER_" + iso(expireAfter)); // PENDING stips stay as history
+            return "EXPIRED";
+        });
+    }
+
+    /** {@code P30D} rather than {@link Duration#toString()}'s {@code PT720H}: the audit reason the spec names (AS-8.6). */
+    static String iso(Duration d) {
+        return d.toSeconds() % 86_400 == 0 && !d.isZero() ? "P" + d.toDays() + "D" : d.toString();
+    }
+
     /** AS-8.10: problems blocking approval; empty when the RISC is complete and TILA passed. */
     private List<String> riscIncomplete(long versionId, Map<Check, CheckOutcome> outcomes) {
         List<String> problems = new java.util.ArrayList<>(snapshots.load(versionId)
@@ -176,7 +217,7 @@ public class FundingActivitiesImpl implements FundingActivities {
         if (next.equals(v.status())) {
             return;
         }
-        versions.setStatus(v.applicationVersionId(), next);
+        versions.setStatus(v, next); // FR-09: rejects any change spec §6 doesn't list
         audit.record("APPLICATION_VERSION", Long.toString(v.applicationVersionId()), "STATUS_CHANGED", actor,
                 Map.of("status", v.status()), Map.of("status", next, "reason", reason));
         LOG.info("version {}: {} -> {} ({})", v.applicationVersionId(), v.status(), next, reason);

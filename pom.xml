@@ -37,6 +37,8 @@
     <springdoc.version>2.10.0</springdoc.version>
     <wiremock.version>3.13.2</wiremock.version>
     <swagger-request-validator.version>2.46.1</swagger-request-validator.version>
+    <!-- = the swagger-core-jakarta springdoc ${springdoc.version} brings (see the exclusions below) -->
+    <swagger-core-jakarta.version>2.2.55</swagger-core-jakarta.version>
     <aws-lambda-java-core.version>1.4.1</aws-lambda-java-core.version>
     <aws-lambda-java-events.version>3.16.1</aws-lambda-java-events.version>
     <!-- Repo root, so every module resolves test/data and contracts the same way. -->
@@ -70,10 +72,23 @@
         <artifactId>wiremock-standalone</artifactId>
         <version>${wiremock.version}</version>
       </dependency>
+      <!-- The contract gate's parser brings the javax swagger-core; springdoc uses the jakarta one, which
+           has the same packages. Two copies on one classpath break /v3/api-docs (javax.xml.bind), so the
+           whole build uses the jakarta variants, at springdoc's version. -->
       <dependency>
         <groupId>com.atlassian.oai</groupId>
         <artifactId>swagger-request-validator-core</artifactId>
         <version>${swagger-request-validator.version}</version>
+        <exclusions>
+          <exclusion><groupId>io.swagger.core.v3</groupId><artifactId>swagger-core</artifactId></exclusion>
+          <exclusion><groupId>io.swagger.core.v3</groupId><artifactId>swagger-models</artifactId></exclusion>
+          <exclusion><groupId>io.swagger.core.v3</groupId><artifactId>swagger-annotations</artifactId></exclusion>
+        </exclusions>
+      </dependency>
+      <dependency>
+        <groupId>io.swagger.core.v3</groupId>
+        <artifactId>swagger-core-jakarta</artifactId>
+        <version>${swagger-core-jakarta.version}</version>
       </dependency>
       <dependency>
         <groupId>com.amazonaws</groupId>

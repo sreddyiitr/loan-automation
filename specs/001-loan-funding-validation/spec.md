@@ -209,3 +209,14 @@ DRAFT ──OCR done──▶ PENDING_REVIEW ──all PASS / manual approve (no
 | C-12 | The income API finds no payroll record (`NOT_FOUND`). What then? | **Confirmed:** NEEDS_REVIEW + `STIP_PROOF_OF_INCOME`. |
 | C-13 | The income API returns 429. How is it handled? | **Confirmed:** retryable, honoring `Retry-After` (capped at the activity's retry maximum interval). |
 | C-14 | Which other external APIs do the business rules call? | **Resolved (owner, 2026-11-17):** only Income Verification and Disbursement for now. The GAP state registry stays a local table (`gap_form_registry`). A future API needs a contract, a catalog and a `RuleCatalog` dependency (P-5). |
+
+### Clarifications from slice S4 (confirmed by the owner, 2026-11-18)
+
+| # | Question | Answer (implemented) |
+|---|---|---|
+| C-15 | AS-8.10 says a RISC-bound stip can't be WAIVED and "is resolved only when a corrected RISC version re-runs and passes". Can a funder mark it SATISFIED instead? | **No.** SATISFIED and WAIVED are both refused with 409 `RISC_STIP_NOT_WAIVABLE`; only a passing re-run on a corrected RISC resolves it (AS-8.8). |
+| C-16 | AS-10.8 lets a manual stip move an APPROVED version to STIPULATED, and AS-8.5 allows a reject from APPROVED. What if the disbursement call is already in flight? | Once the disbursement activity has re-checked the version and decided to pay (AS-8.1), nothing can stop the call. While the workflow reports `DISBURSING`, a manual stip or reject returns 409 `DISBURSEMENT_IN_PROGRESS` (try again after it returns). After a failed disbursement (C-8) both are allowed. |
+| C-17 | After a failed disbursement (C-8), does any later wake-up retry it? | **No:** only a funder's retry (`POST …/retry-disbursement`, 409 `NOTHING_TO_RETRY` when nothing failed). If a manual stip moves the version out of APPROVED, its next approval gets a fresh attempt. |
+| C-18 | Which statuses accept which funder actions? | Approve and re-run: from `PENDING_REVIEW` or `STIPULATED` (`ALREADY_APPROVED`, `NOT_RERUNNABLE`); re-run defaults to the checks in ERROR (`NOTHING_TO_RERUN` when none). Manual stip and reject: any submitted, non-terminal status (`NOT_SUBMITTED` for DRAFT). Writes on a non-latest version: 409 `NOT_LATEST_VERSION`; on `FUNDED`/`REJECTED`: `VERSION_TERMINAL`; on `EXPIRED`: `VERSION_EXPIRED`. |
+| C-19 | A version is rejected (or expires) while its checks are still running. Are their results recorded? | **No:** a check finishing after the version closed writes no result and no stip. |
+

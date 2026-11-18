@@ -558,6 +558,12 @@ stubs:
     response: 0929ed12c3af77ce
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1030":
+    band: EXHAUSTED
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1030"
+    response: a18dc7b769963ccb
+    expect: APPROVED
+    rules: "none"
   "DISBURSEMENT/scenario/LA-1031":
     band: SUCCESS
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1031"
@@ -1859,6 +1865,12 @@ stubs:
     requestKey: "ssnItinEncrypted=enc:{env}:LA-1027"
     response: ac488633b832b002
     expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1030":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1030"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
     rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
   "INCOME_VERIFICATION/scenario/LA-1031":
     band: ok-100k

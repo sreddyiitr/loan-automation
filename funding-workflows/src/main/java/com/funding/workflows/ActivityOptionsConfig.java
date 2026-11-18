@@ -34,6 +34,8 @@ public record ActivityOptionsConfig(Duration dbStartToClose, Duration externalSt
                 .setBackoffCoefficient(backoff)
                 .setMaximumInterval(maximumInterval)
                 .setMaximumAttempts(maxAttempts)
+                // A status change §6 forbids is a bug, not a transient failure (FR-09).
+                .setDoNotRetry(com.funding.domain.status.VersionStatus.IllegalTransitionException.class.getName())
                 .build();
     }
 

@@ -1,5 +1,6 @@
 package com.funding.persistence;
 
+import com.funding.domain.status.VersionStatus;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -41,10 +42,24 @@ public class VersionRepository {
                 .orElseThrow(() -> new SupersededException(versionId));
     }
 
-    /** Sets the status; call after {@link #lockLatest}. Returns the row as it was before. */
-    public void setStatus(long versionId, String status) {
-        jdbc.sql("UPDATE application_versions SET version_status = ? WHERE application_version_id = ?")
-                .params(status, versionId).update();
+    /**
+     * The only status writer. Call after {@link #lockLatest} with the locked row; the change must be
+     * one spec §6 allows (FR-09), or {@link VersionStatus.IllegalTransitionException} is thrown and
+     * nothing is written. The write is also conditional on the status still being {@code current}'s.
+     */
+    public void setStatus(VersionRow current, String next) {
+        VersionStatus.requireTransition(current.status(), next);
+        int n = jdbc.sql("UPDATE application_versions SET version_status = ? WHERE application_version_id = ? AND version_status = ?")
+                .params(next, current.applicationVersionId(), current.status()).update();
+        if (n != 1) {
+            throw new IllegalStateException("version " + current.applicationVersionId() + " is no longer " + current.status()
+                    + "; lock it with lockLatest before changing its status");
+        }
+    }
+
+    /** AS-10.3: reassigns the funder; call after {@link #lockLatest}. */
+    public void setAssignee(long versionId, String funderId) {
+        jdbc.sql("UPDATE application_versions SET assigned_funder = ? WHERE application_version_id = ?").params(funderId, versionId).update();
     }
 
     static VersionRow map(ResultSet rs, int i) throws SQLException {

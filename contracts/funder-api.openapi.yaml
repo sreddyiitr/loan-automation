@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: OpenAPI definition
+  version: v0
+servers:
+- description: Generated server url
+  url: http://localhost
+tags:
+- description: Funder operations on loan application versions (US-10)
+  name: Funder
+paths:
+  /api/v1/applications/{loanApplicationId}:
+    get:
+      description: AS-10.1
+      operationId: overview
+      parameters:
+      - in: path
+        name: loanApplicationId
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Application overview (latest version)
+      tags:
+      - Funder
+  /api/v1/applications/{loanApplicationId}/versions:
+    get:
+      description: US-9
+      operationId: versions
+      parameters:
+      - in: path
+        name: loanApplicationId
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: "Version history, newest first"
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/approve:
+    post:
+      description: "AS-8.7, AS-8.10: no PENDING stips, complete RISC, TILA PASS"
+      operationId: approve
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Manual approve
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/assignee:
+    put:
+      description: AS-10.3
+      operationId: reassign
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssigneeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Reassign the funder
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/audit:
+    get:
+      description: FR-10
+      operationId: audit
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: Audit trail of the version and its stips
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/documents:
+    get:
+      description: AS-10.5
+      operationId: documents
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: Document versions per type
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/documents/{documentId}/fields:
+    get:
+      description: AS-10.5
+      operationId: fields
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - in: path
+        name: documentId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: "Extracted fields with confidence, page and bounding box"
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/reject:
+    post:
+      description: AS-8.5
+      operationId: reject
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Reject
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/rerun:
+    post:
+      description: "AS-8.4: the named checks, or by default those in ERROR"
+      operationId: rerun
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RerunRequest"
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Re-run checks
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/retry-disbursement:
+    post:
+      description: C-8
+      operationId: retryDisbursement
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Retry a failed disbursement
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/stipulations:
+    get:
+      description: AS-10.2
+      operationId: stips
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: Stipulations of a version
+      tags:
+      - Funder
+    post:
+      description: "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED\
+        \ to STIPULATED"
+      operationId: addStip
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualStipRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: Created
+      summary: Create a manual stip
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/stipulations/{stipId}:
+    patch:
+      description: AS-10.2; RISC stips can't be waived (AS-8.10)
+      operationId: resolveStip
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - in: path
+        name: stipId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: Acting funder (AS-10.9)
+        in: header
+        name: X-Funder-Id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResolveStipRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      summary: Resolve a stip (SATISFIED or WAIVED)
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/validation-results:
+    get:
+      description: AS-10.4; history=true includes earlier attempts
+      operationId: results
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - in: query
+        name: history
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      summary: Validation results with expected vs actual
+      tags:
+      - Funder
+components:
+  schemas:
+    AssigneeRequest:
+      type: object
+      properties:
+        funderId:
+          type: string
+    ManualStipRequest:
+      type: object
+      properties:
+        code:
+          type: string
+        description:
+          type: string
+    RejectRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    RerunRequest:
+      type: object
+      properties:
+        checks:
+          type: array
+          items:
+            type: string
+            enum:
+            - TILA
+            - PRICE
+            - VIN
+            - INCOME
+            - GAP
+    ResolveStipRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        status:
+          type: string

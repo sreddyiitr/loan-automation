@@ -44,7 +44,7 @@ public class DevController {
             throw new ApiProblem(HttpStatus.CONFLICT, "NOT_DRAFT",
                     loanApplicationId + " v" + locked.versionNumber() + " is " + locked.status() + ", not DRAFT");
         }
-        versions.setStatus(locked.applicationVersionId(), "PENDING_REVIEW");
+        versions.setStatus(locked, "PENDING_REVIEW");
         audit.record("APPLICATION_VERSION", Long.toString(locked.applicationVersionId()), "STATUS_CHANGED",
                 actor == null || actor.isBlank() ? "dev:submit" : actor,
                 Map.of("status", "DRAFT"), Map.of("status", "PENDING_REVIEW", "reason", "SUBMITTED"));

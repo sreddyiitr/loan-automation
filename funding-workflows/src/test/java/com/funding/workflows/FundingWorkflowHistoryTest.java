@@ -55,6 +55,39 @@ class FundingWorkflowHistoryTest {
         // recorded from the S2 commit with INCOME enabled in config, as production ran it: it proves the guard.
         record("S3-LA-1001-funded", false);
         record("S3-LA-1006-stipulated", true);
+        // S4: signals (re-run, wake-ups, waive) ending FUNDED; and a run that expires (AS-8.6).
+        recordS4("S4-LA-1006-signals-funded", (env, wf, acts) -> {
+            wf.stipResolved();
+            env.sleep(Duration.ofSeconds(5));
+            acts.status = "PENDING_REVIEW";
+            wf.rerunChecks(List.of(com.funding.domain.Check.PRICE)); // still broken: FAIL again, attempt 2
+            env.sleep(Duration.ofSeconds(5));
+            acts.pendingStips.remove("PRICE"); // waived
+            wf.stipResolved();
+            env.sleep(Duration.ofSeconds(5));
+        });
+        recordS4("S4-LA-1006-expired", (env, wf, acts) -> env.sleep(Duration.ofDays(31)));
+    }
+
+    interface Script {
+        void run(TestWorkflowEnvironment env, FundingWorkflow wf, FakeActivities acts);
+    }
+
+    private void recordS4(String name, Script script) throws IOException {
+        try (TestWorkflowEnvironment env = TestWorkflowEnvironment.newInstance()) {
+            FakeActivities acts = new FakeActivities();
+            acts.risc.put("cash_price", "31450.01"); // PRICE fails
+            acts.submittedAt = env.currentTimeMillis();
+            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, acts, ActivityOptionsConfig.forTests());
+            env.start();
+            FundingWorkflow wf = env.getWorkflowClient().newWorkflowStub(FundingWorkflow.class, WorkflowOptions.newBuilder()
+                    .setWorkflowId("funding-history-" + name).setTaskQueue(QUEUES.orchestration()).build());
+            WorkflowClient.start(wf::run, new FundingInput(1, FundingInput.VALIDATE, QUEUES));
+            env.sleep(Duration.ofSeconds(5));
+            script.run(env, wf, acts);
+            WorkflowExecutionHistory h = env.getWorkflowClient().fetchHistory(WorkflowStub.fromTyped(wf).getExecution().getWorkflowId());
+            Files.writeString(DIR.resolve(name + ".json"), h.toJson(true));
+        }
     }
 
     private void record(String name, boolean brokenPrice) throws IOException {
