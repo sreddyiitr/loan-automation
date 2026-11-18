@@ -6,6 +6,7 @@ import com.funding.workflows.TaskQueues;
 import com.funding.workflows.Workers;
 import com.funding.workflows.activities.DisbursementActivitiesImpl;
 import com.funding.workflows.activities.FundingActivitiesImpl;
+import com.funding.workflows.activities.IncomeActivitiesImpl;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowClientOptions;
 import io.temporal.serviceclient.WorkflowServiceStubs;
@@ -46,10 +47,16 @@ public class TemporalConfig {
     }
 
     @Bean
+    public IncomeActivitiesImpl incomeActivities(@Value("${funding.env}") String env, JdbcClient jdbc,
+                                                 @Value("${funding.income.base-url}") String baseUrl, ActivityOptionsConfig options) {
+        return new IncomeActivitiesImpl(env, jdbc, baseUrl, options.externalStartToClose(), options.maximumInterval());
+    }
+
+    @Bean
     public WorkerFactory workerFactory(WorkflowClient client, TaskQueues queues, FundingActivitiesImpl db,
-                                       DisbursementActivitiesImpl disbursement, ActivityOptionsConfig options) {
+                                       DisbursementActivitiesImpl disbursement, IncomeActivitiesImpl income, ActivityOptionsConfig options) {
         WorkerFactory f = WorkerFactory.newInstance(client);
-        Workers.register(f, queues, db, disbursement, options);
+        Workers.register(f, queues, db, disbursement, income, options);
         return f;
     }
 

@@ -2,11 +2,15 @@ package com.funding.api.functional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.funding.domain.Check;
+import com.funding.domain.Outcome;
 import com.funding.seed.Fixture;
 import com.funding.seed.SeedGates;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
@@ -35,6 +39,13 @@ class ScenarioE2EIT extends FunctionalTestBase {
         assertThat(r.statusCode()).as(r.body()).isEqualTo(200);
         long versionId = JSON.readTree(r.body()).path("applicationVersionId").asLong();
 
+        // Every declared check has its current result first: a held version (PENDING_REVIEW) is the
+        // starting status too, so waiting on the status alone would pass before the checks ran.
+        Map<Check, Outcome> wantChecks = f.intent().expect().checks();
+        await(Duration.ofSeconds(60), () -> currentOutcomes(versionId).keySet().containsAll(wantChecks.keySet()),
+                f.scenarioId() + " results for " + wantChecks.keySet());
+        assertThat(currentOutcomes(versionId)).containsAllEntriesOf(wantChecks);
+
         String want = f.intent().expect().status();
         await(Duration.ofSeconds(30), () -> want.equals(status(versionId)), f.scenarioId() + " -> " + want);
 
@@ -45,6 +56,13 @@ class ScenarioE2EIT extends FunctionalTestBase {
             assertThat(jdbc.sql("SELECT count(*) FROM disbursements WHERE application_version_id = ? AND status = 'COMPLETED'")
                     .param(versionId).query(Integer.class).single()).isEqualTo(1);
         }
+    }
+
+    private Map<Check, Outcome> currentOutcomes(long versionId) {
+        Map<Check, Outcome> m = new EnumMap<>(Check.class);
+        jdbc.sql("SELECT validation_check, outcome FROM validation_results WHERE application_version_id = ? AND is_current")
+                .param(versionId).query((rs, i) -> m.put(Check.valueOf(rs.getString(1)), Outcome.valueOf(rs.getString(2)))).list();
+        return m;
     }
 
     @org.junit.jupiter.api.Test

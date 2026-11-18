@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** In-memory activities for workflow tests: records every call, statuses follow the real rules. */
-class FakeActivities implements FundingActivities, DisbursementActivities {
+class FakeActivities implements FundingActivities, DisbursementActivities, IncomeActivities {
 
     final List<String> calls = Collections.synchronizedList(new ArrayList<>());
     final Map<Check, List<CheckOutcome>> recorded = Collections.synchronizedMap(new LinkedHashMap<>());
@@ -30,7 +30,10 @@ class FakeActivities implements FundingActivities, DisbursementActivities {
     volatile boolean latest = true;
     volatile boolean failRecordOutcome = false;
     final java.util.Set<Check> failRecordOutcomeFor = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    volatile java.util.Set<Check> enabled = EnumSet.of(Check.TILA, Check.PRICE, Check.VIN, Check.GAP);
+    volatile java.util.Set<Check> enabled = EnumSet.of(Check.TILA, Check.PRICE, Check.VIN, Check.GAP, Check.INCOME);
+    volatile com.funding.domain.income.IncomeVerification income =
+            com.funding.domain.income.IncomeVerification.verified(new BigDecimal("100000.00"));
+    volatile boolean incomeDown = false;
     volatile boolean pendingManualStip = false;
     volatile Map<String, String> risc = baselineRisc();
 
@@ -97,6 +100,15 @@ class FakeActivities implements FundingActivities, DisbursementActivities {
         calls.add("markFunded");
         status = "FUNDED";
         return status;
+    }
+
+    @Override
+    public com.funding.domain.income.IncomeVerification verifyIncome(long id) {
+        calls.add("verifyIncome");
+        if (incomeDown) {
+            throw ApplicationFailure.newFailure("income API: server error (503)", "IncomeUnavailable");
+        }
+        return income;
     }
 
     @Override

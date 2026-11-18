@@ -1,0 +1,94 @@
+openapi: 3.0.3
+info:
+  title: Income Verification API
+  version: "1.0"
+  description: |
+    Verifies a borrower's annual income from payroll records (spec 001 US-5). Mocked locally by
+    generated WireMock stubs only (constitution P-5). The SSN/ITIN is sent encrypted, as-is
+    (AS-5.4). The rule uses `totalVerifiedAnnualIncome`; per-employer detail is optional, and
+    unknown fields must be ignored.
+paths:
+  /api/v1/external/verify-income:
+    post:
+      operationId: verifyIncome
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyIncomeRequest' }
+      responses:
+        '200':
+          description: Verified income, or no payroll record found
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/VerifiedIncome'
+                  - $ref: '#/components/schemas/NotFound'
+        '400':
+          description: Malformed request; never succeeds
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Request understood but can't be processed; never succeeds
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429':
+          description: Rate limited; retry after the `Retry-After` seconds (C-13)
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 0 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: Temporarily unavailable; retry
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  schemas:
+    Money:
+      type: string
+      pattern: '^\d+\.\d{2}$'
+      example: "100000.00"
+    VerifyIncomeRequest:
+      type: object
+      additionalProperties: false
+      required: [ssnItinEncrypted, applicationVersionId]
+      properties:
+        ssnItinEncrypted: { type: string, minLength: 1, maxLength: 255 }
+        applicationVersionId: { type: integer, format: int64, minimum: 1 }
+    VerifiedIncome:
+      type: object
+      additionalProperties: true   # unknown fields must be ignored by clients (seed-data.md "Response shapes")
+      required: [status, totalVerifiedAnnualIncome]
+      properties:
+        status: { type: string, enum: [VERIFIED] }
+        totalVerifiedAnnualIncome: { $ref: '#/components/schemas/Money' }
+        employers:
+          type: array
+          items:
+            type: object
+            required: [name, annualIncome]
+            properties:
+              name: { type: string }
+              annualIncome: { $ref: '#/components/schemas/Money' }
+        verifiedAt: { type: string, format: date-time }
+    NotFound:
+      type: object
+      additionalProperties: true
+      required: [status]
+      properties:
+        status: { type: string, enum: [NOT_FOUND] }
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string }

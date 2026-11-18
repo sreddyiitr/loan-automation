@@ -462,6 +462,42 @@ stubs:
     response: 72bd4da4bbb919fd
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1012":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1012"
+    response: ebefd7a1741795f4
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1013":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1013"
+    response: ad15c6cb427464fc
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1014":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1014"
+    response: 92dc32aaa42e9164
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1015":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1015"
+    response: a85d50616524d13b
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1016":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1016"
+    response: 37ba5223f210de1e
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1017":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1017"
+    response: 3840c2555cd0797a
+    expect: FUNDED
+    rules: "none"
   "DISBURSEMENT/scenario/LA-1018":
     band: SUCCESS
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1018"
@@ -516,6 +552,12 @@ stubs:
     response: 8ebb8edebbf4d83a
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1027":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1027"
+    response: 0929ed12c3af77ce
+    expect: FUNDED
+    rules: "none"
   "DISBURSEMENT/scenario/LA-1031":
     band: SUCCESS
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1031"
@@ -534,3 +576,1311 @@ stubs:
     response: cadbacb1c65ba8af
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1035":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1035"
+    response: 7bd2cd90a0aad23d
+    expect: FUNDED
+    rules: "none"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/1250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-1250000-00"
+    response: c23bf3c66de8bf22
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/18500.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-18500-00"
+    response: e100d0870efb74bc
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-250000-00"
+    response: 61add84181502768
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/45000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-45000-00"
+    response: 246dea9e7bf31759
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-96000-00"
+    response: 83933d7dfa3adb73
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/-(t+0.0001)/96000.37":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-96000-37"
+    response: 3970fbe6e817972e
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/1250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-1250000-00"
+    response: 8bc913d9dee69e05
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/18500.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-18500-00"
+    response: 2993be7a3836e2ce
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-250000-00"
+    response: 2000b7794528d1ee
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/45000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-45000-00"
+    response: 6ae969639b0a5a96
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-96000-00"
+    response: 506d256978a43975
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.0001/96000.37":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-0001-96000-37"
+    response: eab959d62b649756
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/1250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-1250000-00"
+    response: fbd19ace78615182
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/18500.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-18500-00"
+    response: 568f241ed3f91ace
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/250000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-250000-00"
+    response: 948af5e8cb777711
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/45000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-45000-00"
+    response: e948ea1b613d3265
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-96000-00"
+    response: d7d3eb23e1d33357
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_FAIL/t+0.01/96000.37":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-fail-t-0-01-96000-37"
+    response: 6d0e58fda482a57e
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/1250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-1250000-00"
+    response: d9287bffd4f9a1dd
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/18500.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-18500-00"
+    response: f2005fc605eb5af8
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-250000-00"
+    response: 16f7d3631fd1faa2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/45000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-45000-00"
+    response: c7fc261f13abe9dc
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-96000-00"
+    response: 24fb4bddfd89faf8
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/-t/96000.37":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-96000-37"
+    response: a7b6b2ada5ea9ed6
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/1250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-1250000-00"
+    response: d2c7ab77cf4549d7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/18500.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-18500-00"
+    response: 38416d6a9fe5fa14
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-250000-00"
+    response: 3c8c8cf3b5d729b0
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/45000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-45000-00"
+    response: 34516020da20fbd1
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-96000-00"
+    response: dddec144c5fcdae2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t-0.0001/96000.37":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-0-0001-96000-37"
+    response: d85b83280f3a51a8
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/1250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-1250000-00"
+    response: ce8689c203d5b8e7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/18500.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-18500-00"
+    response: 32f3e659a488b4f4
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/250000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-250000-00"
+    response: 904e256444cbcf56
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/45000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-45000-00"
+    response: 2d69a9ab2c72cbb9
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-96000-00"
+    response: 4eb2e4f50506e75a
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/BOUNDARY_PASS/t/96000.37":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-boundary-pass-t-96000-37"
+    response: 1574ff8b0f30ce01
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/1250000.00/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-1250000-00-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/1250000.00/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-1250000-00-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/18500.00/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-18500-00-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/18500.00/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-18500-00-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/250000.00/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-250000-00-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/250000.00/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-250000-00-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/45000.00/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-45000-00-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/45000.00/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-45000-00-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/96000.00/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-96000-00-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/96000.00/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-96000-00-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/96000.37/400":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-96000-37-400"
+    response: a0ffadfcf1c379e8
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CLIENT_ERROR/96000.37/422":
+    band: CLIENT_ERROR
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-client-error-96000-37-422"
+    response: f6d9eb2a9e0e2142
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/1250000.00":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-1250000-00"
+    response: 1eed16ca833c77d6
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/18500.00":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-18500-00"
+    response: ae3d21dc74af5994
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/250000.00":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-250000-00"
+    response: 7dab71b0d2effc48
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/45000.00":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-45000-00"
+    response: 137504aef38395d2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/96000.00":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-96000-00"
+    response: a54483f5b4212f9f
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/CONNECTION_RESET/96000.37":
+    band: CONNECTION_RESET
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-connection-reset-96000-37"
+    response: 9764149585771af6
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/1250000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-1250000-00"
+    response: f288dc56665476f8
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/18500.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-18500-00"
+    response: b6273afe06476d30
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/250000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-250000-00"
+    response: c16646aace77258c
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/45000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-45000-00"
+    response: 9dbd170c2a15838b
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/96000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-96000-00"
+    response: 49586c4449d7febe
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXACT/0/96000.37":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exact-0-96000-37"
+    response: ccf715bc0ef4a0d7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/1250000.00":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-1250000-00"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/18500.00":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-18500-00"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/250000.00":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-250000-00"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/45000.00":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-45000-00"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/96000.00":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-96000-00"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/EXHAUSTED/96000.37":
+    band: EXHAUSTED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-exhausted-96000-37"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/1250000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-1250000-00"
+    response: b166279aa5e7e6c2
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/18500.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-18500-00"
+    response: 038747c87a71cd70
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/250000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-250000-00"
+    response: 0422d9b9efd6b3cc
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/45000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-45000-00"
+    response: 20cd47ed817a234d
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/96000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-96000-00"
+    response: c2d178b63399a2a2
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/2t/96000.37":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-2t-96000-37"
+    response: c9e2a49b2d8f586a
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/1250000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-1250000-00"
+    response: 4209876a3f70b9b4
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/18500.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-18500-00"
+    response: a7616fbe7b5f0cfc
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/250000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-250000-00"
+    response: 45f57b12ee7c0afd
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/45000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-45000-00"
+    response: 2f4fd55ea4e16668
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/96000.00":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-96000-00"
+    response: 2c47336bc3cc1aff
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_OVER/5t/96000.37":
+    band: LARGE_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-over-5t-96000-37"
+    response: 873ab460b07e827e
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/1250000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-1250000-00"
+    response: 9504ff6ec4691822
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/18500.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-18500-00"
+    response: 180f3863f269f11b
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/250000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-250000-00"
+    response: 9376432d162a93f3
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/45000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-45000-00"
+    response: ac488633b832b002
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/96000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-96000-00"
+    response: 3562b4759f45a484
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.5/96000.37":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-5-96000-37"
+    response: 05e0e3e47944ac34
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/1250000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-1250000-00"
+    response: eb42fbb5241637cb
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/18500.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-18500-00"
+    response: 0e956f71ddce44ca
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/250000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-250000-00"
+    response: 9504ff6ec4691822
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/45000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-45000-00"
+    response: 7cc516fe5226d246
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/96000.00":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-96000-00"
+    response: a9ac9670413261b0
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/LARGE_UNDER/-0.9/96000.37":
+    band: LARGE_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-large-under-0-9-96000-37"
+    response: 8e5ed325d150a301
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/1250000.00":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-1250000-00"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/18500.00":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-18500-00"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/250000.00":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-250000-00"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/45000.00":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-45000-00"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/96000.00":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-96000-00"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/MALFORMED/96000.37":
+    band: MALFORMED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-malformed-96000-37"
+    response: 256358fde61998cc
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/1250000.00":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-1250000-00"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/18500.00":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-18500-00"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/250000.00":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-250000-00"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/45000.00":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-45000-00"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/96000.00":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-96000-00"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/NOT_FOUND/96000.37":
+    band: NOT_FOUND
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-not-found-96000-37"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/1250000.00":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-1250000-00"
+    response: 473d0cb37583875d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/18500.00":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-18500-00"
+    response: dddde4af9e16531e
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/250000.00":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-250000-00"
+    response: 9a77e049e45361ae
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/45000.00":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-45000-00"
+    response: c8eb13ab98d45f59
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/96000.00":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-96000-00"
+    response: b33009f33fb4cc40
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RATE_LIMITED/96000.37":
+    band: RATE_LIMITED
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-rate-limited-96000-37"
+    response: 0efb5bdfec73d7da
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/1250000.00/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-1250000-00-k1"
+    response: 7b919d9c096e2512
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/1250000.00/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-1250000-00-k2"
+    response: c49d99f29a88f3aa
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/1250000.00/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-1250000-00-k3"
+    response: 30f845720b536843
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/1250000.00/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-1250000-00-k4"
+    response: 3cf8f03738a8b35f
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/18500.00/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-18500-00-k1"
+    response: c0f1c464c818e24a
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/18500.00/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-18500-00-k2"
+    response: 41759b888068f423
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/18500.00/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-18500-00-k3"
+    response: 618adfd3d346c819
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/18500.00/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-18500-00-k4"
+    response: 63ae5a1645726943
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/250000.00/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-250000-00-k1"
+    response: 1f5b64c49d50a1a3
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/250000.00/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-250000-00-k2"
+    response: 28636bdf007b8f98
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/250000.00/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-250000-00-k3"
+    response: 55dd42beea6fced7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/250000.00/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-250000-00-k4"
+    response: c6f3a08dd705946c
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/45000.00/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-45000-00-k1"
+    response: 3c34ba431dfa2528
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/45000.00/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-45000-00-k2"
+    response: 4e6884c40ac762a4
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/45000.00/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-45000-00-k3"
+    response: b0851191bb99fa41
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/45000.00/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-45000-00-k4"
+    response: cd763943fb140305
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.00/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-00-k1"
+    response: 44201885c663be77
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.00/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-00-k2"
+    response: 1e3db04a685dee8c
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.00/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-00-k3"
+    response: ec8a0aa8fee14886
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.00/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-00-k4"
+    response: 6d4c27a0e0254348
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.37/k1":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-37-k1"
+    response: c78d47110d57f6fd
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.37/k2":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-37-k2"
+    response: 6d653ceb6f73ea82
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.37/k3":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-37-k3"
+    response: 098175333280ccde
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/RETRY_THEN_OK/96000.37/k4":
+    band: RETRY_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-retry-then-ok-96000-37-k4"
+    response: 180b917261d7a9c2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/1250000.00":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-1250000-00"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/18500.00":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-18500-00"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/250000.00":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-250000-00"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/45000.00":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-45000-00"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/96000.00":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-96000-00"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SCHEMA_INVALID/96000.37":
+    band: SCHEMA_INVALID
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-schema-invalid-96000-37"
+    response: 8dc3a0dd5c3bba95
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_EXTRA_FIELDS/BOUNDARY_FAIL/t+0.0001/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-extra-fields-boundary-fail-t-0-0001-96000-00"
+    response: 5069b0adddc0a692
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_EXTRA_FIELDS/BOUNDARY_PASS/t-0.0001/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-extra-fields-boundary-pass-t-0-0001-96000-00"
+    response: 005b5da96bafc8a2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_EXTRA_FIELDS/EXACT/0/96000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-extra-fields-exact-0-96000-00"
+    response: cdb479f1b46cdf26
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_EXTRA_FIELDS/SMALL_OVER/t/4/96000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-extra-fields-small-over-t-4-96000-00"
+    response: e43c7daa736fcb11
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_MULTI_EMPLOYER/BOUNDARY_FAIL/t+0.0001/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-multi-employer-boundary-fail-t-0-0001-96000-00"
+    response: ec06149fe0c5ee30
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_MULTI_EMPLOYER/BOUNDARY_PASS/t-0.0001/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-multi-employer-boundary-pass-t-0-0001-96000-00"
+    response: 03c04cfd799d708d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_MULTI_EMPLOYER/EXACT/0/96000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-multi-employer-exact-0-96000-00"
+    response: b449e2f8f65f10de
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_MULTI_EMPLOYER/SMALL_OVER/t/4/96000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-multi-employer-small-over-t-4-96000-00"
+    response: 4c1c3874d6686ef6
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_OPTIONAL_ABSENT/BOUNDARY_FAIL/t+0.0001/96000.00":
+    band: BOUNDARY_FAIL
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-optional-absent-boundary-fail-t-0-0001-96000-00"
+    response: 2d0b2f69905d127b
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_OPTIONAL_ABSENT/BOUNDARY_PASS/t-0.0001/96000.00":
+    band: BOUNDARY_PASS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-optional-absent-boundary-pass-t-0-0001-96000-00"
+    response: 1137266985488073
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_OPTIONAL_ABSENT/EXACT/0/96000.00":
+    band: EXACT
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-optional-absent-exact-0-96000-00"
+    response: 9ed7e33a900efe60
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SHAPE_OPTIONAL_ABSENT/SMALL_OVER/t/4/96000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-shape-optional-absent-small-over-t-4-96000-00"
+    response: 20e6f65e2b9d7a9e
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/1250000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-1250000-00"
+    response: 419742f727f1a738
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/18500.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-18500-00"
+    response: 4d258552e95a9ad7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/250000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-250000-00"
+    response: 6a90835380482025
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/45000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-45000-00"
+    response: 8eba68432bfc0bd0
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/96000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-96000-00"
+    response: 1951d9c2b6cc6fa5
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/2/96000.37":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-2-96000-37"
+    response: dfcca5b78490be59
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/1250000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-1250000-00"
+    response: 0f5d9966c0b2c2ed
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/18500.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-18500-00"
+    response: 49dddbadb386c14c
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/250000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-250000-00"
+    response: 60635a99a8043436
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/45000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-45000-00"
+    response: 1d06f9a8cc10e91f
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/96000.00":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-96000-00"
+    response: 573b02612426b22e
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_OVER/t/4/96000.37":
+    band: SMALL_OVER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-over-t-4-96000-37"
+    response: 44ae70cbfa6dcede
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/1250000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-1250000-00"
+    response: 5a09ebbccdf09d8e
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/18500.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-18500-00"
+    response: b7c421ef97222a72
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/250000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-250000-00"
+    response: 7126b650a117b4a1
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/45000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-45000-00"
+    response: 8458dfcc5add0228
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/96000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-96000-00"
+    response: ede1df3120341369
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/2/96000.37":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-2-96000-37"
+    response: d93dca802b799ce9
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/1250000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-1250000-00"
+    response: d041f16f9da6f07a
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/18500.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-18500-00"
+    response: d41a2277842858ee
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/250000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-250000-00"
+    response: 63e440e10e238343
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/45000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-45000-00"
+    response: e7095bb87bba78d8
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/96000.00":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-96000-00"
+    response: 238bb09369bcaf44
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/SMALL_UNDER/-t/4/96000.37":
+    band: SMALL_UNDER
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-small-under-t-4-96000-37"
+    response: f43f4b7873efd81e
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/1250000.00":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-1250000-00"
+    response: 7ad28011ce8dc696
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/18500.00":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-18500-00"
+    response: 1c8393eb8a5eb22c
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/250000.00":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-250000-00"
+    response: a90b2bb0218000c9
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/45000.00":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-45000-00"
+    response: 4c8c6f7c86312ce4
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/96000.00":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-96000-00"
+    response: 736c51d28673341b
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_ALWAYS/96000.37":
+    band: TIMEOUT_ALWAYS
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-always-96000-37"
+    response: fb47d38d9882f41c
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/1250000.00":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-1250000-00"
+    response: b346d2e8bb66f18c
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/18500.00":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-18500-00"
+    response: 612f5a3bcbd9bdd2
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/250000.00":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-250000-00"
+    response: 721f3790a06833f7
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/45000.00":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-45000-00"
+    response: 884b3a4912f601eb
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/96000.00":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-96000-00"
+    response: 19e841f00921e9ee
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/catalog/TIMEOUT_THEN_OK/96000.37":
+    band: TIMEOUT_THEN_OK
+    requestKey: "ssnItinEncrypted=enc:{env}:cat-timeout-then-ok-96000-37"
+    response: 8cbc2b56d0b2e3b1
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1001":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1001"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1002":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1002"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1003":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1003"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1004":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1004"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1005":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1005"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1006":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1006"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1007":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1007"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1008":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1008"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1009":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1009"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1010":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1010"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1011":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1011"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1012":
+    band: low
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1012"
+    response: ac488633b832b002
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1013":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1013"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1014":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1014"
+    response: 631c1ea5caa3eb2d
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1015":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1015"
+    response: 631c1ea5caa3eb2d
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1016":
+    band: down
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1016"
+    response: a18dc7b769963ccb
+    expect: ERROR
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1017":
+    band: flaky
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1017"
+    response: 10563cda97f80bf0
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1018":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1018"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1019":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1019"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1020":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1020"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1021":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1021"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1022":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1022"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1023":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1023"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1024":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1024"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1025":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1025"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1026":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1026"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1027":
+    band: low
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1027"
+    response: ac488633b832b002
+    expect: FAIL
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1031":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1031"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1033":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1033"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1034":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1034"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1035":
+    band: not-found
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1035"
+    response: efe77bd0e7886aa3
+    expect: NEEDS_REVIEW
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"

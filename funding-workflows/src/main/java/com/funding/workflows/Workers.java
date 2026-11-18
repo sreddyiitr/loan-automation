@@ -8,7 +8,7 @@ public final class Workers {
     private Workers() {}
 
     public static void register(WorkerFactory factory, TaskQueues q, FundingActivities db,
-                                DisbursementActivities disbursement, ActivityOptionsConfig options) {
+                                DisbursementActivities disbursement, IncomeActivities income, ActivityOptionsConfig options) {
         Worker orchestration = factory.newWorker(q.orchestration());
         orchestration.registerWorkflowImplementationFactory(FundingWorkflow.class, () -> new FundingWorkflowImpl(options));
 
@@ -17,9 +17,11 @@ public final class Workers {
         validation.registerWorkflowImplementationFactory(PriceParityWorkflow.class, () -> new PriceParityWorkflowImpl(options));
         validation.registerWorkflowImplementationFactory(VinConsistencyWorkflow.class, () -> new VinConsistencyWorkflowImpl(options));
         validation.registerWorkflowImplementationFactory(GapValidationWorkflow.class, () -> new GapValidationWorkflowImpl(options));
+        validation.registerWorkflowImplementationFactory(IncomeVerificationWorkflow.class, () -> new IncomeVerificationWorkflowImpl(options));
         validation.registerActivitiesImplementations(db);
 
         Worker external = factory.newWorker(q.external());
-        external.registerActivitiesImplementations(disbursement);
+        // One object may implement several activity interfaces (test fakes): register each object once.
+        external.registerActivitiesImplementations(disbursement == income ? new Object[] {disbursement} : new Object[] {disbursement, income});
     }
 }

@@ -1,0 +1,12 @@
+id: LA-1014
+title: Income just over the threshold
+rules: [INCOME_VARIANCE]
+side: FAIL_BOUNDARY
+spec: AS-5.2 boundary
+summary: "stated {app.stated_income_annual} = verified × (1 + t + 0.0001), intent `ok-100k`"
+given:
+  application: { statedIncomeAnnual: { relativeToThreshold: "+0.0001" } }
+expect:
+  checks: { INCOME: FAIL }
+  status: STIPULATED
+  stips: [STIP_INCOME_VARIANCE_EXCEEDED]

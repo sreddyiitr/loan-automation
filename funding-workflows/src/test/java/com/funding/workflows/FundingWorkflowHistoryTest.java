@@ -51,8 +51,10 @@ class FundingWorkflowHistoryTest {
     @EnabledIfSystemProperty(named = "record.histories", matches = "true")
     void recordHistories() throws IOException {
         // Recorded per slice; older files stay so replay keeps covering in-flight runs from earlier code.
-        record("S2-LA-1001-funded", false);
-        record("S2-LA-1006-stipulated", true);
+        // S3: INCOME runs (behind the income-check version marker). S2-LA-1006-income-enabled-stipulated.json was
+        // recorded from the S2 commit with INCOME enabled in config, as production ran it: it proves the guard.
+        record("S3-LA-1001-funded", false);
+        record("S3-LA-1006-stipulated", true);
     }
 
     private void record(String name, boolean brokenPrice) throws IOException {
@@ -61,7 +63,7 @@ class FundingWorkflowHistoryTest {
             if (brokenPrice) {
                 acts.risc.put("cash_price", "31450.01"); // PRICE fails; TILA, VIN and GAP pass
             }
-            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, ActivityOptionsConfig.forTests());
+            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, acts, ActivityOptionsConfig.forTests());
             env.start();
             FundingWorkflow wf = env.getWorkflowClient().newWorkflowStub(FundingWorkflow.class, WorkflowOptions.newBuilder()
                     .setWorkflowId("funding-history-" + name).setTaskQueue(QUEUES.orchestration()).build());

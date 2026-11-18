@@ -1,0 +1,13 @@
+id: LA-1015
+title: Under-stated income
+rules: [INCOME_VARIANCE]
+side: FAIL
+variant: under
+spec: C-3
+summary: "stated {app.stated_income_annual} (variance −20%, two-sided per C-3), intent `ok-100k`"
+given:
+  application: { statedIncomeAnnual: { variance: "-0.20" } }
+expect:
+  checks: { INCOME: FAIL }
+  status: STIPULATED
+  stips: [STIP_INCOME_VARIANCE_EXCEEDED]

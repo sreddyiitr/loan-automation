@@ -17,7 +17,8 @@ public record RulesConfig(
         BigDecimal tilaPaymentTolerance,
         BigDecimal priceTolerance,
         BigDecimal confidenceFlagBelow,
-        String primaryLenderName) {
+        String primaryLenderName,
+        BigDecimal incomeVarianceThreshold) {
 
     public static final String DEFAULTS_RESOURCE = "funding-rules.properties";
 
@@ -32,6 +33,8 @@ public record RulesConfig(
         priceTolerance = priceTolerance != null ? priceTolerance : new BigDecimal(defaultValue("funding.price.tolerance"));      // added in S2
         confidenceFlagBelow = confidenceFlagBelow != null ? confidenceFlagBelow : new BigDecimal(defaultValue("funding.confidence.flag-below")); // added in S2
         primaryLenderName = primaryLenderName != null ? primaryLenderName : defaultValue("funding.gap.primary-lender-name");     // added in S2
+        incomeVarianceThreshold = incomeVarianceThreshold != null ? incomeVarianceThreshold
+                : new BigDecimal(defaultValue("funding.income.variance-threshold"));                                                // added in S3
     }
 
     private static String defaultValue(String key) {
@@ -45,7 +48,8 @@ public record RulesConfig(
                 decimal(lookup, "funding.tila.payment-tolerance"),
                 decimal(lookup, "funding.price.tolerance"),
                 decimal(lookup, "funding.confidence.flag-below"),
-                text(lookup, "funding.gap.primary-lender-name"));
+                text(lookup, "funding.gap.primary-lender-name"),
+                decimal(lookup, "funding.income.variance-threshold"));
     }
 
     public static RulesConfig defaults() {
@@ -78,6 +82,7 @@ public record RulesConfig(
             case "funding.price.tolerance" -> priceTolerance.toPlainString();
             case "funding.confidence.flag-below" -> confidenceFlagBelow.toPlainString();
             case "funding.gap.primary-lender-name" -> primaryLenderName;
+            case "funding.income.variance-threshold" -> incomeVarianceThreshold.toPlainString();
             default -> throw new IllegalArgumentException("unknown rule config key " + key);
         };
     }

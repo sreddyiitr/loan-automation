@@ -1,0 +1,13 @@
+id: LA-1017
+title: Income API flaky
+rules: [INCOME_API]
+side: PASS
+variant: after-retries
+spec: NFR-03
+summary: "income intent `flaky` (503 until the last attempt of the retry budget, then 200)"
+externals:
+  income: { respond: flaky }
+expect:
+  checks: { INCOME: PASS }
+  status: FUNDED
+  stips: []

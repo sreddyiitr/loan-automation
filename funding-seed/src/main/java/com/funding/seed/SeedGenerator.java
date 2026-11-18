@@ -66,10 +66,12 @@ public final class SeedGenerator {
 
     private final SeedConfig config;
     private final List<GapForm> registry;
+    private final com.funding.seed.mock.MockCatalog income;
 
-    public SeedGenerator(SeedConfig config, List<GapForm> registry) {
+    public SeedGenerator(SeedConfig config, List<GapForm> registry, com.funding.seed.mock.MockCatalog income) {
         this.config = config;
         this.registry = List.copyOf(registry);
+        this.income = income;
     }
 
     public Fixture generate(ScenarioIntent intent, JsonNode baseline) {
@@ -189,7 +191,7 @@ public final class SeedGenerator {
                 app.path("borrowerName").asText(),
                 app.hasNonNull("coBorrowerName") ? app.get("coBorrowerName").asText() : null,
                 "enc:" + config.env() + ":" + intent.id(),
-                money(app, "statedIncomeAnnual"),
+                statedIncome(app.path("statedIncomeAnnual"), intent),
                 appVin,
                 app.path("dealer").path("name").asText(),
                 app.path("dealer").path("id").asText(),
@@ -199,6 +201,32 @@ public final class SeedGenerator {
     }
 
     // ------------------------------------------------------------------ vocabulary
+
+    /**
+     * Stated income (US-5): a literal, {@code {relativeToThreshold: d}} = verified × (1 + t + d), or
+     * {@code {variance: v}} = verified × (1 + v), where verified is the scenario's income intent's
+     * payroll figure and t is {@code funding.income.variance-threshold}.
+     */
+    BigDecimal statedIncome(JsonNode n, ScenarioIntent intent) {
+        if (!n.isObject()) {
+            return money(n.asText(), "statedIncomeAnnual");
+        }
+        String respond = externals(intent).get("income");
+        String verified = income == null ? null : income.verifiedFor(respond);
+        if (verified == null) {
+            throw new IllegalArgumentException(intent.id() + ": a relative stated income needs an income intent with a verified figure, not '"
+                    + respond + "'");
+        }
+        BigDecimal factor;
+        if (n.has("relativeToThreshold")) {
+            factor = BigDecimal.ONE.add(config.rules().incomeVarianceThreshold()).add(new BigDecimal(n.get("relativeToThreshold").asText().replace("+", "")));
+        } else if (n.has("variance")) {
+            factor = BigDecimal.ONE.add(new BigDecimal(n.get("variance").asText().replace("+", "")));
+        } else {
+            throw new IllegalArgumentException(intent.id() + ": statedIncomeAnnual must be a literal, {relativeToThreshold} or {variance}");
+        }
+        return Money.round(new BigDecimal(verified).multiply(factor));
+    }
 
     /** {@code valid}: effective on the contract date in the GAP state; {@code expired}: same state, ended before;
      *  {@code otherState}: effective on the contract date but registered for a different state. */
@@ -358,7 +386,10 @@ public final class SeedGenerator {
     // ------------------------------------------------------------------ helpers
 
     private static BigDecimal money(JsonNode n, String key) {
-        String raw = n.path(key).asText();
+        return money(n.path(key).asText(), key);
+    }
+
+    private static BigDecimal money(String raw, String key) {
         return Money.parse(raw).orElseThrow(() -> new IllegalArgumentException("not money: " + key + "=" + raw));
     }
 
@@ -386,7 +417,7 @@ public final class SeedGenerator {
         return b;
     }
 
-    private static final Set<String> FREE_FORM = Set.of("risc.confidence", "risc.format", "risc.extraFields",
+    private static final Set<String> FREE_FORM = Set.of("application.statedIncomeAnnual","risc.confidence", "risc.format", "risc.extraFields",
             "buyersOrder.confidence", "buyersOrder.format", "gap.confidence", "gap.format",
             "risc.vin", "buyersOrder.vin", "gap.vin", "vehicle.vin", "application.vehicleVin");
 

@@ -2,7 +2,8 @@
 # Source this file:  source scripts/db-env.sh
 #
 # PostgreSQL 18 for local runs and functional tests (plan.md "Database", constitution P-3).
-#   1. Reuse: DB_CONTAINER if set, else the single running postgres:18 container that publishes a port.
+#   1. Reuse: DB_CONTAINER if set, else the single running postgres:18 container that publishes a port
+#             (Testcontainers containers excluded: they disappear when their test JVM exits).
 #   2. Start: only if none is reachable, start funding-postgres (label funding.managed=true,
 #             127.0.0.1:55432:5432, named volume funding-pgdata so data survives restarts).
 #             55432 avoids clashing with a Homebrew Postgres on 5432.
@@ -27,6 +28,8 @@ _fd_pick() {
   local found="" count=0 name
   while read -r name; do
     [ -n "$name" ] || continue
+    # Testcontainers' throwaway postgres:18 (make test-unit) is reaped seconds after its JVM exits: never reuse it.
+    [ "$(docker inspect -f '{{index .Config.Labels "org.testcontainers"}}' "$name" 2>/dev/null)" = "true" ] && continue
     if docker port "$name" 5432/tcp 2>/dev/null | grep -qE '^(127\.0\.0\.1|0\.0\.0\.0):'; then
       found="$found $name"; count=$((count + 1))
     fi

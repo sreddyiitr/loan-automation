@@ -8,6 +8,7 @@ import com.funding.seed.SeedGates;
 import com.funding.seed.SeedPaths;
 import com.funding.seed.mock.MockBudget;
 import com.funding.seed.mock.MockSet;
+import com.funding.seed.mock.MockStub;
 import com.funding.seed.mock.MockStubGenerator;
 import java.util.List;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -43,7 +44,15 @@ final class Fixtures {
     }
 
     static String wireMockImport() {
-        return new MockStubGenerator(ENV, MockBudget.from(CONFIG))
-                .toWireMockImport(MockSet.generate(ENV, MockBudget.from(CONFIG), GENERATED.fixtures(), MockSet.catalogs(SeedPaths.discover())));
+        return wireMockImport(MockBudget.from(CONFIG));
+    }
+
+    /** Every generated stub for {@code budget}: a test that runs with shorter budgets regenerates them from those budgets (P-5.2). */
+    static List<MockStub> stubs(MockBudget budget) {
+        return MockSet.generate(ENV, budget, CONFIG.rules().incomeVarianceThreshold(), GENERATED.fixtures(), MockSet.catalogs(SeedPaths.discover()));
+    }
+
+    static String wireMockImport(MockBudget budget) {
+        return new MockStubGenerator(ENV, budget, CONFIG.rules().incomeVarianceThreshold()).toWireMockImport(stubs(budget));
     }
 }

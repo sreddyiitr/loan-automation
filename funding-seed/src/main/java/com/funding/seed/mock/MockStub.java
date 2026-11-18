@@ -9,9 +9,11 @@ import java.util.Map;
  * A generated stub (constitution P-5.2). {@code requestMatch} is what WireMock matches on;
  * {@code exampleRequest} is a concrete request it matches, used by the contract gate.
  *
- * @param source   {@code scenario} or {@code catalog}
- * @param band     band or fault class from the catalog / scenario intent
- * @param expected the band's independent expected outcome (the oracle, P-5 "Breadth")
+ * @param source     {@code scenario} or {@code catalog}
+ * @param band       band or fault class from the catalog / scenario intent
+ * @param expected   the band's independent expected outcome (the oracle, P-5 "Breadth")
+ * @param attributes inputs the oracle and the matrix tests need: {@code magnitude} (stated income
+ *                   or amount), {@code statedIncome}, {@code point}, …
  */
 public record MockStub(
         String id,
@@ -26,7 +28,12 @@ public record MockStub(
         JsonNode exampleRequest,
         List<Interaction> interactions,
         String expected,
-        boolean violatesContract) {
+        boolean violatesContract,
+        Map<String, String> attributes) {
+
+    public MockStub {
+        attributes = attributes == null ? Map.of() : Map.copyOf(attributes);
+    }
 
     /** Header regex/equality plus JSONPath body predicates. */
     public record RequestMatch(Map<String, String> headerEquals, Map<String, String> headerMatches,

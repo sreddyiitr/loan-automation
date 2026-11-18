@@ -26,7 +26,7 @@ class FundingWorkflowTest {
     void start() {
         env = TestWorkflowEnvironment.newInstance();
         acts = new FakeActivities();
-        Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, ActivityOptionsConfig.forTests());
+        Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, acts, ActivityOptionsConfig.forTests());
         env.start();
         client = env.getWorkflowClient();
     }
@@ -110,7 +110,7 @@ class FundingWorkflowTest {
         FundingWorkflow wf = workflow(8);
         FundingResult r = wf.run(new FundingInput(8, FundingInput.VALIDATE, QUEUES));
         assertThat(r.result()).isEqualTo("FUNDED");
-        assertThat(acts.recorded.keySet()).containsExactlyInAnyOrder(Check.TILA, Check.PRICE, Check.VIN, Check.GAP);
+        assertThat(acts.recorded.keySet()).containsExactlyInAnyOrder(Check.TILA, Check.PRICE, Check.VIN, Check.GAP, Check.INCOME);
         // All four children are started before any of them completes.
         var events = client.fetchHistory(WorkflowIds.parent("test", 8)).getEvents();
         int lastStart = -1, firstDone = Integer.MAX_VALUE;
