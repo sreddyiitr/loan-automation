@@ -51,8 +51,10 @@ class FundingWorkflowHistoryTest {
     @EnabledIfSystemProperty(named = "record.histories", matches = "true")
     void recordHistories() throws IOException {
         // Recorded per slice; older files stay so replay keeps covering in-flight runs from earlier code.
-        record("S2-LA-1001-funded", false);
-        record("S2-LA-1006-stipulated", true);
+        // S3: INCOME runs (behind the income-check version marker). S2-LA-1006-income-enabled-stipulated.json was
+        // recorded from the S2 commit with INCOME enabled in config, as production ran it: it proves the guard.
+        record("S3-LA-1001-funded", false);
+        record("S3-LA-1006-stipulated", true);
     }
 
     private void record(String name, boolean brokenPrice) throws IOException {

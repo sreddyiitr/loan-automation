@@ -57,12 +57,12 @@ public final class IncomeRule implements CheckRule {
         boolean ok = IncomeVariance.withinThreshold(variance, t);
         List<Comparison> c = List.of(
                 new Comparison("stated vs verified income", Money.format(verified), Money.format(stated), ok),
-                new Comparison("|variance| <= threshold", IncomeVariance.percent(t), IncomeVariance.percent(variance), ok));
+                new Comparison("|variance| <= threshold", IncomeVariance.percent(t), IncomeVariance.percentAgainst(variance, t), ok));
         if (ok) {
             return RuleSupport.pass(Check.INCOME, c);
         }
         return RuleSupport.fail(Check.INCOME, c, List.of(new StipRequest(StipCodes.INCOME_VARIANCE_EXCEEDED,
-                "Income variance " + IncomeVariance.percent(variance) + " exceeds " + IncomeVariance.percent(t)
+                "Income variance " + IncomeVariance.percentAgainst(variance, t) + " exceeds " + IncomeVariance.percent(t)
                         + ": stated " + Money.format(stated) + ", verified " + Money.format(verified))));
     }
 }

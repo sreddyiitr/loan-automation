@@ -27,6 +27,8 @@ public class FundingWorkflowImpl implements FundingWorkflow {
 
     private static final Logger LOG = Workflow.getLogger(FundingWorkflowImpl.class);
     private static final RuleEngine ENGINE = new RuleEngine();
+    /** {@code Workflow.getVersion} change id for the INCOME child (slice S3). */
+    static final String INCOME_CHECK_CHANGE = "income-check";
 
     private final ActivityOptionsConfig options;
     private final Map<Check, CheckOutcome> outcomes = new EnumMap<>(Check.class);
@@ -53,6 +55,12 @@ public class FundingWorkflowImpl implements FundingWorkflow {
         }
         Set<Check> checks = new TreeSet<>(view.enabledChecks());
         checks.retainAll(ENGINE.implementedChecks());
+        // NFR-07: INCOME was enabled in config before its rule existed (S3). A run started before
+        // then never scheduled an INCOME child, so on replay it must not schedule one now. Adding a
+        // rule for another enabled check needs the same kind of guard.
+        if (Workflow.getVersion(INCOME_CHECK_CHANGE, Workflow.DEFAULT_VERSION, 1) == Workflow.DEFAULT_VERSION) {
+            checks.remove(Check.INCOME);
+        }
 
         step = "VALIDATING";
         runChecks(checks, view, q, db);

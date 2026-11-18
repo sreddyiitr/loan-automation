@@ -97,8 +97,8 @@ rules:
     scenarios:
       LA-1022: aa732ae05bbd4b7e2d124f6e2658ba5a58019cf1d4d1dacf5fd3e6b522cee579
   INCOME_VARIANCE:
-    fingerprint: 38fae6f5d690db7284f4d9b03b1cb493f03127ac606cccfce1a6a491b24c09d2
-    source: 87628dfaf7e99bb930fd115d5955836c27cf391a2610418559f42642370b52fd
+    fingerprint: 8628018c2aceb08aae315c6d8fd90aeaf1a75919ea55559a1609e8aca667d930
+    source: 64b23d65a2ce510646c29411c84fa55506a8d749b384539edf014bb370cb4609
     config:
       funding.income.variance-threshold: "0.15"
     scenarios:
@@ -109,8 +109,8 @@ rules:
       LA-1015: 3a2abaac711bbab33a3ec6df7d4d3eda59c1327b06f157510f8f2d43f5096f74
       LA-1027: 4f86f7f25ebc8b3fef20c8d0ae3909e0480538909d2626dc1851708e2caa108c
   INCOME_API:
-    fingerprint: 7c8640cdffa2b75be4290232d0d55ee03eb07e4397d35cf1aa04bb39d0aaee7f
-    source: 6df60d581e4d85381ca2f2485bd41c36d9ca52ad389084f53cf72aea7e8d8b3b
+    fingerprint: 06e7b6507b07bfdde9d656c35383151c04e6458481b1491e66ba8d33cb16aa69
+    source: 6dc77f16572abfad2cd08ef6f64a1ade2efe960365baffbd47c9da059f863abf
     config:
     scenarios:
       LA-1016: 24b778ba0213bb781a58a2d37beca995806b7e01511a9022a9b4c1cf6eb5af89

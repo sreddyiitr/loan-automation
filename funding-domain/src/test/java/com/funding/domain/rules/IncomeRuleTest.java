@@ -60,6 +60,15 @@ class IncomeRuleTest {
         assertThat(eval("115000.01", verified("100000.00")).outcome()).isEqualTo(Outcome.FAIL);
     }
 
+    @Test
+    void FR_15_failJustOverThresholdNeverReadsAsEqualToIt() {
+        CheckOutcome o = eval("115000.01", verified("100000.00")); // 15.00001%
+        assertThat(o.stips()).singleElement().satisfies(s ->
+                assertThat(s.description()).startsWith("Income variance 15.00001% exceeds 15.00%"));
+        assertThat(eval("115000.00", verified("100000.00")).comparisons().get(1).actual()).isEqualTo("15.00%");
+        assertThat(eval("120000.00", verified("100000.00")).comparisons().get(1).actual()).isEqualTo("20.00%");
+    }
+
     @ParameterizedTest(name = "threshold {0}: stated {1} -> {2}")
     @CsvSource({"0.15, 115000.00, PASS", "0.10, 115000.00, FAIL", "0.20, 119999.99, PASS"})
     void FR_12_thresholdIsConfigDriven(String t, String stated, Outcome want) {

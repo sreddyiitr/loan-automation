@@ -44,13 +44,11 @@ public final class MockStubGenerator {
         MockCatalog disb = catalogs.get(ExternalApi.DISBURSEMENT);
         MockCatalog income = catalogs.get(ExternalApi.INCOME_VERIFICATION);
         for (Fixture f : fixtures) {
-            String d = f.externals().get("disbursement");
-            if (d != null && disb != null) {
-                out.add(scenarioDisbursement(f, d, disb));
-            }
-            String i = f.externals().get("income");
-            if (i != null && income != null) {
-                out.add(scenarioIncome(f, i, income));
+            for (ExternalApi api : List.of(ExternalApi.DISBURSEMENT, ExternalApi.INCOME_VERIFICATION)) {
+                String intent = f.externals().get(externalsKey(api));
+                if (intent != null && catalogs.containsKey(api)) {
+                    out.add(scenarioStub(f, api, intent, catalogs));
+                }
             }
         }
         if (disb != null) {
@@ -60,6 +58,30 @@ public final class MockStubGenerator {
             out.addAll(catalogIncome(income));
         }
         return List.copyOf(out);
+    }
+
+    /**
+     * The scenario's stub for {@code api} answering with {@code intent}: the generator's only way to
+     * build a per-scenario stub, used by {@link #generate} and by tests that swap a scenario's
+     * intent (T313). Throws for an intent the catalog doesn't define.
+     */
+    public MockStub scenarioStub(Fixture f, ExternalApi api, String intent, Map<ExternalApi, MockCatalog> catalogs) {
+        MockCatalog c = catalogs.get(api);
+        if (c == null) {
+            throw new IllegalArgumentException("no mock catalog for " + api);
+        }
+        return switch (api) {
+            case DISBURSEMENT -> scenarioDisbursement(f, intent, c);
+            case INCOME_VERIFICATION -> scenarioIncome(f, intent, c);
+        };
+    }
+
+    /** The scenario {@code externals:} key for an API. */
+    public static String externalsKey(ExternalApi api) {
+        return switch (api) {
+            case DISBURSEMENT -> "disbursement";
+            case INCOME_VERIFICATION -> "income";
+        };
     }
 
     // ================================================================ income
@@ -425,7 +447,8 @@ public final class MockStubGenerator {
         return out;
     }
 
-    private static Map<String, Object> request(MockStub s) {
+    /** The WireMock request pattern a stub matches on (also used to count a stub's calls). */
+    public static Map<String, Object> request(MockStub s) {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("method", s.method());
         r.put("urlPath", s.path());
