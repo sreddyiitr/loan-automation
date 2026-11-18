@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/hooks/seed-check-hook.sh",
+            "timeout": 300,
+            "statusMessage": "Checking seed and mock data against the rules (P-2/P-5)..."
+          }
+        ]
+      }
+    ]
+  }
+}
