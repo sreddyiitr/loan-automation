@@ -1,14 +1,361 @@
 # funding-automation
 
-Auto loan funding validation: Java 21, Spring Boot 3.5, Temporal, Postgres 18, AWS Emulator (SQS), WireMock.
+A backend that **automatically validates auto loan funding packages**. A dealer sends in a
+Retail Installment Sale Contract (RISC), a Buyer's Order and a GAP agreement, and a funder then
+spends hours checking the math, the prices, the VINs, the income and the GAP form. This project
+automates those checks with **Temporal workflows**. Each failure becomes a *stipulation* the
+dealer must clear, and a clean deal is disbursed automatically.
 
-Start with `specs/constitution.md`, then `specs/001-loan-funding-validation/` (`spec.md`, `plan.md`, `tasks.md`).
+Everything runs on your laptop: **Temporal**, **PostgreSQL 18** in Docker, the **AWS Emulator**
+for SQS, and **WireMock** for the external APIs. You need no AWS account and pay nothing.
 
-```sh
-make test-unit          # unit tests + seed gates (needs Docker)
-make seed-check         # P-2/P-5 gates: conformance, coverage, locks, docs, mock contract
-make run                # emulator + postgres + wiremock (reused if running) + app, profile 'local'
-make seed-submit-all    # submit every seeded scenario through the real trigger path
-make test-functional    # end-to-end against the shared local services (needs Temporal at localhost:7233)
-make down               # stop only containers these scripts started
+The project is **spec-driven**: read [`specs/constitution.md`](specs/constitution.md) first, then
+[`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/). What's built so far is
+in [`implementation_summary.md`](implementation_summary.md).
+
+## What it does today
+
+This is the first thin slice (**S1, the walking skeleton**) of a bigger build. It does one
+thing end to end:
+
+> **Validate a deal's TILA math and fund it.** Submit an application version. The system checks
+> that `amount_financed + finance_charge = total_of_payments` and that the monthly payment
+> matches the amortization formula. If both pass, it pays the dealer. If not, it raises
+> `STIP_TILA_MATH_DISCREPANCY` and waits for a funder.
+
+Behind that:
+
 ```
+ dev submit ──▶ Postgres 18 ──trigger──▶ outbox ──relay──▶ AWS Emulator SQS ──▶ LocalLambdaRunner
+ (stands in      (Docker, :55432)                          (Docker, :9297)       + the real Lambda handler
+  for OCR)            ▲                                                                │
+                      │ results, stips, audit                                          │ POST /api/v1/funding-workflows
+                      │                                                                ▼
+                 Temporal workers  ◀──────────────────── Spring Boot app (:8080) ──▶ Temporal (:7233)
+                 FundingWorkflow ─▶ TilaCheckWorkflow                                  
+                      │
+                      └── APPROVED ──HTTP──▶ WireMock (Docker, :8089): Disbursement API, generated stubs
+```
+
+- On startup, under the `local` profile, the app:
+  1. **creates the SQS queue and its DLQ** in the emulator;
+  2. **checks the seed data against the rules** and loads **6 test scenarios** (all `DRAFT`, so
+     nothing runs yet);
+  3. **loads 72 generated WireMock stubs**;
+  4. starts the local Lambda runner.
+- `make seed-submit-all` submits them all. The happy path (LA-1001) ends **FUNDED**; the broken
+  sum (LA-1002) ends **STIPULATED**.
+- Test data and mock responses are **computed from the business rules**, never typed by hand. If
+  someone changes a rule without updating the scenarios, the build fails (constitution P-2,
+  P-5). See [step 9](#step-9-change-a-rule-and-watch-the-gates-stop-you).
+
+The other four checks (price, VIN, income, GAP), the funder API, resubmissions and the 30-day
+expiry arrive in later slices ([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
+
+---
+
+## How we know it works
+
+**112 automated tests, all passing**, plus seven data gates. The functional tests run against the
+**real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
+scenario through the full trigger path.
+
+| Suite | Tool | Runs against | Tests | Result |
+|---|---|---|---:|---|
+| Domain rules | JUnit 5, AssertJ | nothing (pure Java) | 32 | ✅ all pass |
+| Persistence | JUnit 5, Testcontainers | `postgres:18` in Docker | 17 | ✅ all pass |
+| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 17 | ✅ all pass |
+| Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
+| Workflows | Temporal `TestWorkflowEnvironment`, Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 13 | ✅ 12 pass, 1 skipped (the history recorder, on request only) |
+| Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
+| API | Spring MockMvc, Temporal test env | test Temporal + Postgres | 12 | ✅ all pass |
+| **Functional** | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 9 | ✅ all pass |
+| Seed gates | `make seed-check` | — | 7 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock lock |
+
+<sub>Last full run: 2026-11-17, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+
+---
+
+## Before you start
+
+| You need | Check with | Notes |
+|---|---|---|
+| Docker Desktop | `docker ps` | must be running |
+| Java 21 | `java -version` | e.g. `brew install openjdk@21`; Homebrew's keg-only install is found automatically (`scripts/java-env.sh`) |
+| Maven 3.9+ | `mvn -v` | |
+| Temporal CLI | `temporal --version` | `brew install temporal`; provides the dev server on `localhost:7233` |
+| AWS CLI v2 | `aws --version` | optional; used for the identity check and to explore the emulator (step 6) |
+
+> **You never need real AWS credentials.** The emulator creates its own keys on every start, and
+> the scripts read them for you.
+>
+> **You don't need to start Postgres or WireMock yourself.** The scripts reuse a running
+> `postgres:18` or `wiremock/wiremock` container if one publishes a port. Otherwise they start
+> their own (`funding-postgres` on 55432, `funding-wiremock` on 8089).
+
+---
+
+## Run it, step by step
+
+### Step 1: Build the AWS Emulator image (first time only)
+
+This is the same image homehub uses, so if you already built `aws-emulator:latest`, skip this
+step. In an **empty folder** (for example `../aws-emulator`), create a `Dockerfile`:
+
+```dockerfile
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal
+ADD https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/latest/aws-emulator-aarch64.rpm /tmp/aws-emulator.rpm
+RUN rpm -i /tmp/aws-emulator.rpm && rm /tmp/aws-emulator.rpm \
+    && mkdir -p /home/emulator && chown 1000 /home/emulator
+USER 1000
+ENV HOME=/home/emulator
+EXPOSE 9297
+ENTRYPOINT ["aws-emulator", "-b", "0.0.0.0"]
+```
+
+> **Intel machines:** replace `aws-emulator-aarch64.rpm` with `aws-emulator-x86_64.rpm`
+> (`uname -m` prints `x86_64`).
+
+```bash
+docker build -t aws-emulator .
+```
+
+### Step 2: Start Temporal (in its own terminal)
+
+```bash
+temporal server start-dev        # gRPC on localhost:7233, web UI on http://localhost:8233
+```
+
+If a Temporal server is already running on `localhost:7233`, use it. A different address goes
+in `TEMPORAL_ADDRESS=host:port`.
+
+### Step 3: Start the emulator (optional)
+
+**Option A (simplest): skip this step.** `make run` starts `funding-emulator` if no emulator is
+running.
+
+**Option B: run your own,** or keep the one you already use for homehub:
+
+```bash
+mkdir -p ~/.aws/emulator
+docker run --rm --memory=2g --memory-swap=2g -p 127.0.0.1:9297:9297 \
+  -e HOME="$HOME" -v "$HOME/.aws/emulator:$HOME/.aws/emulator" \
+  aws-emulator -p 9297
+```
+
+**Which emulator do our scripts use?** `scripts/emulator-env.sh` decides:
+
+1. `EMULATOR_CONTAINER=<name>` if you set it.
+2. Otherwise **the one** running `aws-emulator:latest` container, whatever its name or port. If
+   several are running, it stops and asks you to choose.
+3. If that container **publishes no port** (a plain `docker run aws-emulator`), it starts a tiny
+   forwarder, `funding-emulator-proxy` (`alpine/socat`), on `127.0.0.1:9297`. Docker Desktop for
+   Mac can't route to container IPs directly.
+4. If the container **doesn't mount `~/.aws/emulator`**, the script copies `ca.pem`, `config` and
+   `emulator_credentials` out of it. It copies them again every time you source it, because the
+   emulator makes new keys and a new CA on each start.
+5. It checks `/__admin/health` **and** `aws sts get-caller-identity` → `000000000000`.
+6. Only if none of that works does it start its own emulator.
+
+> **Telemetry:** this project leaves the emulator's usage telemetry at its **default (on)**. That
+> differs from homehub's `--telemetry off`. If you want it off, start your own emulator with
+> `--telemetry off` ([how][telemetry-off]); the scripts will reuse it.
+
+### Step 4: Start the app
+
+```bash
+make run
+```
+
+`make run` sources the three env scripts, builds the modules, and runs the app under the `local`
+profile. You're ready when the JSON log shows:
+
+```
+emulator-env: reusing <container> at https://127.0.0.1:9297 region=us-west-2
+db-env: reusing funding-postgres, jdbc:postgresql://127.0.0.1:55432/funding (user funding)
+wiremock-env: reusing funding-wiremock at http://127.0.0.1:8089
+... "queues ready: https://sqs.us-west-2.amazonaws.com/000000000000/funding-pending-review-local (DLQ …-dlq)"
+... "seed data: 6 inserted, 0 replaced, 0 unchanged"
+... "loaded 72 generated stubs for env local into http://127.0.0.1:8089"
+... "local Lambda runner polling (stands in for the SQS event source mapping)"
+```
+
+Leave this terminal running. Useful pages:
+
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- Health: http://localhost:8080/actuator/health
+- Temporal UI: http://localhost:8233 (look for `funding-local-<versionId>`)
+
+### Step 5: Submit the scenarios and watch them settle
+
+In another terminal:
+
+```bash
+make seed-submit-all              # LA-1001 -> 200, LA-1002 -> 200, ...
+```
+
+Each submit flips a version from `DRAFT` to `PENDING_REVIEW`. That runs the **whole real path**
+(DB trigger → outbox → SQS → Lambda handler → start API → workflow). A second later:
+
+```bash
+source scripts/db-env.sh
+docker exec "$DB_CONTAINER" psql -U "$FUNDING_DB_USER" -d funding -c "
+  SELECT v.loan_application_id, v.version_status,
+         (SELECT string_agg(stip_code, ',') FROM stipulations s WHERE s.application_version_id = v.application_version_id) AS stips,
+         d.status AS disbursement, d.amount
+    FROM application_versions v LEFT JOIN disbursements d USING (application_version_id) ORDER BY 1"
+```
+
+```
+ LA-1001 | FUNDED     |                            | COMPLETED | 28450.00
+ LA-1002 | STIPULATED | STIP_TILA_MATH_DISCREPANCY |           |
+ LA-1003 | STIPULATED | STIP_TILA_MATH_DISCREPANCY |           |
+ LA-1004 | FUNDED     |                            | COMPLETED | 24000.00
+ ...
+```
+
+Ask the API what a workflow is doing (the API key is `local-dev-key` under `local`):
+
+```bash
+curl -s -H 'X-Trigger-Api-Key: local-dev-key' localhost:8080/api/v1/funding-workflows/2
+# {"workflowId":"funding-local-2","runStatus":"RUNNING",
+#  "state":{"step":"WAITING_FOR_FUNDER","status":"STIPULATED","outcomes":{"TILA":"FAIL"},"attempts":{"TILA":1}}}
+```
+
+Want to submit one again? Submitting works only from `DRAFT` (409 `NOT_DRAFT` otherwise).
+Restart the app after deleting its `seed_scenarios` row, or reset the volume with `make down`
+plus `docker volume rm funding-pgdata`.
+
+### Step 6: Look inside the emulator (SQS)
+
+```bash
+source scripts/emulator-env.sh
+aws sts get-caller-identity --query Account        # "000000000000" (if not, STOP: that's real AWS)
+
+aws sqs list-queues
+aws sqs get-queue-attributes --attributes All \
+  --queue-url https://sqs.us-west-2.amazonaws.com/000000000000/funding-pending-review-local \
+  --query 'Attributes.{visibility:VisibilityTimeout,redrive:RedrivePolicy,waiting:ApproximateNumberOfMessages}'
+```
+
+The queue URLs say `sqs.us-west-2.amazonaws.com`, but the SDK still sends every request to
+`AWS_ENDPOINT_URL`.
+
+### Step 7: Look inside WireMock
+
+```bash
+curl -s localhost:8089/__admin/mappings | python3 -c "import json,sys; m=json.load(sys.stdin)['mappings']; print(len(m), 'stubs')"
+curl -s localhost:8089/__admin/requests/unmatched        # must stay empty: a request no stub answers is a bug
+```
+
+Every stub carries `metadata.env`. The app replaces **only its own env's** stubs, so a WireMock
+container shared with another project is safe.
+
+### Step 8: Run the tests
+
+```bash
+make test-unit          # needs only Docker (Testcontainers postgres:18); includes the seed gates
+make seed-check         # the 7 data gates, writes nothing
+make test-functional    # needs Temporal + Docker; reuses your emulator, Postgres and WireMock
+```
+
+`make test-functional` doesn't disturb your local data. Each run uses
+`FUNDING_ENV=it-<runId>`: its own database `funding_it_<runId>`, its own queues, task queues,
+workflow IDs and WireMock stubs. It removes all of them at the end.
+
+### Step 9: Change a rule and watch the gates stop you
+
+This step teaches the most about how the project works. Loosen the payment tolerance in
+`funding-domain/src/main/resources/funding-rules.properties`:
+
+```properties
+funding.tila.payment-tolerance=0.02
+```
+
+```bash
+make seed-check
+#   FAIL lock
+#        - TILA_PAYMENT: rule source or config changed (fingerprint 6fda3ba81260 -> …). Run `make seed-regenerate` …
+```
+
+The rule changed, so every scenario that depends on it must be re-verified:
+
+```bash
+make seed-regenerate      # re-runs conformance + coverage, then rewrites test/data/rules.lock
+git diff test/data/rules.lock
+```
+
+The lock diff shows a reviewer which rules changed and which scenarios were re-checked. If a
+change makes a scenario's real outcome differ from its declared `expect`, `seed-regenerate`
+refuses to write anything. The fix is to update the scenario intent, never to weaken the check.
+Put the tolerance back when you're done (and run `make seed-regenerate` again).
+
+### Step 10: Stop everything
+
+- Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
+- `make down` stops only the containers **the scripts started** (label `funding.managed=true`):
+  the forwarder, and `funding-emulator`, `funding-postgres` or `funding-wiremock` if they were
+  started. It never touches a container you started yourself.
+- Postgres data survives in the `funding-pgdata` volume. Emulator data (queues, messages) lives
+  only in memory and is recreated on the next `make run`.
+
+---
+
+## What you'll learn
+
+| Fact | What it means here |
+|---|---|
+| **The emulator can't run Java 21 Lambdas**, and its Lambdas can't reach your machine (plan V-2, V-4) | The trigger Lambda is real Java 21 code, and locally `LocalLambdaRunner` calls it. SQS, visibility timeouts and DLQ redrive are real emulator behaviour. |
+| **The emulator's RDS is SQLite behind the Postgres protocol** (no triggers, floating-point `NUMERIC`) | The project uses real `postgres:18` in Docker instead. The app reaches it only through `FUNDING_DB_URL`. |
+| **New credentials and a new CA on every emulator start** | Always `source scripts/emulator-env.sh` again after restarting it. The CA is trusted only by the AWS SDK client, never JVM-wide, so Temporal and Postgres connections are unaffected. |
+| **A transactional outbox, not "send then commit"** | The status change and the outbox row commit together. A crash between the SQS send and the "published" mark only causes a duplicate, which the start API absorbs (`200 alreadyStarted`). |
+| **Business FAIL is a value, not an exception** | Temporal retries only technical failures. A TILA mismatch is returned as an outcome and never retried. |
+| **Every write re-checks "is this still the latest version?" in its own transaction** | A resubmission can't be overwritten by an older version's late result (AS-9.3). |
+| **Test data is derived, not typed** | Scenarios say "offset the total by +10.00", and the generator computes 33802.60 with the same `Amortization` code the rule uses. |
+| **Shared services need namespacing** | `FUNDING_ENV` scopes queue names, workflow IDs, task queues, the database and stub metadata, so tests and your local run can share one emulator, Postgres, WireMock and Temporal. |
+
+---
+
+## Troubleshooting
+
+| Message / symptom | Fix |
+|---|---|
+| `several emulator containers are running; choose one` | `EMULATOR_CONTAINER=<name> make run` |
+| `… is running but not reachable (health, CA or credentials)` | Restart that emulator, or set `EMULATOR_CONTAINER` to another one |
+| `image aws-emulator:latest not found` | Do step 1, or set `EMULATOR_IMAGE=<name:tag>` |
+| `run-local: Temporal is not reachable at localhost:7233` | Start it: `temporal server start-dev` (step 2) |
+| `profile 'local' requires AWS_ENDPOINT_URL` | Start with `make run`, which sources the env scripts, not `mvn spring-boot:run` directly |
+| `refusing to seed: seed gates failed` | Someone changed a rule or a scenario. Read the gate output, fix the intent, then run `make seed-regenerate` |
+| `make seed-check` fails with `lock … changed` | Expected after a rule or config change: run `make seed-regenerate` and review the `rules.lock` diff |
+| `401` from `/api/v1/funding-workflows` | Send `X-Trigger-Api-Key: local-dev-key` (or your `FUNDING_TRIGGER_API_KEY`) |
+| `409 NOT_DRAFT` on submit | That version was already submitted; see the end of step 5 |
+| A version stays `PENDING_REVIEW` | Check the Temporal UI for `funding-local-<id>`, and `curl localhost:8089/__admin/requests/unmatched` |
+| `FUNDING_DB_URL is not set: run functional tests with make test-functional` | Run functional tests with `make test-functional`, not plain `mvn verify` |
+| HTTP 403 from the emulator | Stale keys: `source scripts/emulator-env.sh` again |
+| Port 8080 already in use | `lsof -ti tcp:8080 \| xargs kill`, or `SERVER_PORT=8081 make run` |
+
+## References
+
+This project:
+
+- [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
+- [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
+  rule-derived seed data and mocks, local-first, determinism).
+- [`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/): `spec.md`
+  (acceptance scenarios), `plan.md` (design and emulator verification results), `data-model.md`,
+  `seed-data.md` (scenarios and mock catalog), `tasks.md` (ordered tasks and progress).
+- `CLAUDE.md`: rules for AI-assisted changes (the seed-check hook enforces them).
+
+AWS Emulator User Guide:
+
+- [Getting started with Docker][docker]
+- [Pointing your AWS SDK at AWS Emulator][sdk]
+- [Telemetry in AWS Emulator][telemetry]
+
+Others: [Temporal Java SDK](https://docs.temporal.io/develop/java) ·
+[WireMock](https://wiremock.org/docs/) · [Testcontainers](https://java.testcontainers.org/)
+
+[docker]: https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html
+[sdk]: https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html
+[telemetry]: https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html
+[telemetry-off]: https://docs.aws.amazon.com/emulator/latest/userguide/telemetry.html#telemetry-opt-out
