@@ -1,0 +1,13 @@
+id: LA-1003
+title: TILA payment wrong
+rules: [TILA_PAYMENT]
+side: FAIL
+spec: AS-2.3
+summary: "`monthly_payment` {risc.monthly_payment}; total {risc.total_of_payments}; FC {risc.finance_charge} (sum still balances)"
+given:
+  risc:
+    monthlyPayment: { offset: "+5.00", rebalance: true }
+expect:
+  checks: { TILA: FAIL }
+  status: STIPULATED
+  stips: [STIP_TILA_MATH_DISCREPANCY]

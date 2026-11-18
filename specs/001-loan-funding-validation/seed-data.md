@@ -205,11 +205,23 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 
 | ID | Scenario | Override from baseline | TILA | PRICE | VIN | INCOME | GAP | Expected status | Expected stips | Spec |
 |---|---|---|---|---|---|---|---|---|---|---|
-| LA-1001 | Happy path | — | PASS | PASS | PASS | PASS | PASS | **FUNDED** | — | AS-8.1 |
-| LA-1002 | TILA sum broken | `total_of_payments` 33802.60 (+$10) | FAIL | P | P | P | P | STIPULATED | TILA_MATH | AS-2.2 |
-| LA-1003 | TILA payment wrong | `monthly_payment` 568.21; total 34092.60; FC 5642.60 (sum still balances) | FAIL | P | P | P | P | STIPULATED | TILA_MATH | AS-2.3 |
+| LA-1001 | Happy path | — | PASS | PASS | PASS | PASS | PASS | FUNDED | — | AS-8.1 |
+| LA-1002 | TILA sum broken | `total_of_payments` 33802.60 (finance charge unchanged) | FAIL | P | P | P | P | STIPULATED | TILA_MATH_DISCREPANCY | AS-2.2 |
+| LA-1003 | TILA payment wrong | `monthly_payment` 568.21; total 34092.60; FC 5642.60 (sum still balances) | FAIL | P | P | P | P | STIPULATED | TILA_MATH_DISCREPANCY | AS-2.3 |
 | LA-1004 | 0% APR promo | AF 24000.00, APR 0, 48 mo, pmt 500.00, total 24000.00, FC 0.00; cash price 27000.00 on both | PASS | P | P | P | P | FUNDED | — | AS-2.3 (r = 0) |
 | LA-1005 | Rounding edge | AF 31875.50, 8.49%, 72 mo, pmt 566.54, total 40790.88, FC 8915.38; cash price 34875.50 on both | PASS | P | P | P | P | FUNDED | — | FR-08 |
+| LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
+
+`P` means PASS, the baseline outcome for that check. Stip codes omit the `STIP_` prefix.
+
+<!-- END GENERATED -->
+
+### Planned scenarios (not generated yet)
+
+These rows are the **intended** scenarios for later slices (`tasks.md`). They are hand-written targets, not generated data: no test reads them. When a scenario's intent file lands in `test/data/scenarios/`, its row moves out of this table and into the generated one above (`make seed-regenerate`), and the generated values replace these.
+
+| ID | Scenario | Override from baseline | TILA | PRICE | VIN | INCOME | GAP | Expected status | Expected stips | Spec |
+|---|---|---|---|---|---|---|---|---|---|---|
 | LA-1006 | Cash price off by 1¢ | BO `total_vehicle_cash_price` 31450.01 | P | FAIL | P | P | P | STIPULATED | PRICE_MISMATCH | AS-3.2 |
 | LA-1007 | VIN differs on GAP | GAP `vin` …100102 | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
 | LA-1008 | Model differs | BO `vehicle_model` `Camry SE` | P | P | FAIL | P | P | STIPULATED | VIN_MISMATCH | AS-4.2 |
@@ -238,11 +250,7 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4, and `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
 | LA-1032 | Doc fix triggers re-run | Starts as LA-1006 (STIPULATED). The test then adds **Buyer's Order v2** with 31450.00 through `POST /api/v1/dev/applications/{id}/documents` | re-run: all PASS | | | | | **FUNDED** | PRICE stip auto-SATISFIED by `system:` (AS-8.8) | AS-1.8, AS-8.8 |
 | LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (comma) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW | FR-14 |
-| LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
 
-`P` means PASS, the baseline outcome for that check. Stip codes omit the `STIP_` prefix.
-
-<!-- END GENERATED -->
 
 ## Funder-action scenarios (run against seeded results, used by functional tests)
 

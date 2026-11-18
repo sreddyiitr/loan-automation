@@ -1,0 +1,63 @@
+# funding-automation. Every endpoint comes from an environment variable (plan "Local Environment").
+spring:
+  application.name: funding-automation
+  profiles.default: local
+  # Rule + activity config defaults, shared with the seed generator (constitution P-2.1).
+  config.import: classpath:funding-rules.properties
+  datasource:
+    url: ${FUNDING_DB_URL:jdbc:postgresql://127.0.0.1:55432/funding}
+    username: ${FUNDING_DB_USER:funding}
+    password: ${FUNDING_DB_PASSWORD:funding}
+  flyway.locations: classpath:db/migration
+  mvc.problemdetails.enabled: true
+server:
+  port: ${SERVER_PORT:8080}
+
+funding:
+  env: ${FUNDING_ENV:local}
+  # Children the parent fans out to; only checks with a rule run (tasks.md: removed in T606).
+  checks.enabled: TILA,PRICE,VIN,INCOME,GAP
+  temporal:
+    target: ${TEMPORAL_ADDRESS:localhost:7233}
+    namespace: ${TEMPORAL_NAMESPACE:default}
+  aws:
+    endpoint: ${AWS_ENDPOINT_URL:}
+    region: ${AWS_REGION:us-west-2}
+    ca-bundle: ${AWS_CA_BUNDLE:}
+  trigger:
+    api-key: ${FUNDING_TRIGGER_API_KEY:}
+    api-base-url: ${FUNDING_API_BASE_URL:http://localhost:${server.port}}
+    http-timeout: PT5S
+    local-runner:
+      enabled: false
+      wait-seconds: 10
+    queue:
+      visibility-timeout-seconds: 60
+      max-receive-count: 5
+  relay:
+    interval-ms: 1000
+    batch-size: 50
+  disbursement.base-url: ${FUNDING_DISBURSEMENT_BASE_URL:http://127.0.0.1:8089}
+  income.base-url: ${FUNDING_INCOME_BASE_URL:http://127.0.0.1:8089}
+  bootstrap-infra: false
+  seed-data: false
+  mocks.load: false
+
+---
+spring.config.activate.on-profile: local
+spring.flyway.locations: classpath:db/migration,classpath:db/local
+funding:
+  bootstrap-infra: true
+  seed-data: true
+  mocks.load: true
+  trigger:
+    api-key: ${FUNDING_TRIGGER_API_KEY:local-dev-key}
+    local-runner.enabled: true
+
+---
+spring.config.activate.on-profile: aws
+funding:
+  bootstrap-infra: false
+  seed-data: false
+  mocks.load: false
+  trigger.local-runner.enabled: false

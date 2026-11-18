@@ -305,4 +305,4 @@ Every slice ends green on `make test-unit`, `make seed-check` and `make test-fun
 
 ## Next Step
 
-Generate `tasks.md`: an ordered, test-first task list derived from this plan.
+`tasks.md` is generated. Start with S1 (T101).

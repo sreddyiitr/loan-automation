@@ -1,0 +1,431 @@
+{
+  "events": [
+    {
+      "eventId": "1",
+      "eventTime": "2026-11-18T04:41:28.836Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED",
+      "workflowExecutionStartedEventAttributes": {
+        "workflowType": {
+          "name": "FundingWorkflow"
+        },
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJhcHBsaWNhdGlvblZlcnNpb25JZCI6MSwibW9kZSI6IlZBTElEQVRFIiwidGFza1F1ZXVlcyI6eyJvcmNoZXN0cmF0aW9uIjoiZnVuZGluZy1vcmNoZXN0cmF0aW9uLWhpc3RvcnkiLCJ2YWxpZGF0aW9uIjoiZnVuZGluZy12YWxpZGF0aW9uLWhpc3RvcnkiLCJleHRlcm5hbCI6ImZ1bmRpbmctZXh0ZXJuYWwtaGlzdG9yeSJ9fQ\u003d\u003d"
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "315360000s",
+        "workflowRunTimeout": "315360000s",
+        "workflowTaskTimeout": "10s",
+        "originalExecutionRunId": "6906312d-7241-4254-a12d-ea9053e00765",
+        "identity": "90912@mac.lan",
+        "firstExecutionRunId": "6906312d-7241-4254-a12d-ea9053e00765",
+        "attempt": 1,
+        "firstWorkflowTaskBackoff": "0s",
+        "header": {}
+      }
+    },
+    {
+      "eventId": "2",
+      "eventTime": "2026-11-18T04:41:28.836Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "3",
+      "eventTime": "2026-11-18T04:41:28.836Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "90912@mac.lan",
+        "historySizeBytes": "473"
+      }
+    },
+    {
+      "eventId": "4",
+      "eventTime": "2026-11-18T04:41:28.839Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "2",
+        "identity": "90912@mac.lan",
+        "sdkMetadata": {
+          "langUsedFlags": [
+            1,
+            3
+          ],
+          "sdkName": "temporal-java",
+          "sdkVersion": "1.41.1"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "5",
+      "eventTime": "2026-11-18T04:41:28.839Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "213eb171-29f0-35ab-b1b3-3efb928212a6",
+        "activityType": {
+          "name": "LoadVersionSnapshot"
+        },
+        "taskQueue": {
+          "name": "funding-validation-history"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "MQ\u003d\u003d"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "5s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "3",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "10s",
+          "maximumAttempts": 3
+        }
+      }
+    },
+    {
+      "eventId": "6",
+      "eventTime": "2026-11-18T04:41:28.839Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "5",
+        "identity": "90912@mac.lan",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "7",
+      "eventTime": "2026-11-18T04:41:28.841Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJzbmFwc2hvdCI6eyJhcHBsaWNhdGlvblZlcnNpb25JZCI6MSwibG9hbkFwcGxpY2F0aW9uSWQiOiJMQS0xIiwidmVyc2lvbk51bWJlciI6MSwidmVoaWNsZVZpbiI6IjRUMUMxMUFLN1JVMTAwMTAxIiwic3RhdGVkSW5jb21lQW5udWFsIjo5NjAwMC4wMCwic3NuVG9rZW5QcmVzZW50Ijp0cnVlLCJkZWFsZXJzaGlwSWQiOiJETFItMTAwIiwiZG9jdW1lbnRzIjp7IlJJU0MiOnsidHlwZSI6IlJJU0MiLCJkb2N1bWVudElkIjo3LCJmaWVsZHMiOnsibW9udGhseV9wYXltZW50Ijp7InJhdyI6IjU2My4yMSIsImNvbmZpZGVuY2UiOjAuOTd9LCJmaW5hbmNlX2NoYXJnZSI6eyJyYXciOiI1MzQyLjYwIiwiY29uZmlkZW5jZSI6MC45N30sImFwciI6eyJyYXciOiI2Ljk5IiwiY29uZmlkZW5jZSI6MC45N30sImNhc2hfcHJpY2UiOnsicmF3IjoiMzE0NTAuMDAiLCJjb25maWRlbmNlIjowLjk3fSwidG90YWxfb2ZfcGF5bWVudHMiOnsicmF3IjoiMzM4MDIuNjAiLCJjb25maWRlbmNlIjowLjk3fSwiYW1vdW50X2ZpbmFuY2VkIjp7InJhdyI6IjI4NDUwLjAwIiwiY29uZmlkZW5jZSI6MC45N30sInRlcm1fbW9udGhzIjp7InJhdyI6IjYwIiwiY29uZmlkZW5jZSI6MC45N319fX19LCJjb25maWciOnsidGlsYVN1bVRvbGVyYW5jZSI6MC4wMCwidGlsYVBheW1lbnRUb2xlcmFuY2UiOjAuMDF9LCJlbmFibGVkQ2hlY2tzIjpbIlRJTEEiXSwic3RhdHVzIjoiUEVORElOR19SRVZJRVciLCJsYXRlc3QiOnRydWUsInN1Ym1pdHRlZEF0RXBvY2hNaWxsaXMiOjB9"
+            }
+          ]
+        },
+        "scheduledEventId": "5",
+        "startedEventId": "6",
+        "identity": "90912@mac.lan"
+      }
+    },
+    {
+      "eventId": "8",
+      "eventTime": "2026-11-18T04:41:28.841Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "9",
+      "eventTime": "2026-11-18T04:41:28.841Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "90912@mac.lan",
+        "historySizeBytes": "1709"
+      }
+    },
+    {
+      "eventId": "10",
+      "eventTime": "2026-11-18T04:41:28.843Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "8",
+        "identity": "90912@mac.lan",
+        "sdkMetadata": {
+          "sdkName": "temporal-java",
+          "sdkVersion": "1.41.1"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "11",
+      "eventTime": "2026-11-18T04:41:28.843Z",
+      "eventType": "EVENT_TYPE_START_CHILD_WORKFLOW_EXECUTION_INITIATED",
+      "startChildWorkflowExecutionInitiatedEventAttributes": {
+        "namespace": "default",
+        "workflowId": "funding-history-LA-1002-stipulated-TILA-a1",
+        "workflowType": {
+          "name": "TilaCheckWorkflow"
+        },
+        "taskQueue": {
+          "name": "funding-validation-history"
+        },
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJjaGVjayI6IlRJTEEiLCJhdHRlbXB0IjoxLCJzbmFwc2hvdCI6eyJhcHBsaWNhdGlvblZlcnNpb25JZCI6MSwibG9hbkFwcGxpY2F0aW9uSWQiOiJMQS0xIiwidmVyc2lvbk51bWJlciI6MSwidmVoaWNsZVZpbiI6IjRUMUMxMUFLN1JVMTAwMTAxIiwic3RhdGVkSW5jb21lQW5udWFsIjo5NjAwMC4wMCwic3NuVG9rZW5QcmVzZW50Ijp0cnVlLCJkZWFsZXJzaGlwSWQiOiJETFItMTAwIiwiZG9jdW1lbnRzIjp7IlJJU0MiOnsidHlwZSI6IlJJU0MiLCJkb2N1bWVudElkIjo3LCJmaWVsZHMiOnsibW9udGhseV9wYXltZW50Ijp7InJhdyI6IjU2My4yMSIsImNvbmZpZGVuY2UiOjAuOTd9LCJmaW5hbmNlX2NoYXJnZSI6eyJyYXciOiI1MzQyLjYwIiwiY29uZmlkZW5jZSI6MC45N30sImFwciI6eyJyYXciOiI2Ljk5IiwiY29uZmlkZW5jZSI6MC45N30sImNhc2hfcHJpY2UiOnsicmF3IjoiMzE0NTAuMDAiLCJjb25maWRlbmNlIjowLjk3fSwidG90YWxfb2ZfcGF5bWVudHMiOnsicmF3IjoiMzM4MDIuNjAiLCJjb25maWRlbmNlIjowLjk3fSwiYW1vdW50X2ZpbmFuY2VkIjp7InJhdyI6IjI4NDUwLjAwIiwiY29uZmlkZW5jZSI6MC45N30sInRlcm1fbW9udGhzIjp7InJhdyI6IjYwIiwiY29uZmlkZW5jZSI6MC45N319fX19LCJjb25maWciOnsidGlsYVN1bVRvbGVyYW5jZSI6MC4wMCwidGlsYVBheW1lbnRUb2xlcmFuY2UiOjAuMDF9fQ\u003d\u003d"
+            }
+          ]
+        },
+        "workflowExecutionTimeout": "0s",
+        "workflowRunTimeout": "0s",
+        "workflowTaskTimeout": "10s",
+        "workflowTaskCompletedEventId": "9",
+        "header": {}
+      }
+    },
+    {
+      "eventId": "12",
+      "eventTime": "2026-11-18T04:41:28.844Z",
+      "eventType": "EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_STARTED",
+      "childWorkflowExecutionStartedEventAttributes": {
+        "namespace": "default",
+        "initiatedEventId": "11",
+        "workflowExecution": {
+          "workflowId": "funding-history-LA-1002-stipulated-TILA-a1",
+          "runId": "4ed6a2a8-404b-419a-9b23-a1b047231936"
+        },
+        "workflowType": {
+          "name": "TilaCheckWorkflow"
+        }
+      }
+    },
+    {
+      "eventId": "13",
+      "eventTime": "2026-11-18T04:41:28.844Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "14",
+      "eventTime": "2026-11-18T04:41:28.844Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "13",
+        "identity": "90912@mac.lan",
+        "historySizeBytes": "2880"
+      }
+    },
+    {
+      "eventId": "15",
+      "eventTime": "2026-11-18T04:41:28.845Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "13",
+        "identity": "90912@mac.lan",
+        "sdkMetadata": {
+          "sdkName": "temporal-java",
+          "sdkVersion": "1.41.1"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "16",
+      "eventTime": "2026-11-18T04:41:28.853Z",
+      "eventType": "EVENT_TYPE_CHILD_WORKFLOW_EXECUTION_COMPLETED",
+      "childWorkflowExecutionCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJjaGVjayI6IlRJTEEiLCJvdXRjb21lIjoiRkFJTCIsImNvbXBhcmlzb25zIjpbeyJuYW1lIjoiYW1vdW50X2ZpbmFuY2VkICsgZmluYW5jZV9jaGFyZ2UgPSB0b3RhbF9vZl9wYXltZW50cyIsImV4cGVjdGVkIjoiMzM3OTIuNjAiLCJhY3R1YWwiOiIzMzgwMi42MCIsIm9rIjpmYWxzZX0seyJuYW1lIjoiYW1vcnRpemVkIG1vbnRobHlfcGF5bWVudCIsImV4cGVjdGVkIjoiNTYzLjIxIiwiYWN0dWFsIjoiNTYzLjIxIiwib2siOnRydWV9LHsibmFtZSI6InBheW1lbnQgc2NoZWR1bGUgPSB0b3RhbF9vZl9wYXltZW50cyIsImV4cGVjdGVkIjoiMzM3OTIuNjAiLCJhY3R1YWwiOiIzMzgwMi42MCIsIm9rIjpmYWxzZX1dLCJmbGFnZ2VkRmllbGRzIjpbXSwic3RpcHMiOlt7ImNvZGUiOiJTVElQX1RJTEFfTUFUSF9ESVNDUkVQQU5DWSIsImRlc2NyaXB0aW9uIjoiVElMQSBtYXRoIGRpc2NyZXBhbmN5OiBhbW91bnRfZmluYW5jZWQgKyBmaW5hbmNlX2NoYXJnZSA9IHRvdGFsX29mX3BheW1lbnRzIChleHBlY3RlZCAzMzc5Mi42MCwgYWN0dWFsIDMzODAyLjYwKTsgcGF5bWVudCBzY2hlZHVsZSA9IHRvdGFsX29mX3BheW1lbnRzIChleHBlY3RlZCAzMzc5Mi42MCwgYWN0dWFsIDMzODAyLjYwKSJ9XSwiZXJyb3IiOm51bGx9"
+            }
+          ]
+        },
+        "namespace": "default",
+        "workflowExecution": {
+          "workflowId": "funding-history-LA-1002-stipulated-TILA-a1",
+          "runId": "4ed6a2a8-404b-419a-9b23-a1b047231936"
+        },
+        "workflowType": {
+          "name": "TilaCheckWorkflow"
+        },
+        "initiatedEventId": "11",
+        "startedEventId": "12"
+      }
+    },
+    {
+      "eventId": "17",
+      "eventTime": "2026-11-18T04:41:28.853Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "18",
+      "eventTime": "2026-11-18T04:41:28.853Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "17",
+        "identity": "90912@mac.lan",
+        "historySizeBytes": "3852"
+      }
+    },
+    {
+      "eventId": "19",
+      "eventTime": "2026-11-18T04:41:28.854Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "17",
+        "identity": "90912@mac.lan",
+        "sdkMetadata": {
+          "sdkName": "temporal-java",
+          "sdkVersion": "1.41.1"
+        },
+        "meteringMetadata": {}
+      }
+    },
+    {
+      "eventId": "20",
+      "eventTime": "2026-11-18T04:41:28.854Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED",
+      "activityTaskScheduledEventAttributes": {
+        "activityId": "aeacc9a8-fc2a-3276-aa05-c669dc20eafe",
+        "activityType": {
+          "name": "ApplyOutcome"
+        },
+        "taskQueue": {
+          "name": "funding-validation-history"
+        },
+        "header": {},
+        "input": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "MQ\u003d\u003d"
+            },
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "eyJUSUxBIjp7ImNoZWNrIjoiVElMQSIsIm91dGNvbWUiOiJGQUlMIiwiY29tcGFyaXNvbnMiOlt7Im5hbWUiOiJhbW91bnRfZmluYW5jZWQgKyBmaW5hbmNlX2NoYXJnZSA9IHRvdGFsX29mX3BheW1lbnRzIiwiZXhwZWN0ZWQiOiIzMzc5Mi42MCIsImFjdHVhbCI6IjMzODAyLjYwIiwib2siOmZhbHNlfSx7Im5hbWUiOiJhbW9ydGl6ZWQgbW9udGhseV9wYXltZW50IiwiZXhwZWN0ZWQiOiI1NjMuMjEiLCJhY3R1YWwiOiI1NjMuMjEiLCJvayI6dHJ1ZX0seyJuYW1lIjoicGF5bWVudCBzY2hlZHVsZSA9IHRvdGFsX29mX3BheW1lbnRzIiwiZXhwZWN0ZWQiOiIzMzc5Mi42MCIsImFjdHVhbCI6IjMzODAyLjYwIiwib2siOmZhbHNlfV0sImZsYWdnZWRGaWVsZHMiOltdLCJzdGlwcyI6W3siY29kZSI6IlNUSVBfVElMQV9NQVRIX0RJU0NSRVBBTkNZIiwiZGVzY3JpcHRpb24iOiJUSUxBIG1hdGggZGlzY3JlcGFuY3k6IGFtb3VudF9maW5hbmNlZCArIGZpbmFuY2VfY2hhcmdlID0gdG90YWxfb2ZfcGF5bWVudHMgKGV4cGVjdGVkIDMzNzkyLjYwLCBhY3R1YWwgMzM4MDIuNjApOyBwYXltZW50IHNjaGVkdWxlID0gdG90YWxfb2ZfcGF5bWVudHMgKGV4cGVjdGVkIDMzNzkyLjYwLCBhY3R1YWwgMzM4MDIuNjApIn1dLCJlcnJvciI6bnVsbH19"
+            }
+          ]
+        },
+        "scheduleToCloseTimeout": "315360000s",
+        "scheduleToStartTimeout": "315360000s",
+        "startToCloseTimeout": "5s",
+        "heartbeatTimeout": "0s",
+        "workflowTaskCompletedEventId": "18",
+        "retryPolicy": {
+          "initialInterval": "1s",
+          "backoffCoefficient": 2.0,
+          "maximumInterval": "10s",
+          "maximumAttempts": 3
+        }
+      }
+    },
+    {
+      "eventId": "21",
+      "eventTime": "2026-11-18T04:41:28.854Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED",
+      "activityTaskStartedEventAttributes": {
+        "scheduledEventId": "20",
+        "identity": "90912@mac.lan",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "22",
+      "eventTime": "2026-11-18T04:41:28.855Z",
+      "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED",
+      "activityTaskCompletedEventAttributes": {
+        "result": {
+          "payloads": [
+            {
+              "metadata": {
+                "encoding": "anNvbi9wbGFpbg\u003d\u003d"
+              },
+              "data": "IlNUSVBVTEFURUQi"
+            }
+          ]
+        },
+        "scheduledEventId": "20",
+        "startedEventId": "21",
+        "identity": "90912@mac.lan"
+      }
+    },
+    {
+      "eventId": "23",
+      "eventTime": "2026-11-18T04:41:28.855Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED",
+      "workflowTaskScheduledEventAttributes": {
+        "taskQueue": {
+          "name": "funding-orchestration-history"
+        },
+        "startToCloseTimeout": "10s",
+        "attempt": 1
+      }
+    },
+    {
+      "eventId": "24",
+      "eventTime": "2026-11-18T04:41:28.855Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED",
+      "workflowTaskStartedEventAttributes": {
+        "scheduledEventId": "23",
+        "identity": "90912@mac.lan",
+        "historySizeBytes": "4996"
+      }
+    },
+    {
+      "eventId": "25",
+      "eventTime": "2026-11-18T04:41:28.857Z",
+      "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED",
+      "workflowTaskCompletedEventAttributes": {
+        "scheduledEventId": "23",
+        "identity": "90912@mac.lan",
+        "sdkMetadata": {
+          "sdkName": "temporal-java",
+          "sdkVersion": "1.41.1"
+        },
+        "meteringMetadata": {}
+      }
+    }
+  ]
+}

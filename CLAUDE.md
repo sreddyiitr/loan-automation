@@ -17,6 +17,10 @@ Auto loan funding validation: Java 21, Spring Boot, Temporal (`localhost:7233`),
   - A new external API needs a contract, a catalog covering every band and fault class (`minPerBand` ≥ 5), and an `apis` entry on its `RuleCatalog` rule.
 - **Local services (P-3).** Reuse the developer's running emulator, Postgres and WireMock containers (`scripts/emulator-env.sh`, `db-env.sh`, `wiremock-env.sh`), and start new ones only if none is reachable. Don't use LocalStack. Leave emulator telemetry at its default.
 
-## Commands (planned; see plan.md)
+## Commands
 
-`make run` · `make down` · `make seed-check` · `make seed-regenerate` · `make seed-submit-all` · `make test-unit` · `make test-functional` · `make test-functional-volume`
+`make run` · `make down` · `make seed-check` · `make seed-regenerate` · `make seed-submit-all` · `make test-unit` · `make test-functional` · `make test-functional-volume` (arrives in S6)
+
+- `make test-unit` needs only Docker (Testcontainers `postgres:18`). `make test-functional` sources the env scripts and runs the `*IT` tests against the shared emulator, Postgres, WireMock and Temporal, isolated as `FUNDING_ENV=it-<runId>`.
+- `scripts/*-env.sh` are sourced from both bash and zsh (macOS default), so keep them free of arrays and of reliance on word splitting.
+- Progress: `specs/001-loan-funding-validation/tasks.md` (S1 done).

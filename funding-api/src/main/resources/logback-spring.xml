@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NFR-05: JSON logs; MDC carries loanApplicationId, applicationVersionId, workflowId. -->
+<configuration>
+  <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <includeMdcKeyName>loanApplicationId</includeMdcKeyName>
+      <includeMdcKeyName>applicationVersionId</includeMdcKeyName>
+      <includeMdcKeyName>workflowId</includeMdcKeyName>
+    </encoder>
+  </appender>
+  <logger name="io.temporal" level="WARN"/>
+  <logger name="io.grpc" level="WARN"/>
+  <root level="INFO"><appender-ref ref="JSON"/></root>
+</configuration>
