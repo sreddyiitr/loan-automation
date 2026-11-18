@@ -22,3 +22,13 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Maven / IDE / OS
+target/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Claude Code: personal overrides stay local (project .claude/settings.json is committed)
+.claude/settings.local.json
