@@ -394,9 +394,11 @@ These are recorded in full under each slice's notes in `tasks.md`.
 
 S5:
 
-- **Needs your confirmation:** C-20 to C-24 in `spec.md`. C-23 is a real question: a new
-  document re-runs every check, so a check that still fails raises its stip again even if a
-  funder had waived or satisfied it. C-24: no new version once the latest is paid or being paid.
+- **C-23 confirmed by the owner (2026-11-20):** a new document re-runs every check, and a check
+  that still fails raises its stip again even if a funder had waived or satisfied it ("you never
+  know what the new version has").
+- **Needs your confirmation:** C-20 to C-22 and C-24 in `spec.md`. C-24: no new version once the
+  latest is paid or being paid.
 - Review fixes: a re-run requested during a validation now runs before the status is settled
   (it could approve and pay on replaced documents; `rerun-before-settling` marker), and a new
   version is refused while the latest one's payment started or completed (double-payment risk).
