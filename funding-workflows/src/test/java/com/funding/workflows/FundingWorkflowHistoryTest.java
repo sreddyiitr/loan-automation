@@ -67,13 +67,28 @@ class FundingWorkflowHistoryTest {
             env.sleep(Duration.ofSeconds(5));
         });
         recordS4("S4-LA-1006-expired", (env, wf, acts) -> env.sleep(Duration.ofDays(31)));
+        // S5: a new latest document re-runs every check and funds (AS-1.8); a newer version supersedes the run (AS-9.2).
+        recordS4("S5-LA-1006-document-rerun-funded", (env, wf, acts) -> {
+            acts.risc.put("cash_price", "31450.00"); // the corrected document
+            acts.status = "PENDING_REVIEW";
+            wf.documentsUpdated(101L);
+            env.sleep(Duration.ofSeconds(10));
+        });
+        recordS4("S5-LA-1006-superseded", (env, wf, acts) -> {
+            wf.supersede();
+            env.sleep(Duration.ofSeconds(5));
+        });
     }
 
     interface Script {
         void run(TestWorkflowEnvironment env, FundingWorkflow wf, FakeActivities acts);
     }
 
+    /** Never overwrites: a history recorded from an earlier slice's code must stay as it was. */
     private void recordS4(String name, Script script) throws IOException {
+        if (Files.exists(DIR.resolve(name + ".json"))) {
+            return;
+        }
         try (TestWorkflowEnvironment env = TestWorkflowEnvironment.newInstance()) {
             FakeActivities acts = new FakeActivities();
             acts.risc.put("cash_price", "31450.01"); // PRICE fails
@@ -91,6 +106,9 @@ class FundingWorkflowHistoryTest {
     }
 
     private void record(String name, boolean brokenPrice) throws IOException {
+        if (Files.exists(DIR.resolve(name + ".json"))) {
+            return;
+        }
         try (TestWorkflowEnvironment env = TestWorkflowEnvironment.newInstance()) {
             FakeActivities acts = new FakeActivities();
             if (brokenPrice) {

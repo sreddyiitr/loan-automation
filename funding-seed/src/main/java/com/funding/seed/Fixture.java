@@ -14,10 +14,21 @@ public record Fixture(
         List<Version> versions,
         Map<String, String> externals,
         List<GapForm> gapForms,
-        ScenarioIntent intent) {
+        ScenarioIntent intent,
+        List<Document> amendments) {
 
     public Version latest() {
         return versions.stream().filter(Version::latest).findFirst().orElseThrow();
+    }
+
+    /** S5: the earlier, non-latest application versions, oldest first (one per {@code intent.history()} entry). */
+    public List<Version> history() {
+        return versions.stream().filter(v -> !v.latest()).toList();
+    }
+
+    /** The same fixture under another application id (functional-test clones); versions and documents are shared. */
+    public Fixture withId(String id, java.util.function.UnaryOperator<Version> versionMapper) {
+        return new Fixture(id, title, id, versions.stream().map(versionMapper).toList(), externals, gapForms, intent, amendments);
     }
 
     public record Version(
@@ -45,6 +56,11 @@ public record Fixture(
             String fileName,
             int totalPages,
             List<Section> sections) {
+
+        public Document as(int version, boolean isLatest) {
+            return new Document(type, version, isLatest, fileName.replaceFirst("-v\\d+\\.pdf$", "-v" + version + ".pdf"),
+                    totalPages, sections);
+        }
 
         public String value(String key) {
             return sections.stream().flatMap(s -> s.fields().stream())

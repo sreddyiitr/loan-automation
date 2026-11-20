@@ -558,6 +558,18 @@ stubs:
     response: 0929ed12c3af77ce
     expect: FUNDED
     rules: "none"
+  "DISBURSEMENT/scenario/LA-1028":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1028"
+    response: 134263d40484a25f
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1029":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1029"
+    response: cc619323bc1762a6
+    expect: FUNDED
+    rules: "none"
   "DISBURSEMENT/scenario/LA-1030":
     band: EXHAUSTED
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1030"
@@ -568,6 +580,12 @@ stubs:
     band: SUCCESS
     requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1031"
     response: 880bb56cc51bdcd8
+    expect: FUNDED
+    rules: "none"
+  "DISBURSEMENT/scenario/LA-1032":
+    band: SUCCESS
+    requestKey: "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=LA-1032"
+    response: cb435b988416102c
     expect: FUNDED
     rules: "none"
   "DISBURSEMENT/scenario/LA-1033":
@@ -1866,6 +1884,18 @@ stubs:
     response: ac488633b832b002
     expect: FAIL
     rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1028":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1028"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1029":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1029"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
   "INCOME_VERIFICATION/scenario/LA-1030":
     band: ok-100k
     requestKey: "ssnItinEncrypted=enc:{env}:LA-1030"
@@ -1875,6 +1905,12 @@ stubs:
   "INCOME_VERIFICATION/scenario/LA-1031":
     band: ok-100k
     requestKey: "ssnItinEncrypted=enc:{env}:LA-1031"
+    response: 631c1ea5caa3eb2d
+    expect: PASS
+    rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"
+  "INCOME_VERIFICATION/scenario/LA-1032":
+    band: ok-100k
+    requestKey: "ssnItinEncrypted=enc:{env}:LA-1032"
     response: 631c1ea5caa3eb2d
     expect: PASS
     rules: "INCOME_VARIANCE@8628018c2ace,INCOME_API@06e7b6507b07"

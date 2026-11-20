@@ -1,7 +1,6 @@
 package com.funding.api.seed;
 
 import com.funding.domain.RuleCatalog;
-import com.funding.persistence.ApplicationWriter;
 import com.funding.persistence.GapRegistryRepository;
 import com.funding.seed.Fixture;
 import com.funding.seed.GateResult;
@@ -28,7 +27,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * {@code local} only (constitution P-2.6): runs every seed gate first and refuses to seed if one
  * fails, naming the stale scenario. Idempotent per scenario fingerprint; a stale scenario is
  * deleted and re-seeded, so the local DB never keeps data from old rules. Latest versions are
- * seeded DRAFT, so nothing triggers until {@code /api/v1/dev/applications/{id}/submit}.
+ * seeded DRAFT, so nothing triggers until {@code /api/v1/dev/applications/{id}/submit}; earlier
+ * versions are seeded with their final status and their result and stip rows, and never trigger.
  */
 @Component
 @Profile("local")
@@ -85,7 +85,7 @@ public class SeedDataLoader implements ApplicationRunner {
                 if (exists) {
                     delete(f.loanApplicationId());
                 }
-                new ApplicationWriter(jdbc).insert(f.loanApplicationId(), FixtureRows.versions(f));
+                FixtureRows.insert(jdbc, gates, f); // earlier versions get their own result and stip rows (S5)
                 jdbc.sql("INSERT INTO seed_scenarios (loan_application_id, scenario_id, fingerprint) VALUES (?, ?, ?)")
                         .params(f.loanApplicationId(), f.scenarioId(), fingerprint).update();
             });

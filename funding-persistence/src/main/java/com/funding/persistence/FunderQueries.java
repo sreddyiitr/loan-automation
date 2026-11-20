@@ -75,8 +75,10 @@ public class FunderQueries {
                  WHERE (entity_type = 'APPLICATION_VERSION' AND entity_id = ?)
                     OR (entity_type = 'STIPULATION' AND entity_id IN
                           (SELECT stip_id::text FROM stipulations WHERE application_version_id = ?))
+                    OR (entity_type = 'DOCUMENT' AND entity_id IN
+                          (SELECT document_id::text FROM documents WHERE application_version_id = ?))
                  ORDER BY audit_id""")
-                .params(Long.toString(versionId), versionId).query().listOfRows();
+                .params(Long.toString(versionId), versionId, versionId).query().listOfRows();
     }
 
     /** The current outcome per check (for the re-run default and the AS-8.10 TILA condition). */

@@ -1,0 +1,13 @@
+id: LA-1029
+title: New document version
+rules: [TILA_SUM]
+side: PASS
+spec: AS-9.4
+summary: "RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +10.00; RISC **v2** (latest) at baseline, {risc.total_of_payments}: checks read v2 only"
+priorDocuments:
+  risc:
+    totalOfPayments: { offset: "+10.00" }
+expect:
+  checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+  status: FUNDED
+  stips: []

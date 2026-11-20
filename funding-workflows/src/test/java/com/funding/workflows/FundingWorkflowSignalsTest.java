@@ -216,4 +216,28 @@ class FundingWorkflowSignalsTest {
         assertThat(s.attempts()).as("the early re-run was processed without another wake-up").containsEntry(Check.PRICE, 2);
         assertThat(s.status()).isEqualTo("STIPULATED");
     }
+
+    /** S5: the documents a run already re-ran for travel through continueAsNew, so a redelivery after it is still ignored. */
+    @Test
+    void handledDocumentsSurviveContinueAsNew() {
+        breakPrice();
+        FundingWorkflow wf = startRun(11);
+        settle(wf);
+        wf.documentsUpdated(7L); // re-runs (PRICE still fails): attempt 2
+        settle(wf);
+        for (int i = 1; i < MAX_SIGNALS; i++) {
+            wf.stipResolved();
+            settle(wf);
+        }
+        FundingWorkflow latest = client.newWorkflowStub(FundingWorkflow.class, WorkflowIds.parent("test", 11));
+        assertThat(client.fetchHistory(WorkflowIds.parent("test", 11)).getEvents().get(0)
+                .getWorkflowExecutionStartedEventAttributes().getContinuedExecutionRunId()).isNotEmpty();
+        assertThat(latest.getState().attempts()).containsEntry(Check.PRICE, 2);
+
+        latest.documentsUpdated(7L); // redelivered after the run continued as new
+        latest.stipResolved();
+        assertThat(settle(latest).attempts()).containsEntry(Check.PRICE, 2);
+        latest.documentsUpdated(8L);
+        assertThat(settle(latest).attempts()).containsEntry(Check.PRICE, 3);
+    }
 }

@@ -15,8 +15,8 @@ in [`implementation_summary.md`](implementation_summary.md).
 
 ## What it does today
 
-Slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income and mock catalog)** and
-**S4 (funder operations)** of a bigger build are done. End to end:
+Slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income and mock catalog)**,
+**S4 (funder operations)** and **S5 (versioning)** of a bigger build are done. End to end:
 
 > **Check a deal and fund it.** Submit an application version. Five checks run **in parallel**:
 >
@@ -37,6 +37,11 @@ Slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income and mock
 > reassign. Each action is a guarded, audited DB write, then a signal to the waiting workflow.
 > Only the status changes in spec §6 are allowed. A version not funded or rejected **30 days**
 > after it was first submitted expires.
+>
+> **Corrections come as new versions.** A new document under review (say, a corrected RISC)
+> re-runs **every** check, and a check that now passes clears its own stip. A resubmitted
+> application version supersedes the old one's run, which keeps its results and stips as
+> history. Once a version is approved its documents are frozen.
 
 Behind that:
 
@@ -55,9 +60,9 @@ Behind that:
 
 - On startup, under the `local` profile, the app:
   1. **creates the SQS queue and its DLQ** in the emulator;
-  2. **checks the seed data against the rules**, then loads the GAP form registry and **32 test
+  2. **checks the seed data against the rules**, then loads the GAP form registry and **35 test
      scenarios** (all `DRAFT`, so nothing runs yet);
-  3. **loads 316 generated WireMock stubs** (Disbursement and Income Verification: 252 catalog
+  3. **loads 322 generated WireMock stubs** (Disbursement and Income Verification: 252 catalog
      entries covering every band and fault class, plus one per scenario per API);
   4. starts the local Lambda runner.
 - `make seed-submit-all` submits them all. The happy path (LA-1001) ends **FUNDED**. Each
@@ -68,32 +73,32 @@ Behind that:
   retry.
 - Test data and mock responses are **computed from the business rules**, never typed by hand. If
   someone changes a rule without updating the scenarios, the build fails (constitution P-2,
-  P-5). See [step 9](#step-10-change-a-rule-and-watch-the-gates-stop-you).
+  P-5). See [step 11](#step-11-change-a-rule-and-watch-the-gates-stop-you).
 
-Resubmissions (a new version superseding the old one) and the volume test arrive in S5 and S6
+The volume test, the full replay suite and the worker-restart test arrive in S6
 ([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
 
 ---
 
 ## How we know it works
 
-**337 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**377 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
 | Domain rules (incl. income, API classifier, status machine) | JUnit 5, AssertJ | nothing (pure Java) | 136 | ✅ all pass |
-| Persistence (incl. guarded status writes) | JUnit 5, Testcontainers | `postgres:18` in Docker | 25 | ✅ all pass |
-| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 29 | ✅ all pass |
+| Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 33 | ✅ all pass |
+| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 34 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
-| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 52 | ✅ 51 pass, 1 skipped (the history recorder, on request only) |
+| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 60 | ✅ 59 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 30 | ✅ all pass |
-| **Functional** (every scenario, all 186 income catalog stubs, 13 funder actions) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 53 | ✅ all pass |
+| API (start API, funder API, dev endpoints, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 40 | ✅ all pass |
+| **Functional** (every scenario, all 186 income catalog stubs, 13 funder actions, 6 versioning cases) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 62 | ✅ all pass |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-<sub>Last full run: 2026-11-18, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-19, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -252,8 +257,8 @@ emulator-env: reusing <container> at https://127.0.0.1:9297 region=us-west-2
 db-env: reusing funding-postgres, jdbc:postgresql://127.0.0.1:55432/funding (user funding)
 wiremock-env: reusing funding-wiremock at http://127.0.0.1:8089
 ... "queues ready: https://sqs.us-west-2.amazonaws.com/000000000000/funding-pending-review-local (DLQ …-dlq)"
-... "seed data: 32 inserted, 0 replaced, 0 unchanged"
-... "loaded 316 generated stubs for env local into http://127.0.0.1:8089"
+... "seed data: 35 inserted, 0 replaced, 0 unchanged"
+... "loaded 322 generated stubs for env local into http://127.0.0.1:8089"
 ... "local Lambda runner polling (stands in for the SQS event source mapping)"
 ```
 
@@ -332,9 +337,32 @@ curl -s localhost:8080/api/v1/versions/$VID/audit                 # who did what
 Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `{"reason":…}`,
 `POST …/rerun` with `{"checks":["INCOME"]}`, `POST …/retry-disbursement` (LA-1030),
 `POST …/stipulations` for a manual stip, and `PUT …/assignee`. RISC-related stips can't be
-waived or satisfied by hand; the dealer must send a corrected RISC.
+waived or satisfied by hand; the dealer must send a corrected RISC (step 7).
 
-### Step 7: Look inside the emulator (SQS)
+### Step 7: Fix a document, or resubmit
+
+Two more dev endpoints play OCR's part. **Add a document** to the latest version: under review
+it re-runs every check; once approved it is refused with 409 `DOCUMENTS_FROZEN`. LA-1032 starts
+like LA-1006 (Buyer's Order 1¢ off). Its intent's `amend:` block generates the corrected Buyer's
+Order, so you don't type one. `make seed-regenerate` writes every generated fixture to
+`target/generated-seed/<id>.json` (with nothing changed, it rewrites the same files):
+
+```bash
+make seed-regenerate
+python3 -c "import json; print(json.dumps(json.load(open('target/generated-seed/LA-1032.json'))['amendments'][0]))" \
+  | curl -s -X POST localhost:8080/api/v1/dev/applications/LA-1032/documents -H 'Content-Type: application/json' -d @-
+# {"documentType":"BUYERS_ORDER","documentVersion":2,…}  … seconds later LA-1032 is FUNDED and its price stip SATISFIED by system:
+```
+
+(Submit LA-1032 first, step 5, and wait for STIPULATED: a document added to a DRAFT re-runs nothing.)
+
+**Resubmit** as a new application version: `POST /api/v1/dev/applications/{id}/versions` copies
+the latest version as a DRAFT (application fields and latest documents), with any documents in the
+body (`{"documents":[…]}`) replacing those of the same type. Submit it and the old version's run
+completes `SUPERSEDED`, its status and stips kept as history. LA-1028 is seeded that way: v1 is
+STIPULATED history, and v2 funds when you submit it.
+
+### Step 8: Look inside the emulator (SQS)
 
 ```bash
 source scripts/emulator-env.sh
@@ -349,7 +377,7 @@ aws sqs get-queue-attributes --attributes All \
 The queue URLs say `sqs.us-west-2.amazonaws.com`, but the SDK still sends every request to
 `AWS_ENDPOINT_URL`.
 
-### Step 8: Look inside WireMock
+### Step 9: Look inside WireMock
 
 ```bash
 curl -s localhost:8089/__admin/mappings | python3 -c "import json,sys; m=json.load(sys.stdin)['mappings']; print(len(m), 'stubs')"
@@ -359,7 +387,7 @@ curl -s localhost:8089/__admin/requests/unmatched        # must stay empty: a re
 Every stub carries `metadata.env`. The app replaces **only its own env's** stubs, so a WireMock
 container shared with another project is safe.
 
-### Step 9: Run the tests
+### Step 10: Run the tests
 
 ```bash
 make test-unit          # needs only Docker (Testcontainers postgres:18); includes the seed gates
@@ -371,7 +399,7 @@ make test-functional    # needs Temporal + Docker; reuses your emulator, Postgre
 `FUNDING_ENV=it-<runId>`: its own database `funding_it_<runId>`, its own queues, task queues,
 workflow IDs and WireMock stubs. It removes all of them at the end.
 
-### Step 10: Change a rule and watch the gates stop you
+### Step 11: Change a rule and watch the gates stop you
 
 This step teaches the most about how the project works. Loosen the payment tolerance in
 `funding-domain/src/main/resources/funding-rules.properties`:
@@ -398,7 +426,7 @@ change makes a scenario's real outcome differ from its declared `expect`, `seed-
 refuses to write anything. The fix is to update the scenario intent, never to weaken the check.
 Put the tolerance back when you're done (and run `make seed-regenerate` again).
 
-### Step 11: Stop everything
+### Step 12: Stop everything
 
 - Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
 - `make down` stops only the containers **the scripts started** (label `funding.managed=true`):
@@ -443,6 +471,8 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 | `400 MISSING_FUNDER_ID` from the funder API | Send `X-Funder-Id: <your id>` on every write |
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
+| `409 DOCUMENTS_FROZEN` from the dev documents endpoint | The version is APPROVED, FUNDED, REJECTED or EXPIRED. Resubmit as a new version instead (step 7) |
+| A new document doesn't re-run anything | The version was still DRAFT (submit it first), or it was no longer under review when the event arrived; the start API logs `NOT_RERUNNABLE` or `NO_OPEN_RUN` |
 | A version stays `PENDING_REVIEW` | Check the Temporal UI for `funding-local-<id>`, and `curl localhost:8089/__admin/requests/unmatched` |
 | `FUNDING_DB_URL is not set: run functional tests with make test-functional` | Run functional tests with `make test-functional`, not plain `mvn verify` |
 | HTTP 403 from the emulator | Stale keys: `source scripts/emulator-env.sh` again |

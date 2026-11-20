@@ -85,36 +85,56 @@ public final class SeedGates {
                 new GateResult("mock-lock", MocksLock.diff(paths.mocksLock(), mockLockEntries(g))));
     }
 
-    /** P-2.3: every generated scenario, run through the real rule engine, must produce its {@code expect}. */
+    /**
+     * P-2.3: every generated scenario, run through the real rule engine, must produce its {@code expect}.
+     * S5: so must each earlier version ({@code history}) and the re-run after the {@code amend} documents.
+     */
     public GateResult conformance(List<Fixture> fixtures) {
         List<String> failures = new ArrayList<>();
         for (Fixture f : fixtures) {
             ScenarioIntent i = f.intent();
-            Map<Check, CheckOutcome> actual = new java.util.EnumMap<>(engine.evaluate(FixtureSnapshots.of(f), config.rules()));
-            if (actual.containsKey(Check.INCOME)) {
-                actual.put(Check.INCOME, incomeOutcome(f)); // through the scenario's own generated income stub
+            conform(i.id() + " " + i.rules(), f, FixtureSnapshots.of(f), i.expect(), failures);
+            List<Fixture.Version> history = f.history();
+            for (int n = 0; n < i.history().size(); n++) {
+                conform(i.id() + " history v" + history.get(n).versionNumber(), f, FixtureSnapshots.of(f, history.get(n)),
+                        i.history().get(n).expect(), failures);
             }
-            for (Map.Entry<Check, CheckOutcome> e : actual.entrySet()) {
-                Outcome want = i.expect().check(e.getKey());
-                if (e.getValue().outcome() != want) {
-                    failures.add(i.id() + " " + i.rules() + ": " + e.getKey() + " expected " + want
-                            + " but the rule engine returned " + e.getValue().outcome() + describe(e.getValue()));
-                }
-            }
-            List<String> wantStips = i.expect().stips().stream().sorted().toList();
-            List<String> gotStips = actual.values().stream().flatMap(o -> o.stips().stream())
-                    .map(StipRequest::code).sorted().toList();
-            if (!wantStips.equals(gotStips)) {
-                failures.add(i.id() + " " + i.rules() + ": stips expected " + wantStips + " but were " + gotStips);
-            }
-            var snapshot = FixtureSnapshots.of(f);
-            String status = ExpectedStatus.derive(actual.values(), f.externals().get("disbursement"),
-                    com.funding.domain.rules.RiscCompleteness.problems(snapshot, config.rules()));
-            if (!status.equals(i.expect().status())) {
-                failures.add(i.id() + " " + i.rules() + ": status expected " + i.expect().status() + " but outcomes lead to " + status);
+            if (i.amend() != null) {
+                conform(i.id() + " after amend " + i.amend().documents(), f, FixtureSnapshots.amended(f), i.amend().expect(), failures);
             }
         }
         return new GateResult("conformance", failures);
+    }
+
+    /** The outcome of every enabled check for one snapshot of a fixture, INCOME through its generated stub. */
+    public Map<Check, CheckOutcome> outcomes(Fixture f, com.funding.domain.Snapshot snapshot) {
+        Map<Check, CheckOutcome> actual = new java.util.EnumMap<>(engine.evaluate(snapshot, config.rules()));
+        if (actual.containsKey(Check.INCOME)) {
+            actual.put(Check.INCOME, incomeOutcome(f, snapshot)); // through the scenario's own generated income stub
+        }
+        return actual;
+    }
+
+    private void conform(String label, Fixture f, com.funding.domain.Snapshot snapshot, ScenarioIntent.Expect expect, List<String> failures) {
+        Map<Check, CheckOutcome> actual = outcomes(f, snapshot);
+        for (Map.Entry<Check, CheckOutcome> e : actual.entrySet()) {
+            Outcome want = expect.check(e.getKey());
+            if (e.getValue().outcome() != want) {
+                failures.add(label + ": " + e.getKey() + " expected " + want
+                        + " but the rule engine returned " + e.getValue().outcome() + describe(e.getValue()));
+            }
+        }
+        List<String> wantStips = expect.stips().stream().sorted().toList();
+        List<String> gotStips = actual.values().stream().flatMap(o -> o.stips().stream())
+                .map(StipRequest::code).sorted().toList();
+        if (!wantStips.equals(gotStips)) {
+            failures.add(label + ": stips expected " + wantStips + " but were " + gotStips);
+        }
+        String status = ExpectedStatus.derive(actual.values(), f.externals().get("disbursement"),
+                com.funding.domain.rules.RiscCompleteness.problems(snapshot, config.rules()));
+        if (!status.equals(expect.status())) {
+            failures.add(label + ": status expected " + expect.status() + " but outcomes lead to " + status);
+        }
     }
 
     /**
@@ -178,7 +198,7 @@ public final class SeedGates {
      * INCOME for a scenario: replay its generated income stub through the app's response classifier
      * under the retry budget (so "down" is ERROR and "flaky" passes within the budget), then run the rule.
      */
-    private CheckOutcome incomeOutcome(Fixture f) {
+    private CheckOutcome incomeOutcome(Fixture f, com.funding.domain.Snapshot snapshot) {
         MockCatalog income = MockSet.catalogs(paths).get(com.funding.domain.ExternalApi.INCOME_VERIFICATION);
         String intent = f.externals().get("income");
         MockBudget budget = MockBudget.from(config);
@@ -188,7 +208,7 @@ public final class SeedGates {
         if (v == null) {
             return CheckOutcome.error(Check.INCOME, "income API: retries exhausted or response not usable");
         }
-        return engine.evaluate(Check.INCOME, FixtureSnapshots.of(f).withIncome(v), config.rules());
+        return engine.evaluate(Check.INCOME, snapshot.withIncome(v), config.rules());
     }
 
     private String registryHash() {

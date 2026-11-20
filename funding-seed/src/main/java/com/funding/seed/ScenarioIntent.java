@@ -21,8 +21,25 @@ public record ScenarioIntent(
         JsonNode given,
         JsonNode externals,
         Expect expect,
+        List<History> history,
+        JsonNode priorDocuments,
+        Amend amend,
         String sourceFile,
         String intentHash) {
+
+    /**
+     * S5, US-9: an earlier application version of the same application, seeded non-latest with its
+     * final status and its result and stip rows (never triggers). {@code given} is merged over the
+     * baseline on its own (not over the scenario's {@code given}).
+     */
+    public record History(JsonNode given, Expect expect) {}
+
+    /**
+     * S5, AS-1.8: corrected documents a test adds later through the dev endpoint. Each named document
+     * ({@code risc}, {@code buyersOrder}, {@code gap}) is regenerated with the scenario's own overrides
+     * for that document dropped (baseline values); {@code expect} is the outcome after the re-run.
+     */
+    public record Amend(List<String> documents, Expect expect) {}
 
     public record Expect(Map<Check, Outcome> checks, String status, List<String> stips) {
         public Outcome check(Check c) {

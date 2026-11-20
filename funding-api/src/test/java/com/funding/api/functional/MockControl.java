@@ -51,10 +51,9 @@ final class MockControl {
     Fixture cloneScenario(String scenarioId, String suffix) throws IOException, InterruptedException {
         Fixture f = fixture(scenarioId);
         String id = scenarioId + "-" + suffix;
-        List<Fixture.Version> versions = f.versions().stream().map(v -> new Fixture.Version(v.versionNumber(), v.latest(), v.status(),
+        Fixture copy = f.withId(id, v -> new Fixture.Version(v.versionNumber(), v.latest(), v.status(),
                 v.borrowerName(), v.coBorrowerName(), "enc:" + env + ":" + id, v.statedIncomeAnnual(), v.vehicleVin(),
-                v.dealershipName(), v.dealershipId(), v.documents())).toList();
-        Fixture copy = new Fixture(id, f.title(), id, versions, f.externals(), f.gapForms(), f.intent());
+                v.dealershipName(), v.dealershipId(), v.documents()));
         fixtures.add(copy);
         for (ExternalApi api : ExternalApi.values()) {
             String intent = copy.externals().get(MockStubGenerator.externalsKey(api));
@@ -96,7 +95,7 @@ final class MockControl {
         send("POST", "/__admin/mappings/import", generator.toWireMockImport(List.of(stub)));
     }
 
-    private Fixture fixture(String scenarioId) {
+    Fixture fixture(String scenarioId) {
         return fixtures.stream().filter(f -> f.scenarioId().equals(scenarioId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("no generated scenario " + scenarioId));
     }

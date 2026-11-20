@@ -41,6 +41,17 @@ import java.util.Set;
  *   <li>{@code <doc>.omit: [field]}, {@code <doc>.format: {field: thousandsSeparator}},
  *       {@code risc.extraFields: {key: value}}, {@code risc.itemizationPages: [first, last]}</li>
  * </ul>
+ *
+ * <p>Versioning (S5), at the top level of the intent:
+ * <ul>
+ *   <li>{@code history: [{given, expect}]}: earlier application versions (oldest first), each
+ *       generated from the baseline plus its own {@code given}, seeded non-latest with its expected
+ *       status (US-9)</li>
+ *   <li>{@code priorDocuments: {<doc>: overrides}}: an older, non-latest version 1 of that document,
+ *       generated from the scenario plus these overrides; the scenario's document becomes version 2 (AS-9.4)</li>
+ *   <li>{@code amend: {documents: [<doc>], expect}}: corrected documents for a test to add later,
+ *       generated with the scenario's overrides for that document dropped (AS-1.8)</li>
+ * </ul>
  */
 public final class SeedGenerator {
 
@@ -74,10 +85,77 @@ public final class SeedGenerator {
         this.income = income;
     }
 
+    private static final Map<String, DocumentType> DOC_TYPES = Map.of(
+            "risc", DocumentType.RISC, "buyersOrder", DocumentType.BUYERS_ORDER, "gap", DocumentType.GAP_AGREEMENT);
+
     public Fixture generate(ScenarioIntent intent, JsonNode baseline) {
         JsonNode g = merge(baseline.deepCopy(), intent.given());
         validateKeys(g, "", intent.id());
 
+        List<Fixture.Version> versions = new ArrayList<>();
+        int number = 1;
+        for (ScenarioIntent.History h : intent.history()) {
+            JsonNode hg = merge(baseline.deepCopy(), h.given());
+            validateKeys(hg, "", intent.id() + " history[" + number + "]");
+            versions.add(version(hg, baseline, intent, number++, false, h.expect().status()));
+        }
+        Fixture.Version latest = version(g, baseline, intent, number, true, "DRAFT");
+
+        // AS-9.4: older document versions, generated from the scenario plus the overrides, then superseded.
+        if (intent.priorDocuments() != null && !intent.priorDocuments().isMissingNode()) {
+            List<Fixture.Document> docs = new ArrayList<>();
+            for (Fixture.Document d : latest.documents()) {
+                String key = docKey(d.type());
+                if (intent.priorDocuments().has(key)) {
+                    ObjectNode pg = (ObjectNode) g.deepCopy();
+                    pg.set(key, merge(g.path(key).deepCopy(), intent.priorDocuments().get(key)));
+                    validateKeys(pg, "", intent.id() + " priorDocuments");
+                    Fixture.Document old = version(pg, baseline, intent, number, true, "DRAFT").documents().stream()
+                            .filter(o -> o.type() == d.type()).findFirst().orElseThrow();
+                    docs.add(old.as(1, false));
+                    docs.add(d.as(2, true));
+                } else {
+                    docs.add(d);
+                }
+            }
+            latest = withDocuments(latest, docs);
+        }
+        versions.add(latest);
+
+        // AS-1.8: corrected documents for a test to add later (the next document version of each type).
+        List<Fixture.Document> amendments = new ArrayList<>();
+        if (intent.amend() != null) {
+            ObjectNode ag = (ObjectNode) g.deepCopy();
+            for (String key : intent.amend().documents()) {
+                if (baseline.has(key)) {
+                    ag.set(key, baseline.get(key).deepCopy());
+                } else {
+                    ag.remove(key);
+                }
+            }
+            Fixture.Version corrected = version(ag, baseline, intent, number, true, "DRAFT");
+            for (String key : intent.amend().documents()) {
+                DocumentType type = DOC_TYPES.get(key);
+                int next = latest.documents().stream().filter(d -> d.type() == type).mapToInt(Fixture.Document::documentVersion).max().orElse(0) + 1;
+                corrected.documents().stream().filter(d -> d.type() == type).findFirst()
+                        .ifPresent(d -> amendments.add(d.as(next, true)));
+            }
+        }
+        return new Fixture(intent.id(), intent.title(), intent.id(), List.copyOf(versions), externals(intent), registry, intent,
+                List.copyOf(amendments));
+    }
+
+    private static String docKey(DocumentType t) {
+        return DOC_TYPES.entrySet().stream().filter(e -> e.getValue() == t).map(Map.Entry::getKey).findFirst().orElseThrow();
+    }
+
+    private static Fixture.Version withDocuments(Fixture.Version v, List<Fixture.Document> docs) {
+        return new Fixture.Version(v.versionNumber(), v.latest(), v.status(), v.borrowerName(), v.coBorrowerName(), v.ssnItinToken(),
+                v.statedIncomeAnnual(), v.vehicleVin(), v.dealershipName(), v.dealershipId(), List.copyOf(docs));
+    }
+
+    /** One application version from a merged intent tree; every document is version 1 and latest. */
+    private Fixture.Version version(JsonNode g, JsonNode baseline, ScenarioIntent intent, int number, boolean latest, String status) {
         JsonNode app = g.path("application");
         JsonNode veh = g.path("vehicle");
         JsonNode risc = g.path("risc");
@@ -186,8 +264,8 @@ public final class SeedGenerator {
                     .build(DocumentType.GAP_AGREEMENT, intent.id() + "-gap-v1.pdf", gap.path("pages").asInt(3)));
         }
 
-        Fixture.Version version = new Fixture.Version(
-                1, true, "DRAFT",
+        return new Fixture.Version(
+                number, latest, status,
                 app.path("borrowerName").asText(),
                 app.hasNonNull("coBorrowerName") ? app.get("coBorrowerName").asText() : null,
                 "enc:" + config.env() + ":" + intent.id(),
@@ -196,8 +274,6 @@ public final class SeedGenerator {
                 app.path("dealer").path("name").asText(),
                 app.path("dealer").path("id").asText(),
                 List.copyOf(docs));
-
-        return new Fixture(intent.id(), intent.title(), intent.id(), List.of(version), externals(intent), registry, intent);
     }
 
     // ------------------------------------------------------------------ vocabulary
@@ -442,6 +518,9 @@ public final class SeedGenerator {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("scenarioId", f.scenarioId());
             m.put("versions", f.versions());
+            if (!f.amendments().isEmpty()) {
+                m.put("amendments", f.amendments());
+            }
             m.put("externals", new java.util.TreeMap<>(f.externals()));
             return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(m);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {

@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.funding.api.seed.FixtureRows;
 import com.funding.domain.ExternalApi;
-import com.funding.persistence.ApplicationWriter;
 import com.funding.seed.Fixture;
 import com.funding.seed.SeedConfig;
 import com.funding.seed.SeedGates;
@@ -72,7 +71,7 @@ class FunderActionsE2EIT extends FunctionalTestBase {
         if (api != null) {
             mocks.swap(clone.scenarioId(), api, intent);
         }
-        List<Long> ids = new ApplicationWriter(jdbc).insert(clone.loanApplicationId(), FixtureRows.versions(clone));
+        List<Long> ids = FixtureRows.insert(jdbc, gates, clone);
         long id = ids.get(clone.versions().indexOf(clone.latest()));
         if (expiresSoon) {
             // AS-8.6 counts from submitted_at, which the DB stamps only when empty: back-date it so the
@@ -239,6 +238,9 @@ class FunderActionsE2EIT extends FunctionalTestBase {
         assertThat(JSON.readTree(call("GET", "/api/v1/versions/" + id + "/audit", null).body()).toString())
                 .contains("EXPIRED_AFTER_P30D", "system:funding-" + env + "-" + id);
         expect(resolve(id, "STIP_INCOME_VARIANCE_EXCEEDED", "SATISFIED"), 409, "VERSION_EXPIRED");
+        // AS-9.7: an expired version's documents are frozen too (a Buyer's Order v2 like LA-1032's correction).
+        Fixture.Document bo = mocks.fixture("LA-1032").amendments().get(0);
+        expect(call("POST", "/api/v1/dev/applications/LA-1012-EXPIRE/documents", JSON.writeValueAsString(bo)), 409, "DOCUMENTS_FROZEN");
     }
 
     @Test

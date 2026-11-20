@@ -1,0 +1,18 @@
+id: LA-1028
+title: Resubmission fixes the deal
+rules: [PRICE_PARITY]
+side: PASS
+spec: AS-9.1, AS-9.2, AS-9.3
+summary: "**v1** = LA-1006's deal (Buyer's Order price one step beyond the tolerance; seeded STIPULATED, not latest, its price stip PENDING); **v2** = baseline (DRAFT, latest), BO {bo.total_vehicle_cash_price}"
+history:
+  - given:
+      buyersOrder:
+        totalVehicleCashPrice: { beyondTolerance: smallest }
+    expect:
+      checks: { PRICE: FAIL }
+      status: STIPULATED
+      stips: [STIP_PRICE_MISMATCH]
+expect:
+  checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+  status: FUNDED
+  stips: []
