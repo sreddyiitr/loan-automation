@@ -24,6 +24,9 @@ public class StartWorkflowController {
     @PostMapping
     public ResponseEntity<Map<String, Object>> start(@RequestBody StartWorkflowRequest request) {
         StartWorkflowService.Started s = service.start(request);
+        if (s.signalled()) {
+            return ResponseEntity.ok(Map.of("workflowId", s.workflowId(), "runId", s.runId(), "documentsUpdated", true));
+        }
         if (s.alreadyStarted()) {
             return ResponseEntity.ok(Map.of("workflowId", s.workflowId(), "runId", s.runId(), "alreadyStarted", true));
         }

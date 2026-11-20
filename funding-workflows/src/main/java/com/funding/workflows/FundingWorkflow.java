@@ -10,8 +10,7 @@ import java.util.List;
 /**
  * Parent workflow, one per application version (FR-03). Funder actions are written to the DB by the
  * API first (guarded and audited), then signalled here (plan "Funder actions"): every signal is a
- * wake-up after which the workflow re-settles the version from the DB. {@code documentsUpdated} and
- * {@code supersede} arrive in slice S5.
+ * wake-up after which the workflow re-settles the version from the DB.
  */
 @WorkflowInterface
 public interface FundingWorkflow {
@@ -38,6 +37,21 @@ public interface FundingWorkflow {
     /** Try a failed disbursement again (C-8). */
     @SignalMethod
     void retryDisbursement(String actor);
+
+    /**
+     * A new latest document arrived while the version was under review (AS-1.8, C-10): re-run every
+     * check against the latest documents. Delivered at least once, so a {@code documentId} already
+     * handled is ignored.
+     */
+    @SignalMethod
+    void documentsUpdated(Long documentId);
+
+    /**
+     * A newer application version was submitted (AS-9.2): cancel any running checks and complete
+     * {@code SUPERSEDED}. Results and stips already written stay as history; the status is not touched.
+     */
+    @SignalMethod
+    void supersede();
 
     @QueryMethod
     FundingState getState();

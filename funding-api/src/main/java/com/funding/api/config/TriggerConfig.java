@@ -107,9 +107,9 @@ public class TriggerConfig {
     }
 
     @Bean
-    public StartWorkflowService startWorkflowService(JdbcClient jdbc, WorkflowClient client,
-                                                     @Value("${funding.env}") String env, TaskQueues queues) {
-        return new StartWorkflowService(jdbc, client, env, queues);
+    public StartWorkflowService startWorkflowService(JdbcClient jdbc, org.springframework.transaction.support.TransactionTemplate tx,
+                                                     WorkflowClient client, @Value("${funding.env}") String env, TaskQueues queues) {
+        return new StartWorkflowService(jdbc, tx, client, env, queues);
     }
 
     @Bean

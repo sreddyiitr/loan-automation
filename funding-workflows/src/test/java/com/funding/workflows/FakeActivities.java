@@ -45,6 +45,8 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
     /** Workflow (server) time at which expire was scheduled; 0 until then. */
     volatile long expireScheduledAt = 0L;
     volatile Map<String, String> risc = baselineRisc();
+    /** When set, verifyIncome blocks (real time) until it is counted down: holds the INCOME child mid-flight. */
+    volatile java.util.concurrent.CountDownLatch incomeGate;
 
     static Map<String, String> baselineRisc() {
         Map<String, String> m = new LinkedHashMap<>();
@@ -145,6 +147,14 @@ class FakeActivities implements FundingActivities, DisbursementActivities, Incom
     @Override
     public com.funding.domain.income.IncomeVerification verifyIncome(long id) {
         calls.add("verifyIncome");
+        java.util.concurrent.CountDownLatch gate = incomeGate;
+        if (gate != null) {
+            try {
+                gate.await(20, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         if (incomeDown) {
             throw ApplicationFailure.newFailure("income API: server error (503)", "IncomeUnavailable");
         }

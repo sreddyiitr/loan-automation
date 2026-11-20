@@ -37,6 +37,7 @@ class FundingActivitiesDbTest {
     static WireMockExtension wm = WireMockExtension.newInstance().options(wireMockConfig().dynamicPort()).build();
 
     private JdbcClient jdbc;
+    private javax.sql.DataSource dataSource;
     private FundingActivitiesImpl db;
     private DisbursementActivitiesImpl disbursement;
     private final RuleEngine engine = new RuleEngine();
@@ -45,6 +46,7 @@ class FundingActivitiesDbTest {
     void setUp() throws Exception {
         TestDatabase t = TestDatabase.fresh();
         jdbc = t.jdbc();
+        dataSource = t.dataSource();
         TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(t.dataSource()));
         db = new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.of(Check.TILA), Duration.ofDays(30));
         disbursement = new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), Duration.ofSeconds(5));
@@ -124,6 +126,40 @@ class FundingActivitiesDbTest {
         assertThat(jdbc.sql("SELECT count(*) FROM validation_results").query(Integer.class).single()).isZero();
         assertThat(jdbc.sql("SELECT count(*) FROM stipulations").query(Integer.class).single()).isZero();
         assertThat(status(id)).isEqualTo("PENDING_REVIEW");
+    }
+
+    /** T504 race: V2 is created while V1's checks are in flight; V1's write waits for the lock, then refuses. */
+    @Test
+    void AS_9_3_activitiesRefuseWritesForNonLatest() throws Exception {
+        long v1 = submitted("LA-1002");
+        CheckOutcome tila = evaluateTila(v1); // V1's check ran on V1's snapshot
+        TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
+        java.util.concurrent.CountDownLatch v2Created = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Thread resubmission = new Thread(() -> tx.executeWithoutResult(s -> {
+            new com.funding.persistence.ApplicationWriter(jdbc).addVersion("LA-1002",
+                    new com.funding.persistence.ApplicationWriter.NewVersion(0, false, "DRAFT", "B", null, "enc:x",
+                            new java.math.BigDecimal("1.00"), "4T1C11AK7RU100101", "D", "DLR-100", java.util.List.of()));
+            v2Created.countDown();
+            try {
+                release.await(10, java.util.concurrent.TimeUnit.SECONDS); // V1's row stays locked until V2 commits
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }));
+        resubmission.start();
+        assertThat(v2Created.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        java.util.concurrent.CompletableFuture<Boolean> write = java.util.concurrent.CompletableFuture.supplyAsync(() -> db.recordOutcome(v1, tila, 1));
+        Thread.sleep(300); // the write is now waiting on V1's row lock
+        assertThat(write).isNotDone();
+        release.countDown();
+        resubmission.join(10_000);
+
+        assertThat(write.get(10, java.util.concurrent.TimeUnit.SECONDS)).isFalse(); // re-read after the lock: no longer latest
+        assertThat(db.applyOutcome(v1, Map.of(Check.TILA, tila))).isEqualTo("SUPERSEDED");
+        assertThat(jdbc.sql("SELECT count(*) FROM validation_results").query(Integer.class).single()).isZero();
+        assertThat(jdbc.sql("SELECT count(*) FROM stipulations").query(Integer.class).single()).isZero();
+        assertThat(status(v1)).isEqualTo("PENDING_REVIEW");
     }
 
     private Map<Check, CheckOutcome> evaluateAll(long id) {
