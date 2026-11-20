@@ -5,6 +5,11 @@ import io.temporal.worker.WorkerFactory;
 
 /** Registers workflows and activities on their task queues (plan "Task queues"). */
 public final class Workers {
+
+    /** Options for every worker factory: the NFR-05 log correlation interceptor (T607). */
+    public static io.temporal.worker.WorkerFactoryOptions factoryOptions() {
+        return io.temporal.worker.WorkerFactoryOptions.newBuilder().setWorkerInterceptors(new MdcInterceptor()).build();
+    }
     private Workers() {}
 
     public static void register(WorkerFactory factory, TaskQueues q, FundingActivities db,

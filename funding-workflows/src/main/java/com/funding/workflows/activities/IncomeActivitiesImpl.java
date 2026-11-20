@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.funding.domain.income.IncomeApiResponse;
 import com.funding.domain.income.IncomeVerification;
 import com.funding.workflows.IncomeActivities;
-import com.funding.workflows.WorkflowIds;
 import io.temporal.failure.ApplicationFailure;
 import java.io.IOException;
 import java.net.URI;
@@ -15,7 +14,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -51,8 +49,6 @@ public class IncomeActivitiesImpl implements IncomeActivities {
 
     @Override
     public IncomeVerification verifyIncome(long versionId) {
-        MDC.put("applicationVersionId", Long.toString(versionId));
-        MDC.put("workflowId", WorkflowIds.parent(env, versionId));
         String token = jdbc.sql("SELECT ssn_itin_encrypted FROM application_versions WHERE application_version_id = ?")
                 .param(versionId).query(String.class).optional().orElse(null);
         if (token == null || token.isBlank()) {

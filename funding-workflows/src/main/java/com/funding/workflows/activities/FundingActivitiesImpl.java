@@ -28,7 +28,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -71,10 +70,10 @@ public class FundingActivitiesImpl implements FundingActivities {
 
     @Override
     public VersionView loadVersionSnapshot(long versionId) {
-        mdc(versionId);
         SnapshotRepository.Loaded l = snapshots.load(versionId)
                 .orElseThrow(() -> ApplicationFailure.newNonRetryableFailure("no application version " + versionId, "NotFound"));
         VersionRow v = l.version();
+        com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05; cleared after the activity
         long submitted = v.submittedAt() == null ? 0L : v.submittedAt().toInstant().toEpochMilli();
         return new VersionView(l.snapshot(), config.get(), ALL_CHECKS, v.status(), v.latest(), submitted,
                 submitted == 0L ? 0L : submitted + expireAfter.toMillis());
@@ -82,11 +81,11 @@ public class FundingActivitiesImpl implements FundingActivities {
 
     @Override
     public boolean recordOutcome(long versionId, CheckOutcome outcome, int attempt) {
-        mdc(versionId);
         return Boolean.TRUE.equals(tx.execute(s -> {
             VersionRow v;
             try {
                 v = versions.lockLatest(versionId);
+                com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05
             } catch (SupersededException e) {
                 LOG.info("version {} superseded; not recording {} result", versionId, outcome.check());
                 return false;
@@ -112,11 +111,11 @@ public class FundingActivitiesImpl implements FundingActivities {
 
     @Override
     public String applyOutcome(long versionId, Map<Check, CheckOutcome> outcomes) {
-        mdc(versionId);
         return tx.execute(s -> {
             VersionRow v;
             try {
                 v = versions.lockLatest(versionId);
+                com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05
             } catch (SupersededException e) {
                 return "SUPERSEDED";
             }
@@ -160,11 +159,11 @@ public class FundingActivitiesImpl implements FundingActivities {
 
     @Override
     public String markFunded(long versionId) {
-        mdc(versionId);
         return tx.execute(s -> {
             VersionRow v;
             try {
                 v = versions.lockLatest(versionId);
+                com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05
             } catch (SupersededException e) {
                 return "SUPERSEDED";
             }
@@ -178,11 +177,11 @@ public class FundingActivitiesImpl implements FundingActivities {
 
     @Override
     public String expire(long versionId) {
-        mdc(versionId);
         return tx.execute(s -> {
             VersionRow v;
             try {
                 v = versions.lockLatest(versionId);
+                com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05
             } catch (SupersededException e) {
                 return "SUPERSEDED";
             }
@@ -237,10 +236,5 @@ public class FundingActivitiesImpl implements FundingActivities {
         } catch (IllegalStateException | NullPointerException e) {
             return null; // called outside an activity (tests)
         }
-    }
-
-    private void mdc(long versionId) {
-        MDC.put("applicationVersionId", Long.toString(versionId));
-        MDC.put("workflowId", WorkflowIds.parent(env, versionId));
     }
 }

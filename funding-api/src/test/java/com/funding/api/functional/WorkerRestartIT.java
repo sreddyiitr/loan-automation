@@ -77,7 +77,7 @@ class WorkerRestartIT extends FunctionalTestBase {
     }
 
     private WorkerFactory newWorkers() {
-        WorkerFactory f = WorkerFactory.newInstance(client);
+        WorkerFactory f = WorkerFactory.newInstance(client, Workers.factoryOptions());
         Workers.register(f, queues, db, disbursement, income, options); // production registration
         f.start();
         return f;
