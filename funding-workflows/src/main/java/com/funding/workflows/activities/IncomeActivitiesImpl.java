@@ -27,7 +27,6 @@ public class IncomeActivitiesImpl implements IncomeActivities {
     private static final Logger LOG = LoggerFactory.getLogger(IncomeActivitiesImpl.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private final String env;
     private final JdbcClient jdbc;
     private final HttpClient http;
     private final URI uri;
@@ -38,8 +37,7 @@ public class IncomeActivitiesImpl implements IncomeActivities {
      * @param timeout       per-call HTTP timeout (the activity's start-to-close)
      * @param maxRetryDelay cap for a server's {@code Retry-After} (the retry policy's maximum interval, C-13)
      */
-    public IncomeActivitiesImpl(String env, JdbcClient jdbc, String baseUrl, Duration timeout, Duration maxRetryDelay) {
-        this.env = env;
+    public IncomeActivitiesImpl(JdbcClient jdbc, String baseUrl, Duration timeout, Duration maxRetryDelay) {
         this.jdbc = jdbc;
         this.uri = URI.create(baseUrl.replaceAll("/+$", "") + PATH);
         this.timeout = timeout;

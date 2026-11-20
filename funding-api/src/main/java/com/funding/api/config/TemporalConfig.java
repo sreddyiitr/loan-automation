@@ -58,9 +58,9 @@ public class TemporalConfig {
     }
 
     @Bean
-    public IncomeActivitiesImpl incomeActivities(@Value("${funding.env}") String env, JdbcClient jdbc,
+    public IncomeActivitiesImpl incomeActivities(JdbcClient jdbc,
                                                  @Value("${funding.income.base-url}") String baseUrl, ActivityOptionsConfig options) {
-        return new IncomeActivitiesImpl(env, jdbc, baseUrl, options.externalStartToClose(), options.maximumInterval());
+        return new IncomeActivitiesImpl(jdbc, baseUrl, options.externalStartToClose(), options.maximumInterval());
     }
 
     @Bean

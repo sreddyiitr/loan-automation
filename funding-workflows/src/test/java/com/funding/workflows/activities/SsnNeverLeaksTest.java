@@ -80,7 +80,7 @@ class SsnNeverLeaksTest {
         Workers.register(env.getWorkerFactory(), QUEUES,
                 new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30)),
                 new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), OPTIONS.externalStartToClose()),
-                new IncomeActivitiesImpl(Fixtures.ENV, jdbc, wm.baseUrl(), OPTIONS.externalStartToClose(), OPTIONS.maximumInterval()),
+                new IncomeActivitiesImpl(jdbc, wm.baseUrl(), OPTIONS.externalStartToClose(), OPTIONS.maximumInterval()),
                 OPTIONS);
         env.start();
     }
