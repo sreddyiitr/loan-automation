@@ -1,7 +1,9 @@
 # Implementation Summary
 
-What has been built so far for spec 001 (auto loan funding validation), and what is still to come.
-Status as of **2026-11-19**: slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income + mock catalog)**, **S4 (funder operations)** and **S5 (versioning)** are done; S5–S6 are planned in
+What has been built for spec 001 (auto loan funding validation), and what is left open.
+Status as of **2026-11-20**: all six slices are done: **S1 (walking skeleton)**, **S2 (document rules)**,
+**S3 (income + mock catalog)**, **S4 (funder operations)**, **S5 (versioning)** and **S6 (breadth and
+hardening)**. Tasks and their deviations are in
 [`specs/001-loan-funding-validation/tasks.md`](specs/001-loan-funding-validation/tasks.md).
 
 | Item | Where |
@@ -9,8 +11,8 @@ Status as of **2026-11-19**: slices **S1 (walking skeleton)**, **S2 (document ru
 | Principles | [`specs/constitution.md`](specs/constitution.md) (P-1 … P-5) |
 | Requirements | [`spec.md`](specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
-| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8; each slice's notes list deviations) |
-| Branches | S1 (PR #2), S2 (PR #3) and S3 (PR #4) merged to `main`; S4 in PR #5 (`feat/001-s4-funder-ops`); S5 on `feat/001-s5-versioning`, stacked on S4 |
+| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
+| Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
 
 ---
 
@@ -200,6 +202,12 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   java21 Lambdas and its Lambdas can't reach the host (plan V-2, V-4). It long-polls, calls the
   same handler, and deletes only the acknowledged messages.
 
+- **Volume seed** (S6, T603): `VolumeSet` builds one application per mock catalog entry: 186 income
+  applications `LA-5xxx`, carrying the entry's SSN token and stated income, and 66 disbursement
+  applications `LA-6xxx`, carrying the entry's loan id and amount. Each also gets a generated stub
+  for the other API. The expected checks, status and stips are derived from the rule engine and the
+  response simulator. It's loaded only with `funding.seed.volume=true` (local).
+
 ### `funding-workflows`: Temporal
 
 - **`FundingWorkflow`:**
@@ -256,6 +264,13 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   payloads lacked the new config fields. `RulesConfig` now fills fields added later from the file
   defaults when replaying. In S3 it caught a second one: a pre-S3 run would have scheduled an
   INCOME child on replay; the `income-check` version marker fixes that.
+
+- **Log correlation** (S6, NFR-05): `MdcInterceptor`, a worker interceptor, puts the parent
+  `workflowId`, `applicationVersionId` and (once the activity has read the version)
+  `loanApplicationId` on every activity log line, and always clears them. Before S6 the
+  activities set them and never removed them, so reused threads mislabelled later lines.
+- **Replay suite** (S6, NFR-07): `FundingWorkflowReplayTest` replays every recorded history, and
+  checks that each `Workflow.getVersion` change has histories from both sides of it.
 
 ### `funding-api`: the Spring Boot app (one process: API, workers, relay)
 
@@ -330,14 +345,15 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 |---|---|---:|---|
 | `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) | nothing (pure) | 136 | ✅ |
 | `funding-persistence` (incl. document freeze, guarded status writes, document-added trigger, new version in one transaction and the concurrent-V2 race) | Testcontainers `postgres:18` | 38 | ✅ |
-| `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, and the S5 history / prior-document / amend vocabulary) | repository data | 34 | ✅ |
+| `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, the S5 history / prior-document / amend vocabulary, and the S6 volume set) | repository data | 37 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
-| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 61 | ✅ (1 skipped: the history recorder, runs only on request) |
+| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
 | `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 41 | ✅ |
-| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 62 | ✅ |
+| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 67 | ✅ |
+| **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-**Total: 384 tests** (322 unit, 1 of them skipped, and 62 functional). Test names trace to the
+**Total: 396 tests** (328 unit, 1 of them skipped, 67 functional and 1 volume). Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -359,6 +375,16 @@ What the functional tests check:
   (LA-1032, LA-1002, LA-1023, stips auto-SATISFIED by `system:`); LA-1028 v2 funds while v1
   stays STIPULATED history and refuses writes; V2 created and submitted while V1 waits
   supersedes V1's run; documents are frozen on APPROVED, FUNDED and EXPIRED versions.
+- **Every disbursement catalog entry** (66, `DisbursementMatrixIT`) through the real parent's payment
+  path: paid classes fund exactly once (a timed-out call is retried with the same key and replayed);
+  refused ones are not retried and stay APPROVED with an ERROR audit row; EXHAUSTED retries to the
+  limit and stays APPROVED.
+- **Worker restart** (`WorkerRestartIT`, NFR-02): killed mid fan-out and while waiting for a funder,
+  the runs finish the same way, with one result per check and one payment.
+- **Observability** (`ObservabilityIT`): activity log lines carry the workflow, version and loan ids;
+  Temporal SDK meters are in `/actuator/metrics`.
+- **Volume** (`FundingVolumeIT`, NFR-01): 252 applications, one per catalog entry, submitted at once;
+  all settle as derived in about 100 s; with healthy APIs p50 7.3 s and p95 12.2 s.
 - **`MockControl`** swaps a scenario to another generated intent, restores it and counts calls,
   and rejects intents the generator doesn't produce.
 - **LA-1031:** the RISC Itemization section spanning pages 3–4 and its per-field bounding boxes
@@ -371,7 +397,7 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 
 ## 4. Acceptance scenarios covered so far
 
-| Area | Covered in S1–S5 |
+| Area | Covered in S1–S6 |
 |---|---|
 | US-1 Trigger | AS-1.1–1.8 |
 | US-2 TILA | AS-2.1, 2.2, 2.3 |
@@ -384,13 +410,25 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | US-10 Funder API | AS-10.1–10.9 |
 | US-9 Versioning | AS-9.1–9.7 |
 | FR | FR-02 to FR-17 |
-| NFR | NFR-03, 04, 06, 08; NFR-05 partly; NFR-07 groundwork |
+| NFR | NFR-01 (volume p95 12.2 s with healthy APIs), NFR-02 (worker restart), NFR-03, 04, 06, 07 (replay suite), 08; NFR-05 for activities and the relay |
 
 ---
 
 ## 5. Decisions and deviations
 
 These are recorded in full under each slice's notes in `tasks.md`.
+
+S6:
+
+- Disbursement catalog stubs now match the app's own idempotency key (its workflow ID) plus a
+  per-entry loan id and amount. Before S6 the real client could never reach them; only the gates'
+  simulator used them.
+- The volume run times "submission to the first status the workflow sets". ERROR holds keep
+  PENDING_REVIEW, so they are checked but not timed.
+- `funding.checks.enabled` is gone. The enabled set stays in `VersionView` because it is part of
+  recorded histories.
+- `make verify-emulator` exists but **hasn't been run**: it creates and removes resources in the
+  shared emulator, so the first run is yours.
 
 S5:
 
@@ -456,8 +494,13 @@ S1:
 
 ---
 
-## 6. Known gaps (next slices)
+## 6. Known gaps
 
-| Slice | Adds |
+Spec 001's slices are all done. What is still open:
+
+| Gap | Notes |
 |---|---|
-| **S6 – Breadth & hardening** | Disbursement matrix IT, volume seed and test, the full replay suite, worker-restart test, observability |
+| First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
+| Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
+| NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
+| Spec 002 | The funder UI, built on `contracts/funder-api.openapi.yaml`. |
