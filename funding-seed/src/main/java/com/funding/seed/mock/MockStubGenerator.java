@@ -286,8 +286,12 @@ public final class MockStubGenerator {
                 Map.of("magnitude", amount));
     }
 
+    /** First loan id of the disbursement catalog entries (T603: the volume seed's LA-6xxx applications). */
+    public static final int DISBURSEMENT_CATALOG_FIRST_LOAN = 6001;
+
     private List<MockStub> catalogDisbursement(MockCatalog c) {
         List<MockStub> out = new ArrayList<>();
+        int n = DISBURSEMENT_CATALOG_FIRST_LOAN;
         for (Map.Entry<String, MockCatalog.ClassSpec> e : c.classes().entrySet()) {
             String cls = e.getKey();
             List<Integer> ks = "retryBudget".equals(e.getValue().k())
@@ -296,8 +300,9 @@ public final class MockStubGenerator {
                 for (Integer k : ks) {
                     String id = "DISBURSEMENT/catalog/" + cls + "/" + amount + (k == null ? "" : "/k" + k);
                     // Matched like a scenario stub: the app's own key (its workflow ID) plus a per-entry
-                    // loanApplicationId, so the real client can reach every catalog entry (T601).
-                    String loanId = "CAT-" + slug(id);
+                    // loanApplicationId (LA-6001… in catalog order), so the real client can reach every entry
+                    // (T601) and the volume seed's LA-6xxx application for it pays through it (T603).
+                    String loanId = "LA-" + (n++);
                     String keyPattern = "funding-" + env + "-[0-9]+";
                     List<Interaction> calls = k == null
                             ? disbursementInteractions(cls, reference(id))

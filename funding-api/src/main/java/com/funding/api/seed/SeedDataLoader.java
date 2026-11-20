@@ -42,12 +42,20 @@ public class SeedDataLoader implements ApplicationRunner {
     private final SeedConfig config;
     private final JdbcClient jdbc;
     private final TransactionTemplate tx;
+    private final boolean volume;
 
-    public SeedDataLoader(SeedGates gates, SeedConfig config, JdbcClient jdbc, TransactionTemplate tx) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public SeedDataLoader(SeedGates gates, SeedConfig config, JdbcClient jdbc, TransactionTemplate tx,
+                          @org.springframework.beans.factory.annotation.Value("${funding.seed.volume:false}") boolean volume) {
         this.gates = gates;
         this.config = config;
         this.jdbc = jdbc;
         this.tx = tx;
+        this.volume = volume;
+    }
+
+    public SeedDataLoader(SeedGates gates, SeedConfig config, JdbcClient jdbc, TransactionTemplate tx) {
+        this(gates, config, jdbc, tx, false);
     }
 
     @Override
@@ -70,8 +78,13 @@ public class SeedDataLoader implements ApplicationRunner {
             tx.executeWithoutResult(s -> new GapRegistryRepository(jdbc).replaceAll(g.fixtures().get(0).gapForms()));
         }
         RuleFingerprints fp = RuleFingerprints.fromClasspath();
+        List<Fixture> fixtures = new java.util.ArrayList<>(g.fixtures());
+        if (volume) { // T603: one application per catalog entry, after the gates passed
+            new com.funding.seed.VolumeSet(config, com.funding.seed.SeedPaths.discover()).cases()
+                    .forEach(c -> fixtures.add(c.fixture()));
+        }
         int inserted = 0, replaced = 0, unchanged = 0;
-        for (Fixture f : g.fixtures()) {
+        for (Fixture f : fixtures) {
             String fingerprint = fingerprint(f, g.baselineHash(), fp);
             Optional<String> stored = jdbc.sql("SELECT fingerprint FROM seed_scenarios WHERE loan_application_id = ?")
                     .param(f.loanApplicationId()).query(String.class).optional();
