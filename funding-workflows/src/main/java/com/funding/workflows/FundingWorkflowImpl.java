@@ -7,6 +7,7 @@ import com.funding.domain.RuleEngine;
 import io.temporal.failure.ActivityFailure;
 import io.temporal.failure.ChildWorkflowFailure;
 import io.temporal.workflow.Async;
+import io.temporal.workflow.CancellationScope;
 import io.temporal.workflow.ChildWorkflowOptions;
 import io.temporal.workflow.Promise;
 import io.temporal.workflow.Workflow;
@@ -25,6 +26,8 @@ import org.slf4j.Logger;
  * expires (AS-8.6). The children run in parallel and independently (FR-04): one failing doesn't
  * affect the others. Funder actions are DB writes made by the API, then signalled here; after any
  * signal the workflow re-runs requested checks and re-settles the status with {@code applyOutcome}.
+ * A new latest document re-runs every check (AS-1.8); a newer submitted version supersedes the run,
+ * which then cancels its running checks and completes {@code SUPERSEDED} (AS-9.2, AS-9.5).
  */
 public class FundingWorkflowImpl implements FundingWorkflow {
 
@@ -34,6 +37,12 @@ public class FundingWorkflowImpl implements FundingWorkflow {
     static final String INCOME_CHECK_CHANGE = "income-check";
     /** Change id for S4's signal loop: expiry timer, explicit disbursement retry, re-runs, continueAsNew. */
     static final String FUNDER_SIGNALS_CHANGE = "funder-signals";
+    /**
+     * Change id (S5 review): a re-run requested while checks are running (a new document, or a
+     * funder's re-run) is done before the status is settled, so a version is never approved, and
+     * paid, on outcomes from documents that have since been replaced.
+     */
+    static final String RERUN_BEFORE_SETTLING_CHANGE = "rerun-before-settling";
     /** Plan step 7: continue as new once a run has handled this many signals. */
     public static final int MAX_SIGNALS_PER_RUN = 1000;
 
@@ -51,6 +60,10 @@ public class FundingWorkflowImpl implements FundingWorkflow {
     private long expiresAt;
     private boolean disbursementFailed;
     private boolean retryRequested;
+    /** S5: every check re-runs at the next wake-up (a new latest document, AS-1.8). */
+    private boolean rerunAll;
+    private final Set<Long> documentsHandled = new TreeSet<>();
+    private boolean supersedeRequested;
 
     public FundingWorkflowImpl(ActivityOptionsConfig options) {
         this(options, MAX_SIGNALS_PER_RUN);
@@ -70,6 +83,7 @@ public class FundingWorkflowImpl implements FundingWorkflow {
         DisbursementActivities disbursement = Workflow.newActivityStub(DisbursementActivities.class, options.external(q.external()));
         // NFR-07: runs started before S4 keep the S1-S3 loop (no expiry timer, disbursement retried on any wake-up).
         boolean s4 = Workflow.getVersion(FUNDER_SIGNALS_CHANGE, Workflow.DEFAULT_VERSION, 1) >= 1;
+        boolean rerunFirst = s4 && Workflow.getVersion(RERUN_BEFORE_SETTLING_CHANGE, Workflow.DEFAULT_VERSION, 1) >= 1;
 
         if (FundingInput.CONTINUE.equals(in.mode()) && in.carried() != null) {
             FundingCarry c = in.carried();
@@ -77,6 +91,9 @@ public class FundingWorkflowImpl implements FundingWorkflow {
             attempts.putAll(c.attempts());
             expiresAt = c.expiresAtEpochMillis();
             disbursementFailed = c.disbursementFailed();
+            if (c.documentsHandled() != null) {
+                documentsHandled.addAll(c.documentsHandled());
+            }
             step = "APPLYING";
             status = db.applyOutcome(id, outcomes);
         } else {
@@ -96,14 +113,18 @@ public class FundingWorkflowImpl implements FundingWorkflow {
             }
 
             step = "VALIDATING";
-            runChecks(checks, view, q, db);
+            if (!runChecks(checks, view, q, db)) {
+                return superseded();
+            }
 
-            step = "APPLYING";
-            status = db.applyOutcome(id, outcomes);
+            if (!(rerunFirst && rerunPending())) { // else: re-run first, settle after (the wait below returns at once)
+                step = "APPLYING";
+                status = db.applyOutcome(id, outcomes);
+            }
         }
 
         while (true) {
-            if ("SUPERSEDED".equals(status)) {
+            if ("SUPERSEDED".equals(status) || supersedeRequested) {
                 return superseded();
             }
             if (isTerminal(status)) { // pre-S4 histories never had a terminal applyOutcome: safe for them too
@@ -130,7 +151,8 @@ public class FundingWorkflowImpl implements FundingWorkflow {
             if (s4 && signals >= maxSignalsPerRun && wakeups == handled) { // never drop an unhandled signal
                 step = "CONTINUING";
                 Workflow.continueAsNew(new FundingInput(id, FundingInput.CONTINUE, q,
-                        new FundingCarry(new EnumMap<>(outcomes), new EnumMap<>(attempts), expiresAt, disbursementFailed)));
+                        new FundingCarry(new EnumMap<>(outcomes), new EnumMap<>(attempts), expiresAt, disbursementFailed,
+                                new TreeSet<>(documentsHandled))));
             }
 
             step = "WAITING_FOR_FUNDER";
@@ -149,9 +171,13 @@ public class FundingWorkflowImpl implements FundingWorkflow {
             }
 
             handled = wakeups;
-            if (s4 && !rerunRequested.isEmpty()) {
-                Set<Check> rerun = new TreeSet<>(rerunRequested);
+            if (supersedeRequested) {
+                continue; // completes SUPERSEDED above, without touching the status
+            }
+            if (s4 && (rerunAll || !rerunRequested.isEmpty())) {
+                Set<Check> rerun = new TreeSet<>(rerunAll ? outcomes.keySet() : rerunRequested);
                 rerunRequested.clear();
+                rerunAll = false;
                 rerun.retainAll(outcomes.keySet()); // only checks this run has (an S3 replay has no INCOME, for example)
                 if (!rerun.isEmpty()) {
                     step = "LOADING";
@@ -160,7 +186,12 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                         return superseded();
                     }
                     step = "VALIDATING";
-                    runChecks(rerun, view, q, db);
+                    if (!runChecks(rerun, view, q, db)) {
+                        return superseded();
+                    }
+                    if (rerunFirst && rerunPending()) {
+                        continue; // another document or re-run arrived meanwhile: run it before settling
+                    }
                 }
             }
             if (retryRequested) {
@@ -175,6 +206,11 @@ public class FundingWorkflowImpl implements FundingWorkflow {
         }
     }
 
+    /** A re-run was requested and not yet started. */
+    private boolean rerunPending() {
+        return rerunAll || !rerunRequested.isEmpty();
+    }
+
     private static boolean isTerminal(String s) {
         return "FUNDED".equals(s) || "REJECTED".equals(s) || "EXPIRED".equals(s);
     }
@@ -185,19 +221,38 @@ public class FundingWorkflowImpl implements FundingWorkflow {
         return new FundingResult(result);
     }
 
-    private void runChecks(Set<Check> checks, VersionView view, TaskQueues q, FundingActivities db) {
+    /**
+     * Runs the checks as parallel children and collects their outcomes in check order. Returns false
+     * if a {@code supersede} arrived first: the children still running are then cancelled (AS-9.2).
+     * Without a supersede the commands are exactly those of the S1-S4 {@code p.get()} loop, so
+     * recorded histories replay unchanged.
+     */
+    private boolean runChecks(Set<Check> checks, VersionView view, TaskQueues q, FundingActivities db) {
+        if (supersedeRequested) {
+            return false; // superseded while loading: start nothing
+        }
         String parentId = Workflow.getInfo().getWorkflowId();
         Map<Check, Promise<CheckOutcome>> running = new LinkedHashMap<>();
-        for (Check check : checks) {
-            int attempt = attempts.merge(check, 1, Integer::sum);
-            ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
-                    .setWorkflowId(WorkflowIds.child(parentId, check, attempt))
-                    .setTaskQueue(q.validation())
-                    .build();
-            CheckInput input = new CheckInput(check, attempt, view.snapshot(), view.config(), q.external());
-            running.put(check, start(check, opts, input));
-        }
-        running.forEach((check, p) -> {
+        CancellationScope children = Workflow.newCancellationScope(() -> {
+            for (Check check : checks) {
+                int attempt = attempts.merge(check, 1, Integer::sum);
+                ChildWorkflowOptions opts = ChildWorkflowOptions.newBuilder()
+                        .setWorkflowId(WorkflowIds.child(parentId, check, attempt))
+                        .setTaskQueue(q.validation())
+                        .build();
+                CheckInput input = new CheckInput(check, attempt, view.snapshot(), view.config(), q.external());
+                running.put(check, start(check, opts, input));
+            }
+        });
+        children.run();
+        for (Map.Entry<Check, Promise<CheckOutcome>> child : running.entrySet()) {
+            Check check = child.getKey();
+            Promise<CheckOutcome> p = child.getValue();
+            Workflow.await(() -> p.isCompleted() || supersedeRequested);
+            if (supersedeRequested) {
+                children.cancel("superseded by a newer application version");
+                return false;
+            }
             try {
                 outcomes.put(check, p.get());
             } catch (ChildWorkflowFailure e) {
@@ -210,7 +265,8 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                     LOG.warn("could not record ERROR result for {}", check);
                 }
             }
-        });
+        }
+        return true;
     }
 
     private static Promise<CheckOutcome> start(Check check, ChildWorkflowOptions opts, CheckInput input) {
@@ -263,6 +319,21 @@ public class FundingWorkflowImpl implements FundingWorkflow {
     @Override
     public void retryDisbursement(String actor) {
         retryRequested = true;
+        wake();
+    }
+
+    @Override
+    public void documentsUpdated(Long documentId) {
+        if (documentId != null && !documentsHandled.add(documentId)) {
+            return; // a redelivered event for a document this run already re-ran for
+        }
+        rerunAll = true;
+        wake();
+    }
+
+    @Override
+    public void supersede() {
+        supersedeRequested = true;
         wake();
     }
 

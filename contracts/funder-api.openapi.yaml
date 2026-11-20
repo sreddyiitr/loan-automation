@@ -136,7 +136,7 @@ paths:
                   type: object
                   additionalProperties: {}
           description: OK
-      summary: Audit trail of the version and its stips
+      summary: "Audit trail of the version, its stips and its documents"
       tags:
       - Funder
   /api/v1/versions/{versionId}/documents:

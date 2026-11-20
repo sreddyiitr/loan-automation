@@ -11,3 +11,10 @@ expect:
   checks: { PRICE: NEEDS_REVIEW }
   status: STIPULATED
   stips: [STIP_EXTRACTION_REVIEW_REQUIRED]
+# S5: the RISC stip can't be waived (AS-8.10); a re-scanned RISC v2 at the normal confidence fixes it.
+amend:
+  documents: [risc]
+  expect:
+    checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+    status: FUNDED
+    stips: []

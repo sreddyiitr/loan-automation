@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,12 +72,39 @@ class SeedDataLoaderTest {
         SeedDataLoader.Summary first = loader(config()).load();
         assertThat(first.inserted()).isEqualTo(scenarios);
         assertThat(count("SELECT count(*) FROM gap_form_registry")).isEqualTo(3); // T206: registry seeded
-        assertThat(count("SELECT count(*) FROM application_versions WHERE version_status <> 'DRAFT'")).isZero();
+        assertThat(count("SELECT count(*) FROM application_versions WHERE is_latest_version AND version_status <> 'DRAFT'")).isZero();
         assertThat(count("SELECT count(*) FROM outbox_events")).isZero(); // nothing triggers at startup
 
         SeedDataLoader.Summary again = loader(config()).load();
         assertThat(again.unchanged()).isEqualTo(scenarios);
         assertThat(again.inserted() + again.replaced()).isZero();
+    }
+
+    /** S5, US-9: an earlier version is seeded non-latest with its final status and its own result and stip rows. */
+    @Test
+    void seedsHistoricalVersionsWithTheirResultsAndStips() {
+        loader(config()).load();
+        List<Map<String, Object>> versions = jdbc.sql("""
+                SELECT application_version_id AS id, version_number AS n, is_latest_version AS latest, version_status AS status
+                  FROM application_versions WHERE loan_application_id = 'LA-1028' ORDER BY version_number""").query().listOfRows();
+        assertThat(versions).extracting(r -> r.get("n"), r -> r.get("latest"), r -> r.get("status")).containsExactly(
+                org.assertj.core.groups.Tuple.tuple(1, false, "STIPULATED"), org.assertj.core.groups.Tuple.tuple(2, true, "DRAFT"));
+        Object v1 = versions.get(0).get("id");
+        Object v2 = versions.get(1).get("id");
+        assertThat(jdbc.sql("SELECT validation_check || '=' || outcome FROM validation_results WHERE application_version_id = ? ORDER BY 1")
+                .param(v1).query(String.class).list())
+                .containsExactly("GAP=PASS", "INCOME=PASS", "PRICE=FAIL", "TILA=PASS", "VIN=PASS");
+        assertThat(jdbc.sql("""
+                SELECT s.stip_code || ':' || s.status || ':' || d.document_type FROM stipulations s
+                  JOIN documents d ON d.document_id = s.triggered_by_document_id WHERE s.application_version_id = ?""")
+                .param(v1).query(String.class).list()).containsExactly("STIP_PRICE_MISMATCH:PENDING:BUYERS_ORDER");
+        assertThat(count("SELECT count(*) FROM validation_results WHERE application_version_id = " + v2)).isZero();
+        // LA-1029: RISC v1 is kept but not latest, v2 is latest
+        assertThat(jdbc.sql("""
+                SELECT d.document_version_number || ':' || d.is_latest_doc FROM documents d JOIN application_versions v USING (application_version_id)
+                 WHERE v.loan_application_id = 'LA-1029' AND d.document_type = 'RISC' ORDER BY 1""").query(String.class).list())
+                .containsExactly("1:false", "2:true");
+        assertThat(count("SELECT count(*) FROM outbox_events")).isZero(); // seeded history never triggers
     }
 
     @Test

@@ -88,7 +88,7 @@ public class FunderController {
     }
 
     @GetMapping("/versions/{versionId}/audit")
-    @Operation(summary = "Audit trail of the version and its stips", description = "FR-10")
+    @Operation(summary = "Audit trail of the version, its stips and its documents", description = "FR-10")
     public List<Map<String, Object>> audit(@PathVariable long versionId) {
         return rows(funder.audit(versionId));
     }

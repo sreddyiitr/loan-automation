@@ -1,0 +1,19 @@
+id: LA-1032
+title: Doc fix triggers re-run
+rules: [PRICE_PARITY]
+side: FAIL_BOUNDARY
+spec: AS-1.8, AS-8.8
+summary: "starts as LA-1006 (BO `total_vehicle_cash_price` {bo.total_vehicle_cash_price}); the test then adds **Buyer's Order v2** at the RISC price {risc.cash_price} through the dev endpoint: every check re-runs, the price stip is auto-SATISFIED, FUNDED"
+given:
+  buyersOrder:
+    totalVehicleCashPrice: { beyondTolerance: smallest }
+expect:
+  checks: { PRICE: FAIL }
+  status: STIPULATED
+  stips: [STIP_PRICE_MISMATCH]
+amend:
+  documents: [buyersOrder]
+  expect:
+    checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+    status: FUNDED
+    stips: []

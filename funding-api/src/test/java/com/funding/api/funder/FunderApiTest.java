@@ -80,6 +80,8 @@ class FunderApiTest {
         @Override public void reject(String actor, String reason) { SIGNALS.add(id + ":reject:" + actor + ":" + reason); }
         @Override public void rerunChecks(List<Check> checks) { SIGNALS.add(id + ":rerun:" + checks); }
         @Override public void retryDisbursement(String actor) { SIGNALS.add(id + ":retryDisbursement:" + actor); }
+        @Override public void documentsUpdated(Long documentId) { SIGNALS.add(id + ":documentsUpdated:" + documentId); }
+        @Override public void supersede() { SIGNALS.add(id + ":supersede"); }
         @Override public FundingState getState() { return new FundingState(step, "", Map.of(), Map.of(), 0L, disbursementFailed); }
     }
 

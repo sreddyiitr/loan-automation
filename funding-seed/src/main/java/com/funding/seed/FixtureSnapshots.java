@@ -13,10 +13,28 @@ public final class FixtureSnapshots {
     private FixtureSnapshots() {}
 
     public static Snapshot of(Fixture f) {
-        Fixture.Version v = f.latest();
+        return of(f, f.latest(), f.latest().latestDocuments());
+    }
+
+    /** S5: an earlier application version, as its own checks saw it. */
+    public static Snapshot of(Fixture f, Fixture.Version v) {
+        return of(f, v, v.latestDocuments());
+    }
+
+    /** S5: the latest version once the intent's amendments have replaced the documents of their type (AS-1.8). */
+    public static Snapshot amended(Fixture f) {
+        List<Fixture.Document> docs = new java.util.ArrayList<>(f.latest().latestDocuments());
+        for (Fixture.Document a : f.amendments()) {
+            docs.removeIf(d -> d.type() == a.type());
+            docs.add(a);
+        }
+        return of(f, f.latest(), docs);
+    }
+
+    private static Snapshot of(Fixture f, Fixture.Version v, List<Fixture.Document> latestDocs) {
         Map<DocumentType, DocumentSnapshot> docs = new EnumMap<>(DocumentType.class);
         long syntheticId = 1;
-        for (Fixture.Document d : v.latestDocuments()) {
+        for (Fixture.Document d : latestDocs) {
             List<ExtractedField> rows = d.sections().stream().flatMap(s -> s.fields().stream())
                     .map(x -> new ExtractedField(x.key(), x.value(), x.confidence())).toList();
             docs.put(d.type(), DocumentSnapshot.resolve(d.type(), syntheticId++, rows));

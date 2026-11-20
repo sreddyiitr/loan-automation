@@ -25,7 +25,9 @@ public final class ScenarioLoader {
 
     private static final ObjectMapper YAML = new ObjectMapper(new YAMLFactory());
     private static final Set<String> TOP_LEVEL = Set.of(
-            "id", "title", "rules", "side", "variant", "spec", "summary", "given", "externals", "expect");
+            "id", "title", "rules", "side", "variant", "spec", "summary", "given", "externals", "expect",
+            "history", "priorDocuments", "amend");
+    static final Set<String> DOCUMENT_KEYS = Set.of("risc", "buyersOrder", "gap");
     private static final Set<String> SIDES = Set.of(
             "PASS", "FAIL", "PASS_BOUNDARY", "FAIL_BOUNDARY", "NEEDS_REVIEW", "ERROR");
 
@@ -75,13 +77,29 @@ public final class ScenarioLoader {
         if (rules.isEmpty()) {
             throw new IllegalArgumentException(name + ": rules must list at least one RuleCatalog id");
         }
-        JsonNode e = n.path("expect");
-        Map<Check, Outcome> checks = new EnumMap<>(Check.class);
-        e.path("checks").fields().forEachRemaining(f ->
-                checks.put(Check.valueOf(f.getKey()), Outcome.valueOf(f.getValue().asText())));
-        List<String> stips = new ArrayList<>();
-        e.path("stips").forEach(s -> stips.add(s.asText()));
-        ScenarioIntent.Expect expect = new ScenarioIntent.Expect(checks, text(e, "status", name + " expect"), stips);
+        ScenarioIntent.Expect expect = expect(n.path("expect"), name + " expect");
+        List<ScenarioIntent.History> history = new ArrayList<>();
+        int h = 0;
+        for (JsonNode v : n.path("history")) {
+            h++;
+            history.add(new ScenarioIntent.History(v.has("given") ? v.get("given") : MissingNode.getInstance(),
+                    expect(v.path("expect"), name + " history[" + h + "] expect")));
+        }
+        JsonNode prior = n.has("priorDocuments") ? n.get("priorDocuments") : MissingNode.getInstance();
+        prior.fieldNames().forEachRemaining(k -> {
+            if (!DOCUMENT_KEYS.contains(k)) {
+                throw new IllegalArgumentException(name + ": priorDocuments." + k + " is not one of " + DOCUMENT_KEYS);
+            }
+        });
+        ScenarioIntent.Amend amend = null;
+        if (n.has("amend")) {
+            List<String> docs = new ArrayList<>();
+            n.get("amend").path("documents").forEach(d -> docs.add(d.asText()));
+            if (docs.isEmpty() || !DOCUMENT_KEYS.containsAll(docs)) {
+                throw new IllegalArgumentException(name + ": amend.documents must list some of " + DOCUMENT_KEYS);
+            }
+            amend = new ScenarioIntent.Amend(List.copyOf(docs), expect(n.get("amend").path("expect"), name + " amend expect"));
+        }
 
         return new ScenarioIntent(
                 id,
@@ -94,8 +112,20 @@ public final class ScenarioLoader {
                 n.has("given") ? n.get("given") : MissingNode.getInstance(),
                 n.has("externals") ? n.get("externals") : MissingNode.getInstance(),
                 expect,
+                List.copyOf(history),
+                prior,
+                amend,
                 name,
                 sha256(file));
+    }
+
+    private static ScenarioIntent.Expect expect(JsonNode e, String where) {
+        Map<Check, Outcome> checks = new EnumMap<>(Check.class);
+        e.path("checks").fields().forEachRemaining(f ->
+                checks.put(Check.valueOf(f.getKey()), Outcome.valueOf(f.getValue().asText())));
+        List<String> stips = new ArrayList<>();
+        e.path("stips").forEach(s -> stips.add(s.asText()));
+        return new ScenarioIntent.Expect(checks, text(e, "status", where), stips);
     }
 
     private static String text(JsonNode n, String key, String where) {

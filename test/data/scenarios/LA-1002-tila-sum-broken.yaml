@@ -11,3 +11,10 @@ expect:
   checks: { TILA: FAIL }
   status: STIPULATED
   stips: [STIP_TILA_MATH_DISCREPANCY]
+# S5: the dealer's corrected RISC (baseline values) re-runs every check; the TILA stip is auto-SATISFIED (seed-data.md funder actions).
+amend:
+  documents: [risc]
+  expect:
+    checks: { TILA: PASS, PRICE: PASS, VIN: PASS, INCOME: PASS, GAP: PASS }
+    status: FUNDED
+    stips: []

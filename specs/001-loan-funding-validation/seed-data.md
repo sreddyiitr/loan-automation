@@ -232,8 +232,11 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 | LA-1025 | Unused field flagged | RISC extra field `dealer_notes` confidence 0.89 | P | P | P | P | P | FUNDED | — | AS-7.2 |
 | LA-1026 | Missing required field | RISC has no `finance_charge` | NEEDS_REVIEW | P | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | AS-7.1 |
 | LA-1027 | Multi-failure | TILA total 33802.60, GAP VIN 4T1C11AK7RU100102, stated 120000.00 with intent `low` | FAIL | P | FAIL | FAIL | P | STIPULATED | TILA_MATH_DISCREPANCY + VIN_MISMATCH + INCOME_VARIANCE_EXCEEDED | FR-04 |
+| LA-1028 | Resubmission fixes the deal | **v1** = LA-1006's deal (Buyer's Order price one step beyond the tolerance; seeded STIPULATED, not latest, its price stip PENDING); **v2** = baseline (DRAFT, latest), BO 31450.00 | PASS | PASS | PASS | PASS | PASS | FUNDED | — | AS-9.1, AS-9.2, AS-9.3 |
+| LA-1029 | New document version | RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +10.00; RISC **v2** (latest) at baseline, 33792.60: checks read v2 only | PASS | PASS | PASS | PASS | PASS | FUNDED | — | AS-9.4 |
 | LA-1030 | Disbursement fails | every check passes; dealer `DLR-FAIL`, disbursement intent `EXHAUSTED` (503 on every attempt): held APPROVED until a funder retries | PASS | PASS | PASS | PASS | PASS | APPROVED | — | C-8, AS-8.6 |
 | LA-1031 | Multi-page section | Baseline, but the RISC Itemization section spans pages 3–4: `cash_price` (page 3) and `amount_financed` (page 4) carry bounding boxes | P | P | P | P | P | FUNDED | — | US-10.5 |
+| LA-1032 | Doc fix triggers re-run | starts as LA-1006 (BO `total_vehicle_cash_price` 31450.01); the test then adds **Buyer's Order v2** at the RISC price 31450.00 through the dev endpoint: every check re-runs, the price stip is auto-SATISFIED, FUNDED | P | FAIL | P | P | P | STIPULATED | PRICE_MISMATCH | AS-1.8, AS-8.8 |
 | LA-1033 | Unparseable money | RISC `cash_price` `31,450.00` (thousands separator) | P | NEEDS_REVIEW | P | P | P | STIPULATED | EXTRACTION_REVIEW_REQUIRED | FR-14 |
 | LA-1034 | Final payment differs | `monthly_payment` 563.21, `final_payment` 563.36, total 33792.75, FC 5342.75 | PASS | P | P | P | P | FUNDED | — | C-9 |
 | LA-1035 | Income record not found | income intent `not-found` (no payroll record) | P | P | P | NEEDS_REVIEW | P | STIPULATED | PROOF_OF_INCOME | C-12 |
@@ -242,16 +245,15 @@ edit rule / config ─▶ rule fingerprint changes ─▶ RuleCatalog: rule → 
 
 <!-- END GENERATED -->
 
-### Planned scenarios (not generated yet)
+### Planned scenarios
 
-These rows are the **intended** scenarios for later slices (`tasks.md`). They are hand-written targets, not generated data: no test reads them. When a scenario's intent file lands in `test/data/scenarios/`, its row moves out of this table and into the generated one above (`make seed-regenerate`), and the generated values replace these.
+None: every planned scenario has an intent file and is in the generated table above (LA-1028, LA-1029 and LA-1032 landed in slice S5). A new planned scenario goes here as a hand-written target until its intent lands.
 
-| ID | Scenario | Override from baseline | TILA | PRICE | VIN | INCOME | GAP | Expected status | Expected stips | Spec |
-|---|---|---|---|---|---|---|---|---|---|---|
-| LA-1028 | Resubmission fixes the deal | **v1** = LA-1006 data (seeded STIPULATED, stip PENDING); **v2** = baseline (DRAFT, latest) | v2: all PASS | | | | | v1 stays STIPULATED; **v2 FUNDED** | v1's stip kept as history | AS-9.1–9.3 |
-| LA-1029 | New document version | One app version. RISC **v1** (`is_latest_doc=false`) has `total_of_payments` +$10; RISC **v2** (latest) at baseline | PASS (reads v2) | P | P | P | P | FUNDED | — | AS-9.4 |
-| LA-1032 | Doc fix triggers re-run | Starts as LA-1006 (STIPULATED). The test then adds **Buyer's Order v2** with 31450.00 through `POST /api/v1/dev/applications/{id}/documents` | re-run: all PASS | | | | | **FUNDED** | PRICE stip auto-SATISFIED by `system:` (AS-8.8) | AS-1.8, AS-8.8 |
+Versioning intents (S5) use three top-level keys besides `given`:
 
+- `history:` earlier application versions (LA-1028 v1). Each is generated from the baseline plus its own `given`, checked against its own `expect` by the conformance gate, and seeded non-latest with that status and its result and stip rows.
+- `priorDocuments:` an older, non-latest version 1 of a document (LA-1029's RISC); the scenario's document becomes version 2.
+- `amend:` corrected documents a test adds later through `POST /api/v1/dev/applications/{id}/documents` (LA-1032's Buyer's Order, LA-1002's and LA-1023's RISC). Each named document is regenerated with the scenario's overrides for it dropped, and the re-run outcome is checked against `amend.expect`.
 
 ## Funder-action scenarios (run against seeded results, used by functional tests)
 
@@ -259,7 +261,7 @@ These rows are the **intended** scenarios for later slices (`tasks.md`). They ar
 |---|---|---|
 | LA-1006 STIPULATED | Waive `STIP_PRICE_MISMATCH` with a reason | Stip WAIVED, `resolved_at` set → workflow continues → FUNDED; audit row written |
 | LA-1012 STIPULATED | Mark the income stip SATISFIED | → FUNDED |
-| LA-1027 STIPULATED | Resolve the VIN and income stips | Stays STIPULATED: the 3rd (TILA) stip is RISC-bound and resolves only via a corrected RISC version (C-15, slice S5) |
+| LA-1027 STIPULATED | Resolve the VIN and income stips | Stays STIPULATED: the 3rd (TILA) stip is RISC-bound and resolves only via a corrected RISC version (C-15). A corrected RISC re-runs every check, and the still-failing VIN and income checks raise their stips again (C-23, awaiting confirmation) |
 | LA-1016 held (ERROR) | `MockControl.switchIntent(LA-1016, income, ok-100k)`, then `rerunChecks({INCOME})` | INCOME PASS (attempt 2) → FUNDED |
 | LA-1006 STIPULATED | Manual approve while the price stip is PENDING | 409 `PENDING_STIPS` (AS-8.7) |
 | LA-1016 held (ERROR) | Manual approve (no PENDING stips) | APPROVED → FUNDED (AS-8.7 override) |

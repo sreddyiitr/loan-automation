@@ -140,4 +140,73 @@ class SeedGatesTest {
         assertThat(risc.value("total_of_payments")).isEqualTo("33792.60");
         assertThat(risc.value("finance_charge")).isEqualTo("5342.60");
     }
+
+    // ------------------------------------------------------------------ S5 versioning vocabulary
+
+    private static Fixture fixture(String id) {
+        return new SeedGates(SeedPaths.discover(), CONFIG, RuleFingerprints.fromClasspath()).generate().fixtures().stream()
+                .filter(x -> x.scenarioId().equals(id)).findFirst().orElseThrow();
+    }
+
+    private static Fixture.Document doc(List<Fixture.Document> docs, com.funding.domain.DocumentType type, int version) {
+        return docs.stream().filter(d -> d.type() == type && d.documentVersion() == version).findFirst().orElseThrow();
+    }
+
+    @Test
+    void US_9_historyIsAnEarlierNonLatestVersionWithItsOwnData() {
+        Fixture f = fixture("LA-1028");
+        assertThat(f.versions()).extracting(Fixture.Version::versionNumber, Fixture.Version::latest, Fixture.Version::status)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(1, false, "STIPULATED"),
+                        org.assertj.core.groups.Tuple.tuple(2, true, "DRAFT"));
+        assertThat(doc(f.history().get(0).documents(), com.funding.domain.DocumentType.BUYERS_ORDER, 1).value("total_vehicle_cash_price"))
+                .isEqualTo("31450.01"); // LA-1006's deal: RISC price + tolerance + 0.01
+        assertThat(doc(f.latest().documents(), com.funding.domain.DocumentType.BUYERS_ORDER, 1).value("total_vehicle_cash_price"))
+                .isEqualTo("31450.00");
+    }
+
+    @Test
+    void AS_9_4_priorDocumentIsVersionOneAndNotLatest() {
+        List<Fixture.Document> docs = fixture("LA-1029").latest().documents();
+        Fixture.Document v1 = doc(docs, com.funding.domain.DocumentType.RISC, 1);
+        Fixture.Document v2 = doc(docs, com.funding.domain.DocumentType.RISC, 2);
+        assertThat(v1.latest()).isFalse();
+        assertThat(v2.latest()).isTrue();
+        assertThat(v1.value("total_of_payments")).isEqualTo("33802.60"); // baseline 33792.60 + 10.00
+        assertThat(v2.value("total_of_payments")).isEqualTo("33792.60");
+        assertThat(v1.fileName()).endsWith("-risc-v1.pdf");
+        assertThat(v2.fileName()).endsWith("-risc-v2.pdf");
+        assertThat(doc(docs, com.funding.domain.DocumentType.BUYERS_ORDER, 1).latest()).isTrue(); // untouched documents stay v1
+    }
+
+    @Test
+    void AS_1_8_amendmentIsTheNextVersionWithTheScenariosOverrideDropped() {
+        Fixture f = fixture("LA-1032");
+        assertThat(f.amendments()).singleElement().satisfies(a -> {
+            assertThat(a.type()).isEqualTo(com.funding.domain.DocumentType.BUYERS_ORDER);
+            assertThat(a.documentVersion()).isEqualTo(2);
+            assertThat(a.value("total_vehicle_cash_price")).isEqualTo("31450.00");
+        });
+        assertThat(fixture("LA-1002").amendments()).singleElement()
+                .satisfies(a -> assertThat(a.value("total_of_payments")).isEqualTo("33792.60"));
+    }
+
+    @Test
+    void P_2_3_conformanceChecksHistoryAndAmendExpectations() throws IOException {
+        Path h = sandbox.scenarios().resolve("LA-1028-resubmission-fixes-the-deal.yaml");
+        Files.writeString(h, Files.readString(h).replace("      stips: [STIP_PRICE_MISMATCH]", "      stips: []"));
+        Path a = sandbox.scenarios().resolve("LA-1032-doc-fix-triggers-rerun.yaml");
+        Files.writeString(a, Files.readString(a).replace("    status: FUNDED", "    status: STIPULATED"));
+
+        assertThat(gate(sandboxGates(), "conformance").failures())
+                .anySatisfy(m -> assertThat(m).contains("LA-1028 history v1").contains("STIP_PRICE_MISMATCH"))
+                .anySatisfy(m -> assertThat(m).contains("LA-1032 after amend [buyersOrder]").contains("lead to FUNDED"));
+    }
+
+    @Test
+    void versioningKeysAreValidated() throws IOException {
+        Path f = sandbox.scenarios().resolve("LA-1029-new-document-version.yaml");
+        Files.writeString(f, Files.readString(f).replace("priorDocuments:\n  risc:", "priorDocuments:\n  paystub:"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(this::sandboxGates)
+                .hasMessageContaining("priorDocuments.paystub is not one of");
+    }
 }

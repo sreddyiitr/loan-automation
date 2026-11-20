@@ -28,6 +28,24 @@ public class ProblemHandler {
         return respond(p);
     }
 
+    /** AS-9.7: the DB refuses a document for an APPROVED or final version (SQLSTATE P0001 {@code DOCUMENTS_FROZEN}). */
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<ProblemDetail> dataAccess(org.springframework.dao.DataAccessException e) {
+        Throwable c = e;
+        while (c != null) {
+            if (c instanceof java.sql.SQLException sql && "P0001".equals(sql.getSQLState())
+                    && sql.getMessage() != null && sql.getMessage().contains("DOCUMENTS_FROZEN")) {
+                String detail = sql.getMessage().substring(sql.getMessage().indexOf("DOCUMENTS_FROZEN")).lines().findFirst().orElse("");
+                ProblemDetail p = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, detail);
+                p.setTitle("DOCUMENTS_FROZEN");
+                p.setProperty("reason", "DOCUMENTS_FROZEN");
+                return respond(p);
+            }
+            c = c.getCause();
+        }
+        throw e;
+    }
+
     static ResponseEntity<ProblemDetail> respond(ProblemDetail p) {
         return ResponseEntity.status(p.getStatus()).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(p);
     }
