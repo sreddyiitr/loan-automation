@@ -492,6 +492,8 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 This project:
 
 - [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
+- [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
+  screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
   rule-derived seed data and mocks, local-first, determinism).
 - [`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/): `spec.md`
