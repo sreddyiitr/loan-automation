@@ -130,8 +130,8 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
     8 classes × 6 amounts, plus retry depths derived from `max-attempts`.
   - `contracts/income-verification.openapi.yaml` and `test/data/mocks/income-verification.catalog.yaml`
     (S3) hold the variance bands × magnitudes, NOT_FOUND, response shapes and nine fault classes.
-  - `MockStubGenerator` builds **316 WireMock stubs**: 252 from the two catalogs (66
-    disbursement, 186 income) and one per scenario per API (32 + 32). Delays and retry counts
+  - `MockStubGenerator` builds **322 WireMock stubs**: 252 from the two catalogs (66
+    disbursement, 186 income) and one per scenario per API (35 + 35). Delays and retry counts
     come from the config.
   - Four P-5 gates (plus the flip guard in `seed-regenerate`):
     - **Contract:** every stub validates against the OpenAPI spec; only fault classes may be
