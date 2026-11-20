@@ -18,7 +18,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.EnumSet;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +47,7 @@ class FundingActivitiesDbTest {
         jdbc = t.jdbc();
         dataSource = t.dataSource();
         TransactionTemplate tx = new TransactionTemplate(new DataSourceTransactionManager(t.dataSource()));
-        db = new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.of(Check.TILA), Duration.ofDays(30));
+        db = new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30));
         disbursement = new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), Duration.ofSeconds(5));
         HttpResponse<String> r = HttpClient.newHttpClient().send(HttpRequest.newBuilder(URI.create(wm.baseUrl() + "/__admin/mappings/import"))
                 .POST(HttpRequest.BodyPublishers.ofString(Fixtures.wireMockImport())).build(), HttpResponse.BodyHandlers.ofString());

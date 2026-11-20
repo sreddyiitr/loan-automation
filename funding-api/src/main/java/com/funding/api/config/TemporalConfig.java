@@ -35,9 +35,9 @@ public class TemporalConfig {
 
     @Bean
     public FundingActivitiesImpl fundingActivities(@Value("${funding.env}") String env, JdbcClient jdbc, TransactionTemplate tx,
-                                                   RulesConfig rules, CoreConfig.EnabledChecks enabled,
+                                                   RulesConfig rules,
                                                    @Value("${funding.workflow.expire-after}") java.time.Duration expireAfter) {
-        return new FundingActivitiesImpl(env, jdbc, tx, () -> rules, enabled.checks(), expireAfter);
+        return new FundingActivitiesImpl(env, jdbc, tx, () -> rules, expireAfter);
     }
 
     @Bean

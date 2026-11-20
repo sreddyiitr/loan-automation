@@ -15,8 +15,6 @@ server:
 
 funding:
   env: ${FUNDING_ENV:local}
-  # Children the parent fans out to; only checks with a rule run (tasks.md: removed in T606).
-  checks.enabled: TILA,PRICE,VIN,INCOME,GAP
   temporal:
     target: ${TEMPORAL_ADDRESS:localhost:7233}
     namespace: ${TEMPORAL_NAMESPACE:default}

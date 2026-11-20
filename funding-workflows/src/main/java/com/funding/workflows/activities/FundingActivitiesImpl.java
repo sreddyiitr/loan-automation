@@ -49,12 +49,15 @@ public class FundingActivitiesImpl implements FundingActivities {
     private final StipRepository stips;
     private final AuditRepository audit;
     private final Supplier<RulesConfig> config;
-    private final Set<Check> enabledChecks;
+    /**
+     * T606: every check always runs. The set still travels in {@link VersionView} because it is part
+     * of recorded activity results: a run from S1, when only TILA was enabled, must replay with that.
+     */
+    private static final Set<Check> ALL_CHECKS = java.util.EnumSet.allOf(Check.class);
     private final Duration expireAfter;
 
     /** @param expireAfter {@code funding.workflow.expire-after}: how long after {@code submitted_at} a version expires (AS-8.6) */
-    public FundingActivitiesImpl(String env, JdbcClient jdbc, TransactionTemplate tx, Supplier<RulesConfig> config,
-                                 Set<Check> enabledChecks, Duration expireAfter) {
+    public FundingActivitiesImpl(String env, JdbcClient jdbc, TransactionTemplate tx, Supplier<RulesConfig> config, Duration expireAfter) {
         this.env = env;
         this.tx = tx;
         this.snapshots = new SnapshotRepository(jdbc);
@@ -63,7 +66,6 @@ public class FundingActivitiesImpl implements FundingActivities {
         this.stips = new StipRepository(jdbc);
         this.audit = new AuditRepository(jdbc);
         this.config = config;
-        this.enabledChecks = Set.copyOf(enabledChecks);
         this.expireAfter = expireAfter;
     }
 
@@ -74,7 +76,7 @@ public class FundingActivitiesImpl implements FundingActivities {
                 .orElseThrow(() -> ApplicationFailure.newNonRetryableFailure("no application version " + versionId, "NotFound"));
         VersionRow v = l.version();
         long submitted = v.submittedAt() == null ? 0L : v.submittedAt().toInstant().toEpochMilli();
-        return new VersionView(l.snapshot(), config.get(), enabledChecks, v.status(), v.latest(), submitted,
+        return new VersionView(l.snapshot(), config.get(), ALL_CHECKS, v.status(), v.latest(), submitted,
                 submitted == 0L ? 0L : submitted + expireAfter.toMillis());
     }
 

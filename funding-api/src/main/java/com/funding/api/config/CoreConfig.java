@@ -1,14 +1,8 @@
 package com.funding.api.config;
 
-import com.funding.domain.Check;
 import com.funding.domain.RulesConfig;
 import com.funding.workflows.ActivityOptionsConfig;
 import com.funding.workflows.TaskQueues;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,21 +29,7 @@ public class CoreConfig {
     }
 
     @Bean
-    public EnabledChecks enabledChecks(@Value("${funding.checks.enabled}") List<String> names) {
-        Set<Check> s = names.stream().map(String::trim).filter(n -> !n.isEmpty()).map(Check::valueOf)
-                .collect(Collectors.toCollection(() -> EnumSet.noneOf(Check.class)));
-        return new EnabledChecks(s);
-    }
-
-    @Bean
     public JdbcClient jdbcClient(javax.sql.DataSource ds) {
         return JdbcClient.create(ds);
-    }
-
-    public record EnabledChecks(Set<Check> checks) {
-        @Override
-        public String toString() {
-            return Arrays.toString(checks.toArray());
-        }
     }
 }
