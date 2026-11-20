@@ -72,7 +72,9 @@ public class ApplicationWriter {
      * previous latest, in the caller's transaction. The previous latest row is locked first, so of two
      * concurrent calls one wins and the other fails (here or on the one-latest unique index). The
      * version number and latest flag in {@code v} are ignored; its status is used as given (DRAFT for
-     * a dealer resubmission, so nothing triggers until it is submitted).
+     * a dealer resubmission, so nothing triggers until it is submitted). Refused with
+     * {@link ResubmissionRefusedException} once the latest version is FUNDED or its disbursement
+     * was requested or completed (C-24).
      */
     public long addVersion(String loanApplicationId, NewVersion v) {
         int next = takeLatestFlag(loanApplicationId);
@@ -96,18 +98,37 @@ public class ApplicationWriter {
                        vehicle_vin, dealership_name, dealership_id, 'DRAFT'
                   FROM application_versions WHERE application_version_id = ? RETURNING application_version_id""")
                 .params(next, previous).query(Long.class).single();
+        // The resubmission stays with the funder who has the deal (AS-10.3 reassigns explicitly).
+        jdbc.sql("""
+                UPDATE application_versions SET assigned_funder =
+                       (SELECT assigned_funder FROM application_versions WHERE application_version_id = ?)
+                 WHERE application_version_id = ?""").params(previous, id).update();
         documents.forEach(d -> insertDocument(id, d));
         return id;
     }
 
-    /** Locks the current latest version, takes its latest flag and returns the next version number. */
+    /**
+     * Locks the current latest version, takes its latest flag and returns the next version number.
+     * The disbursement activity writes its REQUESTED row under the same row lock before it pays
+     * (AS-8.1), so the check below can't miss a payment that is about to start.
+     */
     private int takeLatestFlag(String loanApplicationId) {
-        Long previous = jdbc.sql("""
-                SELECT application_version_id FROM application_versions
+        java.util.Map.Entry<Long, String> latest = jdbc.sql("""
+                SELECT application_version_id, version_status FROM application_versions
                  WHERE loan_application_id = ? AND is_latest_version FOR UPDATE""")
-                .param(loanApplicationId).query(Long.class).optional()
+                .param(loanApplicationId).query((rs, i) -> java.util.Map.entry(rs.getLong(1), rs.getString(2))).optional()
                 .orElseThrow(() -> new IllegalStateException("application " + loanApplicationId
                         + " has no latest version (another new version was created concurrently?)"));
+        long previous = latest.getKey();
+        if ("FUNDED".equals(latest.getValue())) {
+            throw new ResubmissionRefusedException("VERSION_FUNDED", loanApplicationId + " is already funded (version " + previous + ")");
+        }
+        String paying = jdbc.sql("SELECT status FROM disbursements WHERE application_version_id = ? AND status IN ('REQUESTED','COMPLETED')")
+                .param(previous).query(String.class).optional().orElse(null);
+        if (paying != null) {
+            throw new ResubmissionRefusedException("DISBURSEMENT_STARTED", "version " + previous + " of " + loanApplicationId
+                    + " has a " + paying + " disbursement; resolve it (retry it, C-8) before resubmitting");
+        }
         int next = jdbc.sql("SELECT max(version_number) + 1 FROM application_versions WHERE loan_application_id = ?")
                 .param(loanApplicationId).query(Integer.class).single();
         jdbc.sql("UPDATE application_versions SET is_latest_version = FALSE WHERE application_version_id = ?").param(previous).update();

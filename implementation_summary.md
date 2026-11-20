@@ -222,7 +222,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   C-10), once per document; `supersede()` cancels the running children and completes
   `SUPERSEDED` without touching the status, keeping results and stips as history (AS-9.2). The
   children run in a cancellation scope; with no supersede the commands are the same as before,
-  so earlier histories still replay without a version marker.
+  so earlier histories still replay without a version marker. A re-run requested while checks
+  are running runs before the status is settled (`rerun-before-settling` marker), so a version is
+  never approved on documents that were replaced meanwhile.
 - **Status machine** (FR-09): `VersionStatus` holds spec §6; `VersionRepository.setStatus` is the
   only status writer and rejects any other transition (not retried).
 - **Task queues** per env: orchestration, validation and external.
@@ -247,7 +249,8 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   classifier is shared with the seed gates, so mocks are judged exactly as the app judges them.
 - **Recorded histories** (S1: LA-1001, LA-1002; S2: LA-1001, LA-1006, and LA-1006 with INCOME
   enabled as production ran it; S3: LA-1001, LA-1006; S4: a signal-heavy run and an expired run;
-  S5: a document re-run that funds and a superseded run; the recorder never overwrites a file)
+  S5: a document re-run that funds, a superseded run, a document during the first validation;
+  the recorder never overwrites a file)
   are replayed in
   `make test-unit`, which is groundwork for NFR-07. Replay caught a real break in S2: old
   payloads lacked the new config fields. `RulesConfig` now fills fields added later from the file
@@ -290,8 +293,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   4. Starts the local Lambda runner.
 - **Dev endpoints** (`local` only), under `POST /api/v1/dev/applications/{id}/`:
   - `submit`: the latest DRAFT -> PENDING_REVIEW (runs the real trigger path).
-  - `versions` (S5, AS-9.1): the next version as a DRAFT copy of the latest (application fields
-    and latest documents), with the body's documents replacing those of the same type.
+  - `versions` (S5, AS-9.1): the next version as a DRAFT copy of the latest (application fields,
+    assignee and latest documents), with the body's documents replacing those of the same type;
+    409 `VERSION_FUNDED` / `DISBURSEMENT_STARTED` once the latest is paid or being paid (C-24).
   - `documents` (S5, AS-9.4): a new latest version of one document; 409 `DOCUMENTS_FROZEN` once
     the version is APPROVED or final (AS-9.7).
 - **Seeding** (S5): an earlier version (LA-1028 v1) is seeded non-latest with its status and with
@@ -325,15 +329,15 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | Suite | Runs against | Tests | Result |
 |---|---|---:|---|
 | `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) | nothing (pure) | 136 | ✅ |
-| `funding-persistence` (incl. document freeze, guarded status writes, document-added trigger, new version in one transaction and the concurrent-V2 race) | Testcontainers `postgres:18` | 33 | ✅ |
+| `funding-persistence` (incl. document freeze, guarded status writes, document-added trigger, new version in one transaction and the concurrent-V2 race) | Testcontainers `postgres:18` | 38 | ✅ |
 | `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, and the S5 history / prior-document / amend vocabulary) | repository data | 34 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
-| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 60 | ✅ (1 skipped: the history recorder, runs only on request) |
+| `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 61 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 40 | ✅ |
+| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 41 | ✅ |
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 62 | ✅ |
 
-**Total: 377 tests** (315 unit, 1 of them skipped, and 62 functional). Test names trace to the
+**Total: 384 tests** (322 unit, 1 of them skipped, and 62 functional). Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -390,9 +394,12 @@ These are recorded in full under each slice's notes in `tasks.md`.
 
 S5:
 
-- **Needs your confirmation:** C-20 to C-23 in `spec.md`. C-23 is a real question: a new
+- **Needs your confirmation:** C-20 to C-24 in `spec.md`. C-23 is a real question: a new
   document re-runs every check, so a check that still fails raises its stip again even if a
-  funder had waived or satisfied it.
+  funder had waived or satisfied it. C-24: no new version once the latest is paid or being paid.
+- Review fixes: a re-run requested during a validation now runs before the status is settled
+  (it could approve and pay on replaced documents; `rerun-before-settling` marker), and a new
+  version is refused while the latest one's payment started or completed (double-payment risk).
 - `documentsUpdated` carries the document ID so an at-least-once event re-runs only once.
 - Supersede happens when V2 is submitted, not when it is created (C-22).
 - Seed intents gained `history:`, `priorDocuments:` and `amend:`; the conformance gate checks

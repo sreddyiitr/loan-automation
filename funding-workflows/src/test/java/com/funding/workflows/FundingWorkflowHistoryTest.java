@@ -78,6 +78,35 @@ class FundingWorkflowHistoryTest {
             wf.supersede();
             env.sleep(Duration.ofSeconds(5));
         });
+        // S5 review: a document arriving during the first validation re-runs before the status settles
+        // (the rerun-before-settling marker). Baseline data, so the first round alone would have funded.
+        recordDuringValidation("S5-LA-1001-document-during-validation");
+    }
+
+    private void recordDuringValidation(String name) throws IOException {
+        if (Files.exists(DIR.resolve(name + ".json"))) {
+            return;
+        }
+        try (TestWorkflowEnvironment env = TestWorkflowEnvironment.newInstance()) {
+            FakeActivities acts = new FakeActivities();
+            acts.submittedAt = env.currentTimeMillis();
+            acts.incomeGate = new java.util.concurrent.CountDownLatch(1);
+            Workers.register(env.getWorkerFactory(), QUEUES, acts, acts, acts, ActivityOptionsConfig.forTests());
+            env.start();
+            FundingWorkflow wf = env.getWorkflowClient().newWorkflowStub(FundingWorkflow.class, WorkflowOptions.newBuilder()
+                    .setWorkflowId("funding-history-" + name).setTaskQueue(QUEUES.orchestration()).build());
+            WorkflowClient.start(wf::run, new FundingInput(1, FundingInput.VALIDATE, QUEUES));
+            long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
+            while (!acts.calls.contains("verifyIncome") && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            acts.risc.put("cash_price", "31450.01"); // the new document breaks PRICE
+            wf.documentsUpdated(201L);
+            acts.incomeGate.countDown();
+            env.sleep(Duration.ofSeconds(10));
+            WorkflowExecutionHistory h = env.getWorkflowClient().fetchHistory(WorkflowStub.fromTyped(wf).getExecution().getWorkflowId());
+            Files.writeString(DIR.resolve(name + ".json"), h.toJson(true));
+        }
     }
 
     interface Script {

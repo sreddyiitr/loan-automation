@@ -186,4 +186,25 @@ class FundingWorkflowVersioningTest {
         wf.documentsUpdated(43L); // a genuinely new document does re-run
         assertThat(settle(wf).attempts()).containsEntry(Check.PRICE, 3);
     }
+
+    /**
+     * Review fix: a document that arrives while the first validation is still running is re-run
+     * before the status is settled. Without it, an all-PASS first round approved and paid the new
+     * RISC's amount on checks of the old documents.
+     */
+    @Test
+    void AS_1_8_documentDuringFirstValidationIsCheckedBeforeApproval() {
+        acts.incomeGate = new CountDownLatch(1); // the first round (all PASS so far) is still running
+        FundingWorkflow wf = startRun(7);
+        until(() -> acts.calls.contains("verifyIncome"), "INCOME in flight");
+        acts.risc.put("cash_price", "31450.01"); // the new document no longer matches the Buyer's Order
+        wf.documentsUpdated(55L);
+        acts.incomeGate.countDown();
+
+        FundingState s = settle(wf);
+        assertThat(s.status()).isEqualTo("STIPULATED");
+        assertThat(s.attempts()).containsEntry(Check.PRICE, 2);
+        assertThat(acts.disburseCalls.get()).isZero();
+        assertThat(count("applyOutcome")).as("settled once, after the re-run").isEqualTo(1);
+    }
 }

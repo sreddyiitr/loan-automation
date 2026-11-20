@@ -37,6 +37,12 @@ public class FundingWorkflowImpl implements FundingWorkflow {
     static final String INCOME_CHECK_CHANGE = "income-check";
     /** Change id for S4's signal loop: expiry timer, explicit disbursement retry, re-runs, continueAsNew. */
     static final String FUNDER_SIGNALS_CHANGE = "funder-signals";
+    /**
+     * Change id (S5 review): a re-run requested while checks are running (a new document, or a
+     * funder's re-run) is done before the status is settled, so a version is never approved, and
+     * paid, on outcomes from documents that have since been replaced.
+     */
+    static final String RERUN_BEFORE_SETTLING_CHANGE = "rerun-before-settling";
     /** Plan step 7: continue as new once a run has handled this many signals. */
     public static final int MAX_SIGNALS_PER_RUN = 1000;
 
@@ -77,6 +83,7 @@ public class FundingWorkflowImpl implements FundingWorkflow {
         DisbursementActivities disbursement = Workflow.newActivityStub(DisbursementActivities.class, options.external(q.external()));
         // NFR-07: runs started before S4 keep the S1-S3 loop (no expiry timer, disbursement retried on any wake-up).
         boolean s4 = Workflow.getVersion(FUNDER_SIGNALS_CHANGE, Workflow.DEFAULT_VERSION, 1) >= 1;
+        boolean rerunFirst = s4 && Workflow.getVersion(RERUN_BEFORE_SETTLING_CHANGE, Workflow.DEFAULT_VERSION, 1) >= 1;
 
         if (FundingInput.CONTINUE.equals(in.mode()) && in.carried() != null) {
             FundingCarry c = in.carried();
@@ -110,8 +117,10 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                 return superseded();
             }
 
-            step = "APPLYING";
-            status = db.applyOutcome(id, outcomes);
+            if (!(rerunFirst && rerunPending())) { // else: re-run first, settle after (the wait below returns at once)
+                step = "APPLYING";
+                status = db.applyOutcome(id, outcomes);
+            }
         }
 
         while (true) {
@@ -180,6 +189,9 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                     if (!runChecks(rerun, view, q, db)) {
                         return superseded();
                     }
+                    if (rerunFirst && rerunPending()) {
+                        continue; // another document or re-run arrived meanwhile: run it before settling
+                    }
                 }
             }
             if (retryRequested) {
@@ -192,6 +204,11 @@ public class FundingWorkflowImpl implements FundingWorkflow {
                 disbursementFailed = false; // a later approval gets a fresh attempt, not a stale "failed"
             }
         }
+    }
+
+    /** A re-run was requested and not yet started. */
+    private boolean rerunPending() {
+        return rerunAll || !rerunRequested.isEmpty();
     }
 
     private static boolean isTerminal(String s) {

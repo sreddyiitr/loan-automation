@@ -16,6 +16,18 @@ public class StipRepository {
         this.jdbc = jdbc;
     }
 
+    /**
+     * The document a check's stip points at ({@code triggered_by_document_id}): the Buyer's Order for
+     * PRICE, the GAP Agreement for GAP, otherwise the RISC.
+     */
+    public static String triggeringDocumentType(Check check) {
+        return switch (check) {
+            case PRICE -> "BUYERS_ORDER";
+            case GAP -> "GAP_AGREEMENT";
+            case TILA, VIN, INCOME -> "RISC";
+        };
+    }
+
     /** Returns the stip id if a new PENDING stip was created, or {@code null} if one already existed. */
     public Long createIfAbsent(long versionId, Check check, StipRequest stip, Long documentId) {
         return jdbc.sql("""

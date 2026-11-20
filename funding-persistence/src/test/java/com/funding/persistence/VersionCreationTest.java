@@ -107,4 +107,33 @@ class VersionCreationTest {
         assertThat(jdbc.sql("SELECT count(*) FROM application_versions WHERE loan_application_id = 'LA-1' AND is_latest_version")
                 .query(Integer.class).single()).isEqualTo(1);
     }
+
+    /** C-24 (review fix): no new version once V1 is paid or its payment started, so a dealer is never paid twice. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "FUNDED,   COMPLETED, VERSION_FUNDED",
+            "APPROVED, REQUESTED, DISBURSEMENT_STARTED",
+            "APPROVED, COMPLETED, DISBURSEMENT_STARTED",
+            "EXPIRED,  REQUESTED, DISBURSEMENT_STARTED"})
+    void C_24_resubmissionRefusedOncePaymentStarted(String status, String disbursement, String reason) {
+        jdbc.sql("UPDATE application_versions SET version_status = 'APPROVED' WHERE application_version_id = ?").param(v1).update();
+        jdbc.sql("INSERT INTO disbursements (application_version_id, amount, dealership_id, status) VALUES (?, 28450.00, 'DLR-100', ?)")
+                .params(v1, disbursement).update();
+        if (!"APPROVED".equals(status)) {
+            jdbc.sql("UPDATE application_versions SET version_status = ? WHERE application_version_id = ?").params(status, v1).update();
+        }
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                        new ApplicationWriter(jdbc).addVersion("LA-1", RepositoriesTest.version(0, false, List.of())))
+                .isInstanceOfSatisfying(ResubmissionRefusedException.class, e -> assertThat(e.reason()).isEqualTo(reason));
+        assertThat(versions()).hasSize(1);
+    }
+
+    @Test
+    void C_24_resubmissionAllowedAfterARefusedDisbursement() {
+        jdbc.sql("UPDATE application_versions SET version_status = 'APPROVED' WHERE application_version_id = ?").param(v1).update();
+        jdbc.sql("INSERT INTO disbursements (application_version_id, amount, dealership_id, status) VALUES (?, 28450.00, 'DLR-100', 'FAILED')")
+                .param(v1).update(); // the API refused the payment (4xx): nothing was paid
+        new ApplicationWriter(jdbc).addVersion("LA-1", RepositoriesTest.version(0, false, List.of()));
+        assertThat(versions()).hasSize(2);
+    }
 }

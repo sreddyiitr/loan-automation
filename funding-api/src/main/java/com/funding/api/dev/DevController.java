@@ -3,6 +3,7 @@ package com.funding.api.dev;
 import com.funding.api.ApiProblem;
 import com.funding.persistence.ApplicationWriter;
 import com.funding.persistence.AuditRepository;
+import com.funding.persistence.ResubmissionRefusedException;
 import com.funding.persistence.SupersededException;
 import com.funding.persistence.VersionRepository;
 import com.funding.persistence.VersionRow;
@@ -96,7 +97,12 @@ public class DevController {
         }
         List<ApplicationWriter.NewDocument> copies = new ArrayList<>();
         docs.values().forEach(d -> copies.add(new ApplicationWriter.NewDocument(d.type(), 1, true, d.fileName(), d.totalPages(), d.sections())));
-        long id = writer.addVersionCopying(loanApplicationId, copies); // the SSN token is copied in SQL, never read (FR-13)
+        long id;
+        try {
+            id = writer.addVersionCopying(loanApplicationId, copies); // the SSN token is copied in SQL, never read (FR-13)
+        } catch (ResubmissionRefusedException e) {
+            throw new ApiProblem(HttpStatus.CONFLICT, e.reason(), e.getMessage()); // C-24: never a second payment
+        }
         VersionRow created = versions.find(id).orElseThrow();
         audit.record("APPLICATION_VERSION", Long.toString(id), "CREATED", actor(actor, "dev:versions"),
                 Map.of("latestVersion", previous.applicationVersionId()),

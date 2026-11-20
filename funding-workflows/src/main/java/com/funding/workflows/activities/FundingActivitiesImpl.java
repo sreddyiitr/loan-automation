@@ -3,7 +3,6 @@ package com.funding.workflows.activities;
 import com.funding.domain.Check;
 import com.funding.domain.CheckOutcome;
 import com.funding.domain.DocumentSnapshot;
-import com.funding.domain.DocumentType;
 import com.funding.domain.Outcome;
 import com.funding.domain.RulesConfig;
 import com.funding.domain.StipRequest;
@@ -41,10 +40,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class FundingActivitiesImpl implements FundingActivities {
 
     private static final Logger LOG = LoggerFactory.getLogger(FundingActivitiesImpl.class);
-    /** Which document a check's stip points at (triggered_by_document_id). */
-    private static final Map<Check, DocumentType> PRIMARY_DOC = Map.of(
-            Check.TILA, DocumentType.RISC, Check.PRICE, DocumentType.BUYERS_ORDER,
-            Check.VIN, DocumentType.RISC, Check.GAP, DocumentType.GAP_AGREEMENT);
 
     private final String env;
     private final TransactionTemplate tx;
@@ -101,7 +96,7 @@ public class FundingActivitiesImpl implements FundingActivities {
             }
             Map<String, Long> docIds = documentIds(versionId);
             results.record(versionId, outcome, attempt, runId(), docIds);
-            Long docId = docIds.get(PRIMARY_DOC.getOrDefault(outcome.check(), DocumentType.RISC).name());
+            Long docId = docIds.get(StipRepository.triggeringDocumentType(outcome.check()));
             for (StipRequest stip : outcome.stips()) {
                 Long stipId = stips.createIfAbsent(versionId, outcome.check(), stip, docId);
                 if (stipId != null) {

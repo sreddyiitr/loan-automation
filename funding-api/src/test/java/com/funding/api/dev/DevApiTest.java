@@ -130,4 +130,21 @@ class DevApiTest {
         mvc.perform(post("/api/v1/dev/applications/LA-404/documents").contentType(MediaType.APPLICATION_JSON).content(BO_V2))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void newVersionKeepsTheAssigneeAndIsRefusedOncePaid() throws Exception {
+        versionStatus("PENDING_REVIEW");
+        jdbc.sql("UPDATE application_versions SET assigned_funder = 'funder-9' WHERE application_version_id = ?").param(v1).update();
+        String body = postJson("versions", null).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+        long v2 = ((Number) com.jayway.jsonpath.JsonPath.read(body, "$.applicationVersionId")).longValue();
+        assertThat(jdbc.sql("SELECT assigned_funder FROM application_versions WHERE application_version_id = ?").param(v2)
+                .query(String.class).single()).isEqualTo("funder-9");
+
+        jdbc.sql("UPDATE application_versions SET version_status = 'PENDING_REVIEW' WHERE application_version_id = ?").param(v2).update();
+        jdbc.sql("UPDATE application_versions SET version_status = 'APPROVED' WHERE application_version_id = ?").param(v2).update();
+        jdbc.sql("UPDATE application_versions SET version_status = 'FUNDED' WHERE application_version_id = ?").param(v2).update();
+        postJson("versions", null).andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.reason").value("VERSION_FUNDED"));
+    }
 }

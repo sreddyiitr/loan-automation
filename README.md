@@ -1,9 +1,17 @@
 # funding-automation
 
-A backend that **automatically validates auto loan funding packages**. A dealer sends in a
-Retail Installment Sale Contract (RISC), a Buyer's Order and a GAP agreement, and a funder then
-spends hours checking the math, the prices, the VINs, the income and the GAP form. This project
-automates those checks with **Temporal workflows**. Each failure becomes a *stipulation* the
+**In plain English:** when someone buys a car with a loan, the dealer sends the lender a stack
+of paperwork: the loan contract, the bill of sale and, often, a gap-insurance form. Before the
+lender pays the dealer, a person (a *funder*) checks that it all adds up. Is the loan math right?
+Are the car's price and serial number (VIN) the same on every page? Is the buyer's stated income
+believable? Is the insurance form valid? This project does those checks automatically. When
+everything is in order it pays the dealer by itself. When something is wrong it tells the dealer
+exactly what to fix, waits for corrected paperwork or a funder's decision, checks again, and
+closes the deal out after 30 days if nothing happens.
+
+**Technically:** a backend that validates auto loan funding packages. The documents are a
+Retail Installment Sale Contract (RISC), a Buyer's Order and a GAP agreement, already read by
+OCR. The checks run as **Temporal workflows**, each failure becomes a *stipulation* (stip) the
 dealer must clear, and a clean deal is disbursed automatically.
 
 Everything runs on your laptop: **Temporal**, **PostgreSQL 18** in Docker, the **AWS Emulator**
@@ -82,19 +90,19 @@ The volume test, the full replay suite and the worker-restart test arrive in S6
 
 ## How we know it works
 
-**377 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**384 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
 | Domain rules (incl. income, API classifier, status machine) | JUnit 5, AssertJ | nothing (pure Java) | 136 | ✅ all pass |
-| Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 33 | ✅ all pass |
+| Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 38 | ✅ all pass |
 | Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 34 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
-| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 60 | ✅ 59 pass, 1 skipped (the history recorder, on request only) |
+| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 61 | ✅ 60 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API, dev endpoints, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 40 | ✅ all pass |
+| API (start API, funder API, dev endpoints, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 41 | ✅ all pass |
 | **Functional** (every scenario, all 186 income catalog stubs, 13 funder actions, 6 versioning cases) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 62 | ✅ all pass |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
@@ -472,6 +480,7 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
 | `409 DOCUMENTS_FROZEN` from the dev documents endpoint | The version is APPROVED, FUNDED, REJECTED or EXPIRED. Resubmit as a new version instead (step 7) |
+| `409 VERSION_FUNDED` / `DISBURSEMENT_STARTED` when creating a version | The latest version is paid or its payment started. A second version would pay again, so it's refused. After an unknown outcome, retry the disbursement first |
 | A new document doesn't re-run anything | The version was still DRAFT (submit it first), or it was no longer under review when the event arrived; the start API logs `NOT_RERUNNABLE` or `NO_OPEN_RUN` |
 | A version stays `PENDING_REVIEW` | Check the Temporal UI for `funding-local-<id>`, and `curl localhost:8089/__admin/requests/unmatched` |
 | `FUNDING_DB_URL is not set: run functional tests with make test-functional` | Run functional tests with `make test-functional`, not plain `mvn verify` |

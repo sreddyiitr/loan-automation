@@ -211,7 +211,7 @@ What landed differently from the task text, and why. Behaviour choices the spec 
 
 ### S5 notes (done 2026-11-19)
 
-What landed differently from the task text, and why. Behaviour choices the spec didn't settle are recorded in `spec.md` as C-20 to C-23, awaiting owner confirmation (C-23 asks a real question).
+What landed differently from the task text, and why. Behaviour choices the spec didn't settle are recorded in `spec.md` as C-20 to C-24, awaiting owner confirmation (C-23 asks a real question).
 
 - **Test names.** T501 and T506 are `DocumentAddedTriggerTest` and `VersionCreationTest`: they run on Testcontainers Postgres with the unit tests, like the other persistence tests, so they aren't `*IT`. The concurrent-V2 test waits until the second transaction is really blocked on V1's row lock (`pg_stat_activity`), otherwise it would pass by running the two one after the other.
 - **Writers.** `ApplicationWriter.addVersion` / `addVersionCopying` (AS-9.1: lock the latest row, take its flag, insert n+1, in the caller's transaction) and `addDocumentVersion` (AS-9.4: the old document loses `is_latest_doc`, the new one gets the next number). The dev copy of a version copies the SSN token in SQL (`INSERT … SELECT`) so it is never read into the app (FR-13).
@@ -221,6 +221,11 @@ What landed differently from the task text, and why. Behaviour choices the spec 
 - **Functional tests.** A new `VersioningE2EIT` (on clones, like `FunderActionsE2EIT`) covers LA-1032, LA-1002 and LA-1023 fixed by a new document, LA-1028 (v2 FUNDED, v1 STIPULATED with its stip, `NOT_LATEST_VERSION`), a live supersede (V2 created and submitted while V1's run waits), and frozen documents on FUNDED and APPROVED. The EXPIRED frozen case joined the LA-1012 expiry case in `FunderActionsE2EIT`. `ScenarioE2EIT` covers LA-1028, LA-1029 and LA-1032's first run through their `expect` with no changes.
 - **Runs started before S4** keep their old loop (S4 notes), so they ignore `documentsUpdated` as they ignore expiry; `supersede` still ends them. Terminate any such run left in a long-lived environment.
 - **LA-1027's third stip** is still not exercised end to end: a corrected RISC re-runs every check, and the VIN and income checks, which still fail, raise their stips again (C-23).
+- **Review fixes** (self-review after the slice was green):
+  - *Paid on replaced documents.* A document (or a funder's re-run) arriving while the first validation was still running was handled only after `applyOutcome`. When that first round passed everything, the version was approved and the new RISC's amount disbursed on checks of the old documents. A pending re-run now runs before the status is settled, behind the `rerun-before-settling` version marker (earlier runs and histories replay unchanged). Tested by `AS_1_8_documentDuringFirstValidationIsCheckedBeforeApproval`, which ends FUNDED without the fix; history `S5-LA-1001-document-during-validation`.
+  - *Possible double payment.* A new version could be created while the latest one's disbursement was in flight or done, and it would pay under its own idempotency key. It is now refused (C-24, `ResubmissionRefusedException`, 409 `VERSION_FUNDED` / `DISBURSEMENT_STARTED`).
+  - The dev copy of a version now keeps `assigned_funder`; the stip's triggering document has one definition (`StipRepository.triggeringDocumentType`) instead of two copies.
+  - The version audit trail includes the version's documents (the `RERUN_REQUESTED` row), found by the functional test.
 - **History recorder** never overwrites an existing file, so re-running it can't replace an earlier slice's history with today's code. New: `S5-LA-1006-document-rerun-funded`, `S5-LA-1006-superseded`.
 
 ---

@@ -1,6 +1,5 @@
 package com.funding.api.seed;
 
-import com.funding.domain.Check;
 import com.funding.domain.CheckOutcome;
 import com.funding.domain.StipRequest;
 import com.funding.persistence.ApplicationWriter;
@@ -17,10 +16,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 /** Generated fixture -> rows in the shape OCR writes them. */
 public final class FixtureRows {
     private FixtureRows() {}
-
-    /** Which document a check's stip points at (as the activities record it). */
-    private static final Map<Check, String> PRIMARY_DOC = Map.of(
-            Check.TILA, "RISC", Check.PRICE, "BUYERS_ORDER", Check.VIN, "RISC", Check.GAP, "GAP_AGREEMENT", Check.INCOME, "RISC");
 
     /**
      * Inserts the application with every version, in the caller's transaction, and gives each earlier
@@ -45,7 +40,7 @@ public final class FixtureRows {
             for (CheckOutcome o : gates.outcomes(f, FixtureSnapshots.of(f, v)).values()) {
                 results.record(id, o, 1, null, docIds);
                 for (StipRequest stip : o.stips()) {
-                    stips.createIfAbsent(id, o.check(), stip, docIds.get(PRIMARY_DOC.get(o.check())));
+                    stips.createIfAbsent(id, o.check(), stip, docIds.get(StipRepository.triggeringDocumentType(o.check())));
                 }
             }
         }
