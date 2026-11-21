@@ -28,6 +28,16 @@ The project is **spec-driven**: read [`specs/constitution.md`](specs/constitutio
 [`implementation_summary.md`](implementation_summary.md), and the dashboard is summarized in
 [`ui_summary.md`](ui_summary.md).
 
+## Architecture
+
+![How funding-automation fits together today: the funder's browser (React + A2UI) talks A2A to a Python agent, which builds screens in code, runs Summarize through ADK on local Gemma, and calls the Java funding app's funder API with the user's token; the funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all on one laptop](screenshots/Architecture.svg)
+
+Top to bottom: the **browser** draws A2UI screens and signs in with OIDC. The **agent** builds
+every screen in code, and only "Summarize" calls the local model, through ADK. The **funding app**
+(spec 001) is the only thing that writes, and runs each deal as a Temporal workflow. Everything
+under it runs locally. A PNG copy for slides or posts: [`screenshots/Architecture.png`](screenshots/Architecture.png).
+The SVG is the source; edit it, then re-render the PNG.
+
 ## What it does today
 
 All six slices of spec 001 are done: **S1 (walking skeleton)**, **S2 (document rules)**, **S3
@@ -59,7 +69,7 @@ hardening)**. End to end:
 > application version supersedes the old one's run, which keeps its results and stips as
 > history. Once a version is approved its documents are frozen.
 
-Behind that:
+Behind that, in more detail (the spec 001 trigger path):
 
 ```
  dev submit ──▶ Postgres 18 ──trigger──▶ outbox ──relay──▶ AWS Emulator SQS ──▶ LocalLambdaRunner
