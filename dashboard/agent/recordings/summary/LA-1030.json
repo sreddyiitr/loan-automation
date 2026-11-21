@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1030",
+  "status": "APPROVED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:40+00:00",
+  "seconds": 0.85,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1030\", \"version\": 1, \"status\": \"APPROVED\", \"dealer\": \"Failing Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": null, \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Payment outcome unknown: retry the payment to find out\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"INCOME\", \"PRICE\", \"TILA\", \"VIN\"], \"checksNotPassed\": [], \"openStips\": [], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "{\"summary\": \"This loan application, LA-1030, has an APPROVED status. The stated annual income is $96,000.00, and the deal has 29 days left. The payment outcome is unknown, requiring a retry.\"}"
+  ],
+  "summary": "This loan application, LA-1030, has an APPROVED status. The stated annual income is $96,000.00, and the deal has 29 days left. The payment outcome is unknown, requiring a retry."
+}

@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1016",
+  "status": "PENDING_REVIEW",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:38+00:00",
+  "seconds": 1.18,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1016\", \"version\": 1, \"status\": \"PENDING_REVIEW\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": null, \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Not started\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"PRICE\", \"TILA\", \"VIN\"], \"checksNotPassed\": [{\"check\": \"INCOME\", \"outcome\": \"ERROR\", \"attempt\": 1, \"error\": \"check failed technically: message='income API: server error (503)', type='IncomeUnavailable', nonRetryable=false\"}], \"openStips\": [], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "```json\n{\n  \"summary\": \"This auto loan application, LA-1016, is currently PENDING_REVIEW. The stated annual income is $96,000.00, but the INCOME check failed due to an 'income API: server error (503)'. The deal has 29 days left before its expiry date.\"\n}\n```"
+  ],
+  "summary": "This auto loan application, LA-1016, is currently PENDING_REVIEW. The stated annual income is $96,000.00, but the INCOME check failed due to an 'income API: server error (503)'. The deal has 29 days left before its expiry date."
+}

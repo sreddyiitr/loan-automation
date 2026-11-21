@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1012",
+  "status": "STIPULATED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:36+00:00",
+  "seconds": 0.93,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1012\", \"version\": 1, \"status\": \"STIPULATED\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$120,000.00\", \"assignedFunder\": null, \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Not started\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"PRICE\", \"TILA\", \"VIN\"], \"checksNotPassed\": [{\"check\": \"INCOME\", \"outcome\": \"FAIL\", \"attempt\": 1, \"failing\": [{\"name\": \"stated vs verified income\", \"expected\": \"90000.00\", \"actual\": \"120000.00\"}, {\"name\": \"|variance| <= threshold\", \"expected\": \"15.00%\", \"actual\": \"33.33%\"}]}], \"openStips\": [{\"code\": \"STIP_INCOME_VARIANCE_EXCEEDED\", \"check\": \"INCOME\", \"description\": \"Income variance 33.33% exceeds 15.00%: stated 120000.00, verified 90000.00\", \"status\": \"PENDING\"}], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "```json\n{\n  \"summary\": \"This auto loan application, LA-1012, is currently in STIPULATED status with 29 days left. The INCOME check failed because the income variance of 33.33% exceeded the 15.00% threshold, with stated income at $120,000.00 and verified income at $90,000.00.\"\n}\n```"
+  ],
+  "summary": "This auto loan application, LA-1012, is currently in STIPULATED status with 29 days left. The INCOME check failed because the income variance of 33.33% exceeded the 15.00% threshold, with stated income at $120,000.00 and verified income at $90,000.00."
+}

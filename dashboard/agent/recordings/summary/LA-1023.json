@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1023",
+  "status": "STIPULATED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:39+00:00",
+  "seconds": 1.13,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1023\", \"version\": 1, \"status\": \"STIPULATED\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": null, \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Not started\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"INCOME\", \"TILA\", \"VIN\"], \"checksNotPassed\": [{\"check\": \"PRICE\", \"outcome\": \"NEEDS_REVIEW\", \"attempt\": 1, \"lowConfidenceFields\": [\"RISC.cash_price\"]}], \"openStips\": [{\"code\": \"STIP_EXTRACTION_REVIEW_REQUIRED\", \"check\": \"PRICE\", \"description\": \"Extraction review required: RISC.cash_price\", \"status\": \"PENDING\"}], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "```json\n{\n  \"summary\": \"This auto-loan application, LA-1023, is currently in STIPULATED status and has 29 days left. The PRICE check requires review because of low confidence in the RISC.cash_price field. The outstanding item is STIP_EXTRACTION_REVIEW_REQUIRED.\"\n}\n```"
+  ],
+  "summary": "This auto-loan application, LA-1023, is currently in STIPULATED status and has 29 days left. The PRICE check requires review because of low confidence in the RISC.cash_price field. The outstanding item is STIP_EXTRACTION_REVIEW_REQUIRED."
+}

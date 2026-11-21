@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1006",
+  "status": "STIPULATED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:33+00:00",
+  "seconds": 1.28,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1006\", \"version\": 1, \"status\": \"STIPULATED\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": \"funder-2\", \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Not started\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"INCOME\", \"TILA\", \"VIN\"], \"checksNotPassed\": [{\"check\": \"PRICE\", \"outcome\": \"FAIL\", \"attempt\": 1, \"failing\": [{\"name\": \"RISC cash_price = BUYERS_ORDER total_vehicle_cash_price\", \"expected\": \"31450.00\", \"actual\": \"31450.01\"}]}], \"openStips\": [{\"code\": \"STIP_PRICE_MISMATCH\", \"check\": \"PRICE\", \"description\": \"Cash price mismatch: RISC 31450.00, Buyer's Order 31450.01\", \"status\": \"PENDING\"}], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "```json\n{\n  \"summary\": \"This deal, LA-1006, is currently STIPULATED and has 29 days left. The PRICE check failed because the RISC cash price of $31450.00 did not match the Buyer's Order total vehicle cash price of $31450.01. The outstanding item is the STIP_PRICE_MISMATCH.\"\n}\n```"
+  ],
+  "summary": "This deal, LA-1006, is currently STIPULATED and has 29 days left. The PRICE check failed because the RISC cash price of $31450.00 did not match the Buyer's Order total vehicle cash price of $31450.01. The outstanding item is the STIP_PRICE_MISMATCH."
+}

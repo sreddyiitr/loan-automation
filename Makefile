@@ -8,7 +8,7 @@ OIDC  := source scripts/oidc-env.sh
 MVN   := mvn -q -B
 TEMPORAL_DB ?= $(HOME)/.temporal/funding.db
 
-.PHONY: temporal run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e
+.PHONY: temporal run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e record-assistant
 
 temporal:                 ## Temporal dev server on a file DB ($(TEMPORAL_DB)), so runs survive a restart; in its own terminal
 	@mkdir -p "$(dir $(TEMPORAL_DB))" && temporal server start-dev --db-filename "$(TEMPORAL_DB)"
@@ -67,8 +67,11 @@ dashboard-preflight:      ## spec 002 AS-10.2: names each missing prerequisite, 
 test-dashboard:           ## spec 002 agent unit tests (no services needed)
 	@cd dashboard/agent && uv run pytest -q
 
-test-dashboard-e2e:       ## spec 002 Playwright tests (needs make dashboard running; starts its own dev server if 5173 is free)
+test-dashboard-e2e:       ## spec 002 Playwright tests: start their own replaying agent (8092) and web app (5174); need make dashboard's API and OIDC
 	@cd dashboard/web && npx playwright test
+
+record-assistant:         ## spec 002 T155: record the model's summaries of some seeded deals for replay (needs make dashboard and Ollama)
+	@cd dashboard/agent && uv run python -m funder_agent.assistant.record
 
 verify-emulator:          ## T608: re-run plan V-2, V-4 and the RDS probe against the current emulator; writes target/verify-emulator.md
 	@./scripts/verify-emulator.sh

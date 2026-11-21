@@ -251,10 +251,26 @@ doesn't wait for D2.
     measures both.
   - Tests: 11 new (96 agent tests), 3 of them through the real A2A app over HTTP, including
     `message/stream` order; 10 Playwright still pass with actions on the stream.
-- [ ] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
+- [x] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
   seeded deals once (`make record-assistant`), and replay them in pytest and, through
   `ASSISTANT_REPLAY`, in Playwright. Tests: valid, invalid once then valid, invalid twice,
   unavailable, and AS-8.5 (the prompt holds only this deal's data: no other loan id, no SSN).
+  **Notes (done 2026-11-21):**
+  - `make record-assistant` (`funder_agent/assistant/record.py`) records 7 deals, one per kind of
+    story: LA-1006 price, LA-1007 VIN, LA-1012 income, LA-1016 an ERROR hold, LA-1023 low
+    confidence, LA-1030 approved, LA-1001 funded. Each file in
+    `dashboard/agent/recordings/summary/` keeps the model, what was sent, the replies and the time.
+    All 7 were valid on the first try, in 0.7–2.1 s.
+  - `ASSISTANT_REPLAY=<dir>` makes the agent answer from the files, with no model. **A deal with
+    no recording behaves as if no model is running**, which is how the browser tests see
+    "assistant unavailable" (AS-8.4).
+  - **Playwright now starts its own agent (replaying, port 8092) and web app (5174)**, so it always
+    runs the current code and never uses `make dashboard`'s 8091 and 5173. It still needs the
+    funding API and the OIDC provider. Vite's `/agent` target comes from `AGENT_URL`.
+  - Tests: 25 new (121 agent tests). Every recording is valid, sent only its own deal (no names,
+    no SSN; LA-1007's VINs are its failing check), and has the shape `summary_input` sends today.
+    If that shape changes, the test says to rerun `make record-assistant`. The invalid-once,
+    invalid-twice and unavailable cases stay scripted (T153, T154): the real model never failed.
 - [ ] **T156** Playwright: `AS_8_1_…` (replayed) and `AS_8_4_…` (no model: the overview still works).
 - [ ] **T157** Measure the summary's p95 on the seeded deals against local Gemma (NFR-02, < 5 s),
   and write it in a2ui-notes §12b.

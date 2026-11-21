@@ -7,6 +7,8 @@ from typing import Any
 
 import httpx
 
+from funder_agent import config
+
 from .models import FeatureModel, Registry
 from .summary import Answer, ConversationFactory, adk_conversations, summarize
 
@@ -19,7 +21,13 @@ class SummaryService:
 
     @classmethod
     def from_config(cls) -> "SummaryService":
+        """The configured model, or recorded answers when ASSISTANT_REPLAY names a directory (AS-10.5)."""
+        if config.ASSISTANT_REPLAY:
+            from .replay import ReplayService
+            log.info("assistant: replaying recorded answers from %s (no model)", config.ASSISTANT_REPLAY)
+            return ReplayService(config.ASSISTANT_REPLAY)
         feature: FeatureModel = Registry.load().for_feature("summary")
+        log.info("assistant: summary on %s (thinking %s)", feature.spec.model, "on" if feature.thinking else "off")
         return cls(adk_conversations(feature), feature.spec.health)
 
     async def available(self) -> bool:
