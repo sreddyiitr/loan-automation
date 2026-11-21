@@ -512,6 +512,8 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 This project:
 
 - [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
+- [`ui_summary.md`](ui_summary.md): the planned funder dashboard (spec 002, ADK + A2UI) at a glance:
+  what it will do, what's built by code and what by the LLM, roles, and the local model.
 - [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
   screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
