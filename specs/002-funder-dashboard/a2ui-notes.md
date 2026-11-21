@@ -318,6 +318,29 @@ follows from that:
 - **Speed budget:** ~1–2 s with thinking off, ~8 s with it on (§12b). The UI shows the assistant
   panel as "thinking…", and the fixed screens never wait for it.
 
+### Requirement: the model is configuration, not code (owner, 2026-11-21)
+
+Local Gemma is the **default**, not a dependency. Replacing it with any other model, paid
+(Claude, Gemini, OpenAI…) or a bigger local one, must be a configuration change only:
+- **One setting names the model** as a LiteLLM model string, e.g. `ollama_chat/gemma4:e4b` (the
+  default), `anthropic/claude-haiku-5-5` or `gemini/<model>`, plus the provider's credentials
+  from the environment. No provider name appears in code.
+- **Capabilities are declared per model in config, not assumed:**
+  - **Context window:** decides whether a feature can carry the A2UI catalog prompt.
+  - **Structured output:** when a model supports it, use it. Otherwise (Gemma on MLX), ask for
+    JSON in the prompt, strip the fence, validate and retry. **Code-side validation runs in both
+    cases.**
+  - **Thinking control:** how to turn thinking on or off for that provider.
+  - **Cost per token:** so a paid model gets the usage and cost meter, with an optional spend
+    stop. It stays at $0 for local.
+- **Prompts are provider-neutral:** plain instructions plus the JSON schema, with no
+  model-specific tricks in the prompt text.
+- **Tests never depend on the model:** recorded responses replay for any configured model, and
+  the A2UI offline eval can be pointed at whichever model is configured, to compare before
+  switching.
+- **Per-feature override:** a feature can name its own model (e.g. summaries on local Gemma,
+  generated UI on a stronger model) without code changes.
+
 ## 13. ADK integration (`pip install a2ui-adk`, `"a2ui-adk[a2a]"` for A2A)
 
 - **`SendA2uiToClientToolset`:** an ADK toolset that lets the LLM send A2UI through a **tool
