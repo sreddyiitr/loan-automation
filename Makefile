@@ -11,11 +11,24 @@ MVN   := mvn -q -B
 run:                      ## emulator + postgres + wiremock + app (local profile: bootstrap, seed, stubs)
 	./run-local.sh
 
-# Stops only containers our scripts started (label funding.managed=true). A reused container is never touched.
-down:                     ## stop funding-managed containers (forwarder, and any emulator/db/wiremock we started)
-	@ids=$$(docker ps -aq --filter label=funding.managed=true); \
-	if [ -n "$$ids" ]; then docker stop $$ids >/dev/null; docker rm -f $$ids >/dev/null 2>&1; echo "stopped funding-managed containers"; \
-	else echo "no funding-managed containers running (reused ones are left alone)"; fi
+# Stops and removes every project container: those our scripts started (label funding.managed=true)
+# and any named funding-* (e.g. one you started by hand, like funding-oidc). Volumes are kept, so
+# Postgres data survives. Containers of another project that the env scripts merely reuse (same
+# image, other name) may be shared, so they're listed, not stopped. Temporal isn't a container.
+PROJECT_IMAGES := aws-emulator postgres:18 wiremock/wiremock ghcr.io/navikt/mock-oauth2-server
+down:                     ## stop and remove every project container (funding.managed label or funding-* name)
+	@ids=$$( { docker ps -aq --filter label=funding.managed=true; \
+	           docker ps -a --format '{{.ID}} {{.Names}}' | awk '$$2 ~ /^funding-/ {print $$1}'; } | sort -u); \
+	if [ -n "$$ids" ]; then \
+	  names=$$(docker inspect -f '{{.Name}}' $$ids | sed 's#^/##' | tr '\n' ' '); \
+	  docker stop $$ids >/dev/null 2>&1; docker rm -f $$ids >/dev/null 2>&1; \
+	  echo "stopped and removed: $$names"; \
+	else echo "no project containers running"; fi; \
+	docker ps --format '{{.Names}} {{.Image}}' | while read -r name image; do \
+	  for p in $(PROJECT_IMAGES); do \
+	    case "$$image" in "$$p"|"$$p":*) echo "left running (not ours, may be shared): $$name ($$image)";; esac; \
+	  done; \
+	done
 
 seed-check:               ## P-2/P-5 gates: conformance, coverage, lock, docs, mock contract/coverage/lock (writes nothing)
 	@$(JAVA) && $(MVN) -pl funding-seed -am process-classes -Dseed.skip=false -Dseed.mode=check

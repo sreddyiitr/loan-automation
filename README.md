@@ -476,9 +476,12 @@ Clicking **Take this deal** assigns LA-1006 to `spike-funder`. Check it with
 ### Step 12: Stop everything
 
 - Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
-- `make down` stops only the containers **the scripts started** (label `funding.managed=true`):
-  the forwarder, and `funding-emulator`, `funding-postgres` or `funding-wiremock` if they were
-  started. It never touches a container you started yourself.
+- `make down` stops and removes **every project container**: those the scripts started (label
+  `funding.managed=true`, including the forwarder) and any container named `funding-*`, even one
+  you started yourself (e.g. `funding-oidc`). The env scripts start them again on the next run;
+  their images are already local, so nothing is downloaded.
+- A container of **another project** that the scripts merely reused (same image, a different
+  name) may be shared, so `make down` leaves it running and lists it.
 - Postgres data survives in the `funding-pgdata` volume. Emulator data (queues, messages) lives
   only in memory and is recreated on the next `make run`.
 
