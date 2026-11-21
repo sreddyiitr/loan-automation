@@ -200,11 +200,29 @@ doesn't wait for D2.
     name appears in `funder_agent/**/*.py`.
   - `google-adk` 2.15.0 and `litellm` 1.110.2 added (pinned in `uv.lock`). Tests: 16 new, 62 agent
     tests in all.
-- [ ] **T153** The summary (was part of T802), in `funder_agent/assistant/`:
+- [x] **T153** The summary (was part of T802), in `funder_agent/assistant/`:
   - the prompt gets the overview, the open stips and the checks that didn't pass, as data;
   - an ADK `LlmAgent` on a throwaway session, thinking off;
   - strip the fence, validate `{summary}` (a non-empty string, a length cap), one retry that
     passes back the error (FR-08).
+  **Notes (done 2026-11-21):**
+  - `funder_agent/assistant/summary.py`: `summary_input` (what the model sees), `parse` (the
+    check), `summarize` (one retry in the same conversation, so the data isn't sent twice) and
+    `AdkConversation` (an ADK `LlmAgent` and `InMemoryRunner`, one session per request).
+  - **The input is trimmed:** the deal's facts (income, expiry and payment formatted as the
+    overview shows them), the names of the checks that passed, and only the failing comparisons
+    of the current checks that didn't. Open and resolved stips are included. Names, VINs, ids and
+    document ids are left out. Prompts dropped from ~2,000 tokens to **120–220**.
+  - **Live, against local Gemma** (5 seeded deals, thinking off): all valid on the first try, in
+    **0.8–1.4 s warm** (2.9 s cold). The summaries are factual, and no longer recommend actions:
+    the instruction says the funder decides, which fixes the "documents must be corrected" advice
+    (a2ui-notes §12b).
+  - The instruction has no braces, because ADK reads `{name}` in an instruction as session state;
+    the JSON format goes in the message instead. Hidden thinking parts aren't part of the reply.
+  - Any model error (connection refused, 5xx, the 501) becomes "unavailable", with no retry.
+  - The client gains `stipulations()` and `validation_results()`. LiteLLM's per-call "Provider
+    List" banner is silenced.
+  - Tests: 23 new (85 agent tests), 4 of them through a real ADK runner with a scripted model.
 - [ ] **T154** The `deal_<versionId>_assistant` surface: a **Summarize** button on the overview,
   and a panel drawn by code. It shows "Summarizing…", then the summary, "assistant unavailable"
   (Ollama's `/api/tags` fails, AS-8.4) or "couldn't produce an answer" (invalid twice). The

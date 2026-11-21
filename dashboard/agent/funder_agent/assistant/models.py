@@ -52,7 +52,9 @@ class FeatureModel:
 
     def llm(self):
         """The ADK model for this feature."""
+        import litellm
         from google.adk.models.lite_llm import LiteLlm   # imported here: loading LiteLLM takes ~1 s
+        litellm.suppress_debug_info = True               # no "Provider List" banner in the agent's log per call
         return LiteLlm(**self.litellm_args())
 
 

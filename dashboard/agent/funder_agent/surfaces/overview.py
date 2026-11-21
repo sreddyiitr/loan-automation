@@ -27,7 +27,7 @@ def surface_id(version_id: int) -> str:
     return f"deal_{version_id}_overview"
 
 
-def _money(value: Any) -> str:
+def money(value: Any) -> str:
     return "—" if value is None else f"${Decimal(str(value)):,.2f}"
 
 
@@ -56,7 +56,7 @@ def payment_text(payment: dict[str, Any]) -> str:
     """AS-2.1 payment status: not started, paid with reference and amount, failed, or outcome unknown."""
     state = payment.get("state", "NOT_STARTED")
     if state == "PAID":
-        return f"Paid: {payment.get('reference') or 'no reference'}, {_money(payment.get('amount'))}"
+        return f"Paid: {payment.get('reference') or 'no reference'}, {money(payment.get('amount'))}"
     return PAYMENT_TEXT.get(state, state)
 
 
@@ -89,7 +89,7 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         "dealershipName": overview.get("dealershipName") or "—",
         "borrowerName": overview.get("borrowerName") or "—",
         "coBorrowerName": overview.get("coBorrowerName") or "None",
-        "statedIncome": _money(overview.get("statedIncomeAnnual")),
+        "statedIncome": money(overview.get("statedIncomeAnnual")),
         "vehicleVin": overview.get("vehicleVin") or "—",
         "assignedFunder": f"{assignee} (you)" if assignee and assignee == me else assignee or "Unassigned",
         "canTake": assignee is None and overview["status"] not in TERMINAL,
