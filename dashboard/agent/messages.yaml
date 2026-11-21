@@ -7,5 +7,6 @@ reasons:
   NOT_LATEST_VERSION: A newer version of this deal exists. Open the latest version instead.
   VERSION_EXPIRED: This version expired. The dealer has to resubmit it as a new version.
   VERSION_TERMINAL: This deal is already closed (funded, rejected or expired), so it can't be changed.
+  ALREADY_ASSIGNED: Someone else took this deal first. The overview now shows who has it.
   DISBURSEMENT_IN_PROGRESS: A payment for this deal is being made right now. Try again in a moment.
   MALFORMED: The dashboard sent a request the funder API didn't understand. This is a bug; please report it.

@@ -110,7 +110,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 ### US-10 Funder operations API (P2)
 - **AS-10.1** Get application overview: application ID, latest version number, dealer, borrower and co-borrower, stated income, VIN, status, assigned funder.
 - **AS-10.2** List stips for a version. Update a stip to SATISFIED or WAIVED, with a required reason and actor. `resolved_at` is set. The update is conditional (`WHERE status = 'PENDING'`), so when two funders act at once the second gets 409 `ALREADY_RESOLVED`.
-- **AS-10.3** Reassign the funder. Every change is recorded in the audit log.
+- **AS-10.3** Reassign the funder, or unassign the version (`funderId: null`, spec 002 AS-2.4). Every change is recorded in the audit log.
 - **AS-10.4** List validation results with expected-vs-actual details (backs the mismatches tab).
 - **AS-10.5** List document versions per type with `processed_at` and per-field confidence and bounding box.
 - **AS-10.6** Approve, reject, or re-run errored checks. These become Temporal signals to the version's workflow.

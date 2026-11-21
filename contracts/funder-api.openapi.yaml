@@ -83,7 +83,7 @@ paths:
       - Funder
   /api/v1/versions/{versionId}/assignee:
     put:
-      description: AS-10.3
+      description: "AS-10.3, spec 002 AS-2.4"
       operationId: reassign
       parameters:
       - in: path
@@ -108,7 +108,7 @@ paths:
           description: OK
       security:
       - bearerAuth: []
-      summary: Reassign the funder
+      summary: "Reassign the funder, or unassign with funderId null"
       tags:
       - Funder
   /api/v1/versions/{versionId}/audit:
@@ -368,6 +368,31 @@ paths:
       security:
       - bearerAuth: []
       summary: Resolve a stip (SATISFIED or WAIVED)
+      tags:
+      - Funder
+  /api/v1/versions/{versionId}/take:
+    post:
+      description: "Spec 002 AS-2.6: 409 ALREADY_ASSIGNED if someone else has it;\
+        \ unchanged if it's already yours"
+      operationId: take
+      parameters:
+      - in: path
+        name: versionId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      security:
+      - bearerAuth: []
+      summary: Take an unassigned deal (assign to self)
       tags:
       - Funder
   /api/v1/versions/{versionId}/validation-results:

@@ -19,13 +19,26 @@ async function tokenFor(user: string): Promise<string> {
   return (await res.json()).access_token as string;
 }
 
-async function assignLa1006To(user: string) {
-  const auth = {Authorization: `Bearer ${await tokenFor(user)}`};
+/**
+ * LA-1006's latest version, unassigned: a supervisor's unassign through the funder API (AS-2.4),
+ * so every run starts from a deal nobody has taken, without adding versions.
+ */
+async function unassignedLa1006(): Promise<number> {
+  const auth = {Authorization: `Bearer ${await tokenFor('supervisor-1')}`};
   const overview = await (await fetch(`${FUNDER_API}/applications/LA-1006`, {headers: auth})).json();
   const res = await fetch(`${FUNDER_API}/versions/${overview.applicationVersionId}/assignee`, {
-    method: 'PUT', headers: {...auth, 'Content-Type': 'application/json'}, body: JSON.stringify({funderId: user}),
+    method: 'PUT', headers: {...auth, 'Content-Type': 'application/json'}, body: JSON.stringify({funderId: null}),
   });
-  expect(res.ok, `assign LA-1006 to ${user}`).toBeTruthy();
+  expect(res.ok, `unassign LA-1006: ${res.status} ${await res.clone().text()}`).toBeTruthy();
+  return overview.applicationVersionId as number;
+}
+
+/** Takes the deal straight through the funder API, as another user would from their own screen. */
+async function takeAs(user: string, versionId: number) {
+  const res = await fetch(`${FUNDER_API}/versions/${versionId}/take`, {
+    method: 'POST', headers: {Authorization: `Bearer ${await tokenFor(user)}`},
+  });
+  expect(res.ok, `take as ${user}`).toBeTruthy();
 }
 
 /** AS-1.1: the real sign-in, on the provider's own login page. */
@@ -50,9 +63,9 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-test('AS_1_1 sign in, open LA-1006, see the overview, and Take it as the signed-in user', async ({page}) => {
+test('AS_1_1 sign in, open LA-1006 and see its overview', async ({page}) => {
   const errors = watchErrors(page);
-  await assignLa1006To('funder-2');                                        // so Take visibly changes it
+  await unassignedLa1006();
   await signInAs(page, 'funder-1');
   await openDeal(page, 'LA-1006');
 
@@ -63,12 +76,42 @@ test('AS_1_1 sign in, open LA-1006, see the overview, and Take it as the signed-
   await expect(page.getByText(/^Payment: /)).toBeVisible();
   await expect(page.getByRole('columnheader', {name: 'Version'})).toBeVisible();   // AS-2.3, our DataTable
   await expect(page.getByRole('cell', {name: 'latest'})).toBeVisible();
-  await expect(page.getByText('Assigned to: funder-2')).toBeVisible();
+  await expect(page.getByRole('cell', {name: /^superseded by v\d+$/}).first()).toBeVisible();
+  await expect(page.getByText('Assigned to: Unassigned')).toBeVisible();
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('AS_2_6 Take asks for confirmation, then the deal is yours and Take is gone', async ({page}) => {
+  const errors = watchErrors(page);
+  await unassignedLa1006();
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1006');
 
   await page.getByRole('button', {name: 'Take this deal'}).click();
-  await expect(page.getByText('Assigned to: funder-1')).toBeVisible();     // written as the token's user, then re-read
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(/Take LA-1006 v\d+\? It will be assigned to you\./);
+  await expect(page.getByText('Assigned to: Unassigned')).toBeVisible();     // nothing happens before confirming
+  await dialog.getByRole('button', {name: 'Yes, take it'}).click();
+
+  await expect(page.getByText('Assigned to: funder-1 (you)')).toBeVisible(); // written as the token's user, then re-read
+  await expect(page.getByRole('dialog')).toHaveCount(0);                     // the rebuilt surface closed it
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
   await expect(page.getByTestId('events')).toContainText('deal.take');
   expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('AS_2_6 if someone else took it first, nothing changes and the overview says who has it', async ({page}) => {
+  const versionId = await unassignedLa1006();
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1006');
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toBeVisible();
+  await takeAs('funder-2', versionId);                                       // meanwhile, on another screen
+
+  await page.getByRole('button', {name: 'Take this deal'}).click();
+  await page.getByRole('dialog').getByRole('button', {name: 'Yes, take it'}).click();
+  await expect(page.getByText('Someone else took this deal first. The overview now shows who has it.')).toBeVisible();
+  await expect(page.getByText('Assigned to: funder-2')).toBeVisible();
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
 });
 
 test('AS_1_5 an unknown loan id shows "not found", not an error page', async ({page}) => {

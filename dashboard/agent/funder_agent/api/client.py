@@ -66,7 +66,12 @@ class FunderApi:
 
     # ------------------------------------------------------------------ writes
 
+    def take(self, version_id: int) -> dict[str, Any]:
+        """AS-2.6: assign to the caller, only if nobody has it (409 ALREADY_ASSIGNED otherwise)."""
+        return self._call("POST", f"/versions/{version_id}/take")
+
     def assign(self, version_id: int, funder_id: str) -> dict[str, Any]:
+        """AS-2.4: a supervisor's reassign (role rule in D2)."""
         return self._call("PUT", f"/versions/{version_id}/assignee", json={"funderId": funder_id})
 
     # ------------------------------------------------------------------ helpers

@@ -63,7 +63,13 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 - **Events** are named `<area>.<verb>`, e.g. `stip.waive`, `deal.approve`, `queue.filter`. Their
   `context` carries ids and the input values, read from the data model by `@path`.
 - **Writes** need a confirmation. A first click opens a `Modal` with the reason input; the
-  confirm button sends the real event (AS-6.2). The handler calls the API and then refreshes the
+  confirm button sends the real event (AS-6.2). The Basic Catalog's `Modal` opens on its trigger,
+  and closes only by its own × or the backdrop. The trigger button still sends its own event, so
+  those are named `ui.<…>` and ignored by the agent.
+- **When a write changes which controls a deal offers** (e.g. Take disappears once taken), the
+  agent rebuilds the surface: `deleteSurface`, then `createSurface`, `updateComponents` and
+  `updateDataModel`. That also closes an open `Modal`. The web app applies a `createSurface` that
+  follows a `deleteSurface` in the same reply. The handler calls the API and then refreshes the
   deal's surfaces with `updateDataModel`. A `409`, `400` or `403` becomes a message from
   `messages.yaml` (FR-06).
 - **Freshness (FR-10):** while the overview's `inProgress` flag is set, the agent re-reads the
@@ -127,6 +133,7 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 | Stip codes | `GET /api/v1/stip-codes` | From `StipCodes`, with descriptions and `waivable` |
 | Comparison attribution | `documents: {left, right}` and `fields` on each comparison | Optional fields, so `rules.lock` stays unaffected. **Check:** does the result-details JSON change the conformance gate? Expected: no |
 | Confidence cut-off | `GET /api/v1/settings/ui` → `{confidenceFlagBelow, expiringSoonDays}` | `expiringSoonDays` defaults to 5 (D-12) |
+| Take | `POST /api/v1/versions/{vid}/take` | AS-2.6: assigns the version to the caller (the token's `sub`) under the row lock. Already the caller's → 200, unchanged and not audited; someone else's → 409 `ALREADY_ASSIGNED`; otherwise audited as `ASSIGNEE_CHANGED` with reason `TAKEN`. D2 adds the AS-11.2 role rule. `PUT …/assignee` stays the supervisor's reassign (AS-2.4) |
 | Send to income queue | `POST /api/v1/versions/{vid}/income-queue` | Flags the deal for income work without changing the assignee (AS-11.5); audited |
 | Bearer auth | Every endpoint above, and spec 001's funder endpoints: `Authorization: Bearer <OIDC token>` | §4; 401 without a valid token, 403 `UNKNOWN_USER` for an id not in the directory |
 

@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..api import FunderApi
-from ..surfaces.overview import data_update, deal_model, overview_surface, surface_id
+from ..api import ApiError, FunderApi, message_for
+from ..surfaces.notice import notice_surface
+from ..surfaces.overview import deal_model, overview_surface
 
 
 def load(api: FunderApi, loan_id: str) -> dict[str, Any]:
     """Reads the deal from the funder API and shapes the overview's data model."""
-    return deal_model(api.overview(loan_id), api.versions(loan_id))
+    return deal_model(api.overview(loan_id), api.versions(loan_id), me=api.me)
 
 
 def open_deal(api: FunderApi, loan_id: str) -> list[dict[str, Any]]:
@@ -17,11 +18,18 @@ def open_deal(api: FunderApi, loan_id: str) -> list[dict[str, Any]]:
 
 
 def take(api: FunderApi, context: dict[str, Any]) -> list[dict[str, Any]]:
-    """``deal.take``: assign the deal to the signed-in user, then re-read it (AS-10.3).
-    T106 adds the confirmation step, and D2 the role rule (AS-11.2)."""
-    version_id = int(context["applicationVersionId"])
-    api.assign(version_id, api.me)
-    return [data_update(surface_id(version_id), load(api, context["loanApplicationId"]))]
+    """``deal.take``, sent by the confirmation's button (AS-2.6): take the deal, then rebuild the
+    overview from a re-read, since Take is no longer offered. If the API refuses (e.g. someone else
+    took it first: 409 ALREADY_ASSIGNED), the overview is still rebuilt, so it shows who has it,
+    and a notice says why. D2 adds the role rule (AS-11.2)."""
+    loan_id = context["loanApplicationId"]
+    refused: ApiError | None = None
+    try:
+        api.take(int(context["applicationVersionId"]))
+    except ApiError as e:
+        refused = e
+    replies = overview_surface(load(api, loan_id), replace=True)
+    return replies + (notice_surface(message_for(refused.reason)) if refused else [])
 
 
 HANDLERS = {"deal.take": take}

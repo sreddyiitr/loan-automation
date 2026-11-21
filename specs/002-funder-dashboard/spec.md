@@ -96,8 +96,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   - **payment status:** not started, paid with reference and amount, failed, or outcome unknown.
 - **AS-2.2** While checks are running, a re-run is in progress or a payment is in flight, the overview says so. Actions that would be refused (409 `DISBURSEMENT_IN_PROGRESS`) are disabled with that reason.
 - **AS-2.3** **Version history** lists every application version, newest first. Earlier versions open read-only, marked "superseded by vN".
-- **AS-2.4** A funder can **reassign** the deal to another funder from a list. The change shows at once and appears in the audit trail.
+- **AS-2.4** A funder can **reassign** the deal to another funder from a list, or back to unassigned (`funderId: null`), which puts it in the unassigned queue again. The change shows at once and appears in the audit trail. Who may reassign is AS-11.2.
 - **AS-2.5** A link opens the deal's workflow run in the Temporal UI.
+- **AS-2.6** **Take** (assign to self) is offered only on an unassigned deal. It asks for confirmation; once confirmed, the overview shows the user as the assignee and no longer offers Take. If someone else took the deal in the meantime, for example from a stale screen, the API refuses with 409 `ALREADY_ASSIGNED`, nothing changes, and the overview shows who has it. Taking a deal you already have changes nothing. Role rules on Take come with AS-11.2.
 
 ### US-3 Stipulations (P1) (source Tab 2)
 - **AS-3.1** The stip list shows each stip's:

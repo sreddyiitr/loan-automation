@@ -16,6 +16,49 @@ def test_NFR_05_overviewSurfaceIsValidA2ui():
     validate(overview_surface(deal_model(OVERVIEW, VERSIONS, NOW)))
 
 
+def test_NFR_05_overviewWithoutTakeIsValidA2ui():
+    validate(overview_surface(deal_model({**OVERVIEW, "assignedFunder": "funder-9"}, VERSIONS, NOW)))
+
+
+def test_NFR_04_everyButtonHasAnAccessibleLabel():
+    components = overview_surface(deal_model(OVERVIEW, VERSIONS, NOW))[1]["updateComponents"]["components"]
+    buttons = [c for c in components if c["component"] == "Button"]
+    assert buttons and all(c.get("accessibility", {}).get("label") for c in buttons)
+
+
+def _keys(node):
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield k
+            yield from _keys(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _keys(v)
+
+
+@pytest.mark.parametrize("deal", [OVERVIEW, {**OVERVIEW, "assignedFunder": "funder-9"}])
+def test_NFR_05_noReservedKeysTheWebRendererRejects(deal):
+    """a2ui-core accepts "@accessibility" and "@catalogId", but the pinned web renderer (web_core
+    0.15.0) rejects both on components ("Unrecognized key"), and one bad prop blanks the surface.
+    So the Python validator can't catch these; this test does (a2ui-notes §12d)."""
+    components = overview_surface(deal_model(deal, VERSIONS, NOW))[1]["updateComponents"]["components"]
+    assert not {"@accessibility", "@catalogId"} & set(_keys(components))
+
+
+@pytest.mark.parametrize("assignee, status, offered", [
+    (None, "STIPULATED", True), (None, "PENDING_REVIEW", True), ("funder-9", "STIPULATED", False),
+    ("funder-1", "STIPULATED", False), (None, "FUNDED", False), (None, "EXPIRED", False),
+])
+def test_AS_2_6_takeIsOfferedOnlyOnAnUnassignedOpenDeal(assignee, status, offered):
+    deal = deal_model({**OVERVIEW, "assignedFunder": assignee, "status": status}, VERSIONS, NOW, me="funder-1")
+    ids = {c["id"] for c in overview_surface(deal)[1]["updateComponents"]["components"]}
+    assert deal["canTake"] is offered and ("take_modal" in ids) is offered
+
+
+def test_AS_2_6_yourOwnDealSaysYou():
+    assert deal_model({**OVERVIEW, "assignedFunder": "funder-1"}, VERSIONS, NOW, me="funder-1")["assignedFunder"] == "funder-1 (you)"
+
+
 def test_NFR_05_noticeSurfaceIsValidA2ui():
     validate(notice_surface("Sign in to use the funder dashboard."))
 

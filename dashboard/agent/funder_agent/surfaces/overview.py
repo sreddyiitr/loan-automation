@@ -13,6 +13,8 @@ from typing import Any
 from .. import config
 from ..catalog import FUNDER_CATALOG_ID, VERSION
 
+TERMINAL = {"FUNDED", "REJECTED", "EXPIRED"}
+
 PAYMENT_TEXT = {
     "NOT_STARTED": "Not started",
     "IN_FLIGHT": "Payment in progress",
@@ -74,8 +76,11 @@ def temporal_url(workflow_id: str) -> str:
     return f"{config.TEMPORAL_UI_URL}/namespaces/{config.TEMPORAL_NAMESPACE}/workflows/{workflow_id}"
 
 
-def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: datetime | None = None) -> dict[str, Any]:
+def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: datetime | None = None,
+               me: str | None = None) -> dict[str, Any]:
+    """``me`` is the signed-in user (the token's sub): their own deal reads "you"."""
     now = now or datetime.now(timezone.utc)
+    assignee = overview.get("assignedFunder")
     return {
         "loanApplicationId": overview["loanApplicationId"],
         "applicationVersionId": overview["applicationVersionId"],
@@ -86,7 +91,8 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         "coBorrowerName": overview.get("coBorrowerName") or "None",
         "statedIncome": _money(overview.get("statedIncomeAnnual")),
         "vehicleVin": overview.get("vehicleVin") or "—",
-        "assignedFunder": overview.get("assignedFunder") or "Unassigned",
+        "assignedFunder": f"{assignee} (you)" if assignee and assignee == me else assignee or "Unassigned",
+        "canTake": assignee is None and overview["status"] not in TERMINAL,
         "submitted": _date(overview.get("submittedAt")),
         "expiry": expiry_text(overview.get("expiresAt"), overview["status"], now),
         "payment": payment_text(overview.get("payment") or {}),
@@ -108,10 +114,36 @@ FACTS = [("dealer", "Dealer", "dealershipName"), ("borrower", "Borrower", "borro
          ("submitted", "Submitted", "submitted"), ("expiry", "Expiry", "expiry"), ("payment", "Payment", "payment")]
 
 
-def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
-    """Pure: the deal model in, A2UI v1.0 messages out (createSurface, updateComponents, updateDataModel)."""
+def _take_controls() -> list[dict[str, Any]]:
+    """AS-2.6: Take opens a confirmation (a Modal); only its confirm button sends ``deal.take``.
+    The trigger button's own event is UI-only (``ui.``), which the agent ignores."""
+    return [
+        {"id": "take_modal", "component": "Modal", "trigger": "take_button", "content": "take_confirm"},
+        {"id": "take_label", "component": "Text", "text": "Take this deal"},
+        {"id": "take_button", "component": "Button", "variant": "primary", "child": "take_label",
+         "accessibility": {"label": "Take this deal"},
+         "action": {"event": {"name": "ui.confirm_take", "context": {}}}},
+        {"id": "take_confirm", "component": "Column", "children": ["take_question", "take_confirm_button"]},
+        {"id": "take_question", "component": "Text", "text": {"@call": "formatString", "args": {
+            "value": "Take ${/deal/loanApplicationId} v${/deal/versionNumber}? It will be assigned to you."}}},
+        {"id": "take_confirm_label", "component": "Text", "text": "Yes, take it"},
+        {"id": "take_confirm_button", "component": "Button", "variant": "primary", "child": "take_confirm_label",
+         "accessibility": {"label": "Yes, take it"},
+         "action": {"event": {"name": "deal.take", "context": {
+             "loanApplicationId": {"@path": "/deal/loanApplicationId"},
+             "applicationVersionId": {"@path": "/deal/applicationVersionId"}}}}},
+    ]
+
+
+def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[str, Any]]:
+    """Pure: the deal model in, A2UI v1.0 messages out (createSurface, updateComponents, updateDataModel).
+
+    The layout depends on the deal (Take only when it's unassigned). ``replace=True`` rebuilds a
+    surface the browser already has: ``deleteSurface`` first, which also closes an open Modal.
+    """
     sid = surface_id(deal["applicationVersionId"])
     facts = [_fact(*f) for f in FACTS]
+    take = _take_controls() if deal.get("canTake") else []
     components = [
         {"id": "root", "component": "Card", "child": "body"},
         {"id": "body", "component": "Column",
@@ -121,13 +153,8 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
         {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         *facts,
-        {"id": "actions", "component": "Row", "children": ["take_button", "temporal_button"]},
-        {"id": "take_label", "component": "Text", "text": "Take this deal"},
-        {"id": "take_button", "component": "Button", "variant": "primary", "child": "take_label",
-         "accessibility": {"label": "Take this deal"},
-         "action": {"event": {"name": "deal.take", "context": {
-             "loanApplicationId": {"@path": "/deal/loanApplicationId"},
-             "applicationVersionId": {"@path": "/deal/applicationVersionId"}}}}},
+        {"id": "actions", "component": "Row", "children": [*(["take_modal"] if take else []), "temporal_button"]},
+        *take,
         {"id": "temporal_label", "component": "Text", "text": "Open the workflow in Temporal"},
         {"id": "temporal_button", "component": "Button", "variant": "borderless", "child": "temporal_label",
          "accessibility": {"label": "Open the workflow in Temporal"},
@@ -139,6 +166,7 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
          "rows": {"@path": "/deal/versions"}, "emptyText": "No versions"},
     ]
     return [
+        *([{"version": VERSION, "deleteSurface": {"surfaceId": sid}}] if replace else []),
         {"version": VERSION, "createSurface": {"surfaceId": sid, "catalogId": FUNDER_CATALOG_ID}},
         {"version": VERSION, "updateComponents": {"surfaceId": sid, "components": components}},
         data_update(sid, deal),

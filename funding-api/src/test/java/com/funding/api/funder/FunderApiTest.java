@@ -294,6 +294,59 @@ class FunderApiTest {
                 .andExpect(jsonPath("$.inProgress").value(false));
     }
 
+    /** Spec 002 AS-2.6: Take assigns an unassigned deal to the caller, and is audited. */
+    @Test
+    void AS_2_6_takeAnUnassignedDeal() throws Exception {
+        long id = settled("LA-1006");
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedFunder").value(FUNDER));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value(FUNDER));
+        mvc.perform(get("/api/v1/versions/{v}/audit", id))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].afterState.reason").value("TAKEN"))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].actor").value(FUNDER));
+    }
+
+    /** Spec 002 AS-2.4: a reassign can also go back to unassigned; it's audited, and the deal can be taken again. */
+    @Test
+    void AS_2_4_unassignWithNullFunderId() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET assigned_funder = 'funder-9' WHERE application_version_id = ?").param(id).update();
+        write(put("/api/v1/versions/{v}/assignee", id), "{\"funderId\":null}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedFunder").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(get("/api/v1/versions/{v}/audit", id))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].beforeState.assignedFunder").value("funder-9"));
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        write(put("/api/v1/versions/{v}/assignee", id), "{\"funderId\":\"  \"}").andExpect(problem(400, "MISSING_FUNDERID"));
+    }
+
+    /** Spec 002 AS-2.6: taking a deal you already have changes nothing and writes no second audit row. */
+    @Test
+    void AS_2_6_takeIsIdempotentForTheAssignee() throws Exception {
+        long id = settled("LA-1006");
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        assertThat(jdbc.sql("SELECT count(*) FROM audit_log WHERE entity_id = ? AND action = 'ASSIGNEE_CHANGED'")
+                .param(Long.toString(id)).query(Long.class).single()).isEqualTo(1);
+    }
+
+    /** Spec 002 AS-2.6: a stale screen can't take someone else's deal. */
+    @Test
+    void AS_2_6_takeSomeoneElsesDealIs409() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET assigned_funder = 'funder-9' WHERE application_version_id = ?").param(id).update();
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(problem(409, "ALREADY_ASSIGNED"));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value("funder-9"));
+    }
+
+    /** Spec 002 AS-2.6, with spec 001's guards: no Take on a closed version. */
+    @Test
+    void AS_2_6_takeAClosedVersionIs409() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET version_status = 'REJECTED' WHERE application_version_id = ?").param(id).update();
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(problem(409, "VERSION_TERMINAL"));
+    }
+
     @Test
     void US_9_versionHistoryNewestFirst() throws Exception {
         superseded("LA-1001");

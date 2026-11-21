@@ -14,17 +14,24 @@ type Message = Record<string, unknown>;
  * Applies agent messages, skipping a createSurface for a surface that already exists. A2UI treats a
  * duplicate as an integrity error, and the agent may resend a surface (React's StrictMode also
  * double-runs effects in development). The official React sample guards the same way.
+ * A createSurface after a deleteSurface of the same id in this reply is kept: that's the agent
+ * rebuilding a surface whose controls changed (plan §3), e.g. after Take.
  * Returns the ids of the surfaces the reply created or recreated.
  */
 function apply(p: MessageProcessor, messages: Message[]): string[] {
-  const created = messages.flatMap((m) => {
+  const exists = new Set<string>(p.model.surfacesMap.keys());
+  const created: string[] = [];
+  const kept = messages.filter((m) => {
+    const deleted = (m.deleteSurface as {surfaceId?: string} | undefined)?.surfaceId;
+    if (deleted) exists.delete(deleted);
     const id = (m.createSurface as {surfaceId?: string} | undefined)?.surfaceId;
-    return id ? [id] : [];
+    if (!id) return true;
+    created.push(id);
+    if (exists.has(id)) return false;
+    exists.add(id);
+    return true;
   });
-  p.processMessages(messages.filter((m) => {
-    const id = (m.createSurface as {surfaceId?: string} | undefined)?.surfaceId;
-    return !id || !p.model.surfacesMap.has(id);
-  }) as never);
+  p.processMessages(kept as never);
   return created;
 }
 

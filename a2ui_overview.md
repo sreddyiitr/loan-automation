@@ -102,30 +102,44 @@ resend a surface.
 
 ## Flow 2: clicking "Take this deal"
 
-**1. The renderer builds the action.** The Button's `action.context` contains `@path` bindings.
-The renderer **fills them in before sending**, so the agent gets plain values:
+Take is offered only while the deal is unassigned (AS-2.6), and it asks before it acts.
+
+**1. The click opens a confirmation.** "Take this deal" is the `trigger` of a Basic Catalog
+`Modal`, and the renderer opens the dialog on its own. The trigger button still sends its own
+event, `ui.confirm_take`. The agent ignores every `ui.` event, because only the confirm button
+should act.
+
+**2. The confirm button builds the real action.** Its `action.context` contains `@path`
+bindings, and the renderer **fills them in before sending**, so the agent gets plain values:
 
 ```json
 {"name":"deal.take","surfaceId":"deal_12_overview","context":{"loanApplicationId":"LA-1006","applicationVersionId":12}}
 ```
 
-**2. The browser forwards it.** The callback given to `MessageProcessor` in `App.tsx` gets that
+**3. The browser forwards it.** The callback given to `MessageProcessor` in `App.tsx` gets that
 action and sends it as `{version: "1.0", action}`. This time `a2a.ts` sends it as a **data part**,
 not text. The page also shows it under "Events sent back to the agent" so the test can check it.
 
-**3. The agent handles it in code.** `route()` finds the action and looks up its handler in
-`actions/deal.py`, by its name `deal.take`. The handler:
-- Calls the funder API's `PUT /assignee` with the user's own token, assigning the deal to the
-  signed-in user (the token's `sub`). That's a real write, and it appears in the audit trail.
+**4. The agent handles it in code.** `route()` looks up the handler for `deal.take` in
+`actions/deal.py`. The handler:
+- Calls the funder API's `POST /versions/12/take` with the user's own token. The API assigns the
+  deal to the token's `sub`, but only if nobody has it, checked under a database lock. That's a
+  real write, and it appears in the audit trail.
 - Calls `load()` again to read back what's actually stored.
-- Replies with **only** an `updateDataModel` for `/deal`, with no new layout.
+- **Rebuilds** the surface: `deleteSurface`, then `createSurface`, `updateComponents` and
+  `updateDataModel`. A plain data update isn't enough this time, for two reasons. Which controls
+  exist changed (no more Take), and the `Modal` closes only by its × or the backdrop, not when a
+  button inside it is clicked. Deleting the surface closes it.
+- If the API refused (say someone else took it first: 409 `ALREADY_ASSIGNED`), it still rebuilds
+  from the re-read, so the screen shows who has it, and adds a `notice` saying why.
 
-**4. The screen updates.** The processor merges the new data, and the "Assigned to:" text
-re-renders as the signed-in user, e.g. `funder-1`, because it was bound to `/deal/assignedFunder`.
-The layout never changed; only the data did.
+**5. The screen updates.** `apply()` in `App.tsx` keeps a `createSurface` that follows a
+`deleteSurface` of the same id. Otherwise it skips duplicate creates. The new surface shows
+"Assigned to: funder-1 (you)" and no Take button.
 
 This is the pattern the whole dashboard will use: **the funder clicks, code writes through the
-API, code re-reads, and the agent sends updated data.** The LLM is never involved in a write.
+API, code re-reads, and the agent sends the updated screen.** When only values change, that's a
+data update; when the controls change, it's a rebuild. The LLM is never involved in a write.
 
 ## The custom component (`dashboard/web/src/catalog/funderCatalog.tsx`)
 
@@ -152,12 +166,13 @@ an error boundary in the web app.
   is run through `a2ui-core`'s strict `MessageProcessor` with our catalog: the same checks the
   browser renderer makes, so a bad prop fails here and not as a blank page. Also tested: the data
   model's text, the token relay, the reason messages and the routing, against a fake funder API.
-- **Playwright** (`dashboard/web/e2e/spike.spec.ts`), against the real stack:
+- **Playwright** (`dashboard/web/e2e/spike.spec.ts`), against the real stack, each test signing
+  in on the provider's login page:
   - The overview renders with real LA-1006 data, including the version history `DataTable`.
-  - Clicking **Take this deal** sends a `deal.take` action with resolved context.
-  - The written assignee shows up after the re-read.
+  - Take opens the confirmation; confirming assigns the deal to you and removes Take.
+  - If someone else takes it first, the screen says so and shows who has it.
+  - An unknown loan id, an unknown user and the signed-out page each get a plain message.
   - The browser console has no errors.
-  - Without a token, the page asks you to sign in.
 
 How to run them is in [`ui_summary.md`](ui_summary.md) under "Run the spike".
 

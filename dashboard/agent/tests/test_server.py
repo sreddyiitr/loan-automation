@@ -34,14 +34,39 @@ def test_FR_06_refusalBecomesAPlainMessage():
     assert _data(messages, "notice")["message"] == message_for("UNKNOWN_USER")
 
 
-def test_AS_10_3_takeAssignsToTheSignedInUserThenRereads(fake):
-    action = {"name": "deal.take", "surfaceId": "deal_12_overview",
-              "context": {"loanApplicationId": "LA-1006", "applicationVersionId": 12}}
-    messages = route(token_for("funder-2"), "", [action], fake.factory())
-    put = next(r for r in fake.requests if r.method == "PUT")
-    assert put.url.path == "/api/v1/versions/12/assignee" and b'"funder-2"' in put.content
-    assert [list(m) for m in messages] == [["version", "updateDataModel"]]     # data only; the layout stays
-    assert _data(messages, "deal_12_overview")["assignedFunder"] == "funder-2"
+TAKE = {"name": "deal.take", "surfaceId": "deal_12_overview",
+        "context": {"loanApplicationId": "LA-1006", "applicationVersionId": 12}}
+
+
+def _ids(messages, sid="deal_12_overview"):
+    return {c["id"] for m in messages if "updateComponents" in m and m["updateComponents"]["surfaceId"] == sid
+            for c in m["updateComponents"]["components"]}
+
+
+def test_AS_2_6_takeThenTheOverviewIsRebuiltWithoutTake(fake):
+    token = token_for("funder-2")
+    first = route(token, "open LA-1006", [], fake.factory())
+    assert "take_modal" in _ids(first)                                   # unassigned: Take is offered
+    reply = route(token, "", [TAKE], fake.factory())
+    post = next(r for r in fake.requests if r.method == "POST")
+    assert post.url.path == "/api/v1/versions/12/take"
+    assert list(reply[0]) == ["version", "deleteSurface"] and "createSurface" in reply[1]   # rebuilt (closes the Modal)
+    assert _data(reply, "deal_12_overview")["assignedFunder"] == "funder-2 (you)"
+    assert "take_modal" not in _ids(reply)                               # taken: no more Take
+    validate(first, reply)                                               # as the browser applies them, in order
+
+
+def test_AS_2_6_someoneElseTookItFirst():
+    fake = FakeFunderApi(overview={**OVERVIEW, "assignedFunder": "funder-9"})   # a stale screen still offered Take
+    reply = route(token_for("funder-1"), "", [TAKE], fake.factory())
+    assert _data(reply, "deal_12_overview")["assignedFunder"] == "funder-9"
+    assert _data(reply, "notice")["message"] == message_for("ALREADY_ASSIGNED")
+    validate(reply)
+
+
+def test_uiOnlyEventsAreIgnoredQuietly(fake, caplog):
+    assert route(token_for("funder-1"), "", [{"name": "ui.confirm_take", "context": {}}], fake.factory()) == []
+    assert "no handler" not in caplog.text and fake.requests == []
 
 
 def test_unknownActionIsIgnored(fake):

@@ -116,10 +116,17 @@ public class FunderController {
     }
 
     @PutMapping("/versions/{versionId}/assignee")
-    @Operation(summary = "Reassign the funder", description = "AS-10.3")
+    @Operation(summary = "Reassign the funder, or unassign with funderId null", description = "AS-10.3, spec 002 AS-2.4")
     public Map<String, Object> reassign(@PathVariable long versionId, @RequestBody AssigneeRequest body,
                                         @Parameter(hidden = true) Actor actor) {
         return funder.reassign(versionId, body.funderId(), actor.id());
+    }
+
+    @PostMapping("/versions/{versionId}/take")
+    @Operation(summary = "Take an unassigned deal (assign to self)",
+            description = "Spec 002 AS-2.6: 409 ALREADY_ASSIGNED if someone else has it; unchanged if it's already yours")
+    public Map<String, Object> take(@PathVariable long versionId, @Parameter(hidden = true) Actor actor) {
+        return funder.take(versionId, actor.id());
     }
 
     @PostMapping("/versions/{versionId}/approve")

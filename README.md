@@ -97,7 +97,7 @@ Behind that:
 
 ## How we know it works
 
-**406 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**411 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -109,14 +109,14 @@ scenario through the full trigger path.
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API incl. spec 002 overview fields, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 50 | ✅ all pass |
+| API (start API, funder API incl. spec 002 overview fields, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 55 | ✅ all pass |
 | **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, real OIDC tokens, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider** | 68 | ✅ all pass |
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) is under way: its spike, and bearer-token sign-in on the funder
-API. It adds **1 Playwright test** (the A2UI round trip; see "Try the funder dashboard spike"
-below), which isn't counted in the 406.
+Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview and Take. Its
+Java tests are in the 411. Its **46 agent tests** and **6 Playwright tests** are counted
+separately; see "Try the funder dashboard" below.
 
 <sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
@@ -369,7 +369,8 @@ curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit      # who did what
 
 Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `{"reason":…}`,
 `POST …/rerun` with `{"checks":["INCOME"]}`, `POST …/retry-disbursement` (LA-1030),
-`POST …/stipulations` for a manual stip, and `PUT …/assignee`. RISC-related stips can't be
+`POST …/stipulations` for a manual stip, `POST …/take` (assign to yourself, only if unassigned),
+and `PUT …/assignee` (reassign, or unassign with `{"funderId":null}`). RISC-related stips can't be
 waived or satisfied by hand; the dealer must send a corrected RISC (step 7).
 
 ### Step 7: Fix a document, or resubmit
@@ -481,12 +482,13 @@ from steps 2 and 4 with LA-1006 submitted (step 5).
 ```bash
 cd dashboard/agent && uv run python main.py      # the agent, port 8091 (its own terminal)
 cd dashboard/web && npm install && npm run dev   # its own terminal; then go to http://localhost:5173
-cd dashboard/agent && uv run pytest              # 33 agent tests, no services needed
-cd dashboard/web && npx playwright install chromium && npx playwright test   # 4 browser tests, start their own dev server
+cd dashboard/agent && uv run pytest              # 46 agent tests, no services needed
+cd dashboard/web && npx playwright install chromium && npx playwright test   # 6 browser tests, start their own dev server
 ```
 
 Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
-`supervisor-1`), click **Sign-in**, then open `LA-1006`. **Take this deal** assigns it to you;
+`supervisor-1`), click **Sign-in**, then open `LA-1006`. If it's unassigned, **Take this deal**
+asks for confirmation, then assigns it to you;
 check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More in
 [`ui_summary.md`](ui_summary.md).
 

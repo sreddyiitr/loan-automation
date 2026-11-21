@@ -221,17 +221,47 @@ public class FunderService {
     }
 
     /** AS-10.3. */
+    /** AS-10.3 / spec 002 AS-2.4: reassign, or unassign with {@code funderId = null}. A blank id is refused. */
     public Map<String, Object> reassign(long versionId, String funderId, String actor) {
-        requireText(funderId, "funderId");
+        if (funderId != null) {
+            requireText(funderId, "funderId");
+        }
         tx.executeWithoutResult(s -> {
             VersionRow v = guard(versionId);
             versions.setAssignee(versionId, funderId);
             Map<String, Object> before = new LinkedHashMap<>();
             before.put("assignedFunder", v.assignedFunder());
-            audit.record("APPLICATION_VERSION", Long.toString(versionId), "ASSIGNEE_CHANGED", actor, before,
-                    Map.of("assignedFunder", funderId));
+            Map<String, Object> after = new LinkedHashMap<>();
+            after.put("assignedFunder", funderId);
+            audit.record("APPLICATION_VERSION", Long.toString(versionId), "ASSIGNEE_CHANGED", actor, before, after);
         });
-        return Map.of("applicationVersionId", versionId, "assignedFunder", funderId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("applicationVersionId", versionId);
+        result.put("assignedFunder", funderId);
+        return result;
+    }
+
+    /**
+     * Spec 002 AS-2.6: assign the version to the caller, only if nobody has it. Checked under the
+     * row lock, so two funders taking the same deal can't both win. D2 adds the AS-11.2 role rule.
+     */
+    public Map<String, Object> take(long versionId, String actor) {
+        tx.executeWithoutResult(s -> {
+            VersionRow v = guard(versionId);
+            if (actor.equals(v.assignedFunder())) {
+                return;   // already yours: nothing changes, nothing to audit
+            }
+            if (v.assignedFunder() != null) {
+                throw new ApiProblem(HttpStatus.CONFLICT, "ALREADY_ASSIGNED",
+                        "version " + versionId + " is already assigned to " + v.assignedFunder());
+            }
+            versions.setAssignee(versionId, actor);
+            Map<String, Object> before = new LinkedHashMap<>();
+            before.put("assignedFunder", null);
+            audit.record("APPLICATION_VERSION", Long.toString(versionId), "ASSIGNEE_CHANGED", actor, before,
+                    Map.of("assignedFunder", actor, "reason", "TAKEN"));
+        });
+        return Map.of("applicationVersionId", versionId, "assignedFunder", actor);
     }
 
     /** AS-8.7 (override for checks in ERROR) and AS-8.10 (complete RISC, TILA PASS). */

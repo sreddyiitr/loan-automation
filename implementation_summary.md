@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T105 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; and the browser signs in with OIDC (PKCE) and opens deals by loan id. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T106 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; and Take is a confirmed, race-safe write. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -372,14 +372,14 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
 | `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 50 | ✅ |
+| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, take and unassign, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 55 | ✅ |
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 33 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright), each signing in on the real login page: overview and Take; unknown loan; unknown user; signed out | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider with its config, Chromium | 4 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 46 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright), each signing in on the real login page: overview; Take with confirmation; someone else took it first; unknown loan; unknown user; signed out | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider with its config, Chromium | 6 | ✅ |
 
-**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 33 agent tests and 4 Playwright tests. Test names trace to the
+**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 46 agent tests and 6 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -461,6 +461,11 @@ Spec 002, D1 (T101–T102):
   it runs with `scripts/oidc-config.json` (tokens for the dashboard's client carry
   `aud=funding-api`), and `oidc-env.sh` refuses a provider without it. The API's audience check
   stays strict.
+- **Take (T106):** `POST /versions/{vid}/take` assigns to the caller only if nobody has it,
+  under the row lock (409 `ALREADY_ASSIGNED`), so two stale screens can't both win.
+  `PUT …/assignee` also unassigns with `null` (AS-2.4). In the dashboard, Take sits behind a
+  `Modal` confirmation. After it, the agent rebuilds the surface, because the controls changed
+  and that's what closes the Modal.
 - **Overview fields (T103):** `expiresAt` is `submittedAt` + `funding.workflow.expire-after`, the
   workflow's own deadline, computed from the DB so a worklist can use it too. `inProgress` and
   `workflowStep` come from the workflow query. `payment.state` is NOT_STARTED, IN_FLIGHT, PAID,

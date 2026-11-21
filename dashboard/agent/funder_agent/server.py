@@ -47,7 +47,10 @@ def route(token: str | None, text: str, actions: list[dict[str, Any]],
             if actions:
                 replies: list[dict[str, Any]] = []
                 for action in actions:
-                    handler = deal.HANDLERS.get(action.get("name", ""))
+                    name = action.get("name", "")
+                    if name.startswith("ui."):
+                        continue      # UI-only, e.g. the button that opens a confirmation (plan §3)
+                    handler = deal.HANDLERS.get(name)
                     if handler is None:
                         log.warning("no handler for action %s", action.get("name"))
                         continue

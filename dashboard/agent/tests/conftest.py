@@ -13,10 +13,12 @@ from funder_agent.api import FunderApi
 from funder_agent.catalog import validation_catalog
 
 
-def validate(messages: list[dict[str, Any]]) -> None:
-    """NFR-05: the messages pass A2UI v1.0 strict validation against our catalog, as the renderer would apply them."""
-    MessageProcessor([validation_catalog()], options=MessageProcessorOptions(validation_config=STRICT_VALIDATION)) \
-        .process_messages(messages)
+def validate(*batches: list[dict[str, Any]]) -> None:
+    """NFR-05: the messages pass A2UI v1.0 strict validation against our catalog, applied in order to
+    one renderer state, as the browser would (e.g. a first screen, then a reply that rebuilds it)."""
+    p = MessageProcessor([validation_catalog()], options=MessageProcessorOptions(validation_config=STRICT_VALIDATION))
+    for messages in batches:
+        p.process_messages(messages)
 
 
 def token_for(user: str) -> str:
@@ -59,6 +61,12 @@ class FakeFunderApi:
             return httpx.Response(200, json=self.overview)
         if request.method == "GET" and path.endswith("/versions"):
             return httpx.Response(200, json=VERSIONS)
+        if request.method == "POST" and path.endswith("/take"):
+            me = json.loads(base64.urlsafe_b64decode(request.headers["Authorization"].split(".")[1] + "=="))["sub"]
+            if self.overview["assignedFunder"] not in (None, me):
+                return httpx.Response(409, json={"reason": "ALREADY_ASSIGNED", "detail": "taken"})
+            self.overview["assignedFunder"] = me
+            return httpx.Response(200, json={"assignedFunder": me})
         if request.method == "PUT" and path.endswith("/assignee"):
             self.overview["assignedFunder"] = json.loads(request.content)["funderId"]
             return httpx.Response(200, json={"assignedFunder": self.overview["assignedFunder"]})

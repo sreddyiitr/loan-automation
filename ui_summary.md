@@ -7,7 +7,7 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T105
+**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T106
 done). What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
@@ -20,7 +20,8 @@ done). What works end to end today:
 You sign in on the OIDC provider's login page, then open any deal by its loan id. The overview
 is the one screen so far. It shows the deal facts, days to expiry, payment status, a
 "running" note while the workflow is busy, a link to the run in the Temporal UI, and the version
-history. The actor in every write is whoever the token names. Not yet built:
+history. **Take this deal** appears only while the deal is unassigned, asks for confirmation, and is
+refused if someone else took the deal first. The actor in every write is whoever the token names. Not yet built:
 - the worklist, the other tabs, role enforcement (D2) and the assistant.
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -109,11 +110,16 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 5. Tests:
-   - Agent: `cd dashboard/agent && uv run pytest`. 33 tests, no services needed. Every surface
-     passes A2UI v1.0 strict validation against our catalog (NFR-05).
-   - Browser: `cd dashboard/web && npx playwright test`. 4 tests against the running stack, each
-     signing in on the real login page:
-     - open LA-1006, see the overview and Take it;
+   - Agent: `cd dashboard/agent && uv run pytest`. 46 tests, no services needed. Every surface
+     passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
+     on top of the first screen. A second check catches keys the web renderer rejects but the
+     Python validator accepts (`@accessibility`, `@catalogId`).
+   - Browser: `cd dashboard/web && npx playwright test`. 6 tests against the running stack, each
+     signing in on the real login page. Each starts by unassigning LA-1006 through the API, so no
+     versions are added:
+     - open LA-1006 and see the overview;
+     - Take asks for confirmation, then the deal is yours and Take is gone;
+     - if someone else took it first, nothing changes and the screen says who has it;
      - an unknown loan id shows "not found";
      - a user who isn't in the directory is told so;
      - signed out shows only the sign-in screen.

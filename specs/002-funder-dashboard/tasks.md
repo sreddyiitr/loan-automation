@@ -121,7 +121,33 @@ verified user. Roles are only looked up here; D2 enforces them.
   - **Not done here:** fixing `npm audit`'s 4 high and 1 moderate findings. They're all in the
     A2UI packages pinned at D0 (`@a2ui/react`, `@a2ui/web_core`, `@a2ui/markdown-it` via
     `dompurify`) and in `zod`, not in `oidc-client-ts`.
-- [ ] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
+- [x] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
+  **Notes (done 2026-11-21):**
+  - **Spec first:** a new AS-2.6. AS-2.4 and spec 001's AS-10.3 also allow unassigning with
+    `funderId: null`.
+  - **API:** `POST /versions/{vid}/take`, under the row lock:
+    - already yours → 200, unchanged and not audited;
+    - someone else's → 409 `ALREADY_ASSIGNED`;
+    - otherwise audited `ASSIGNEE_CHANGED` with reason `TAKEN`.
+    `PUT …/assignee` stays the reassign and now accepts `null`. A blank id is still a 400.
+    Five tests in `FunderApiTest`; the contract is regenerated.
+  - **Agent:**
+    - Take is offered only on an unassigned, open deal.
+    - It's the `trigger` of a Basic Catalog `Modal`, and the confirm button sends `deal.take`.
+      The trigger's own event is `ui.confirm_take`, and the agent ignores every `ui.` event.
+    - After the call it rebuilds the surface (`deleteSurface`, then create), which closes the
+      Modal and drops Take.
+    - On a refusal it also rebuilds from a re-read, and adds the reason's notice.
+    - Your own deal reads "funder-1 (you)".
+  - **Web:** `apply()` keeps a `createSurface` that follows a `deleteSurface` of the same id.
+  - **Pitfall found (a2ui-notes §12d):** `web_core` 0.15.0 rejects `@accessibility`, but
+    `a2ui-core` accepts it. An agent test now checks for both reserved keys.
+  - **Tests:** 46 agent, 6 Playwright, plus 5 Java.
+    - The Playwright setup unassigns LA-1006 through the API, so runs repeat without adding
+      versions.
+    - My first setup made a new version per run, and a stray dev call made one more. Together
+      they left LA-1006 at v11 locally, with v2 an unsubmitted draft. No data was lost; the
+      history is just longer.
 - [ ] **T107** `make dashboard`, the preflight script and the README section.
 - [ ] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
 

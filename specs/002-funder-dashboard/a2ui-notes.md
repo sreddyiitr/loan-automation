@@ -389,6 +389,13 @@ assistant.
 - **A duplicate `createSurface` is an integrity error** ("Surface … already exists"). React
   StrictMode runs effects twice in dev, and agents may resend, so skip `createSurface` for a
   surface that already exists (the official sample does the same).
+- **`@accessibility` on a component is rejected** by `web_core` 0.15.0 ("Unrecognized key(s) in
+  object: '@accessibility'"), like `@catalogId`. Use the older `accessibility` key. `a2ui-core`
+  0.7.0 (Python) accepts both, so its validator can't catch this; an agent test checks for both
+  reserved keys (T106, 2026-11-21).
+- **`Modal`** opens on its `trigger` and closes only by its own × or the backdrop, not when a
+  button inside it is clicked. The trigger button's own event is still sent. To close it after a
+  confirm, rebuild the surface: `deleteSurface`, then `createSurface` (T106).
 - **`weight` is layout (flex), not font weight.**
 - **`Text` renders through a markdown step.** Without `@a2ui/markdown-it` it warns "no markdown
   renderer configured". `@a2ui/react` 0.15.0 pulls `@a2ui/markdown-it` 0.2.2, which declares a
