@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
         org.springdoc.core.configuration.SpringDocConfiguration.class,
         org.springdoc.core.properties.SpringDocConfigProperties.class,
         org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration.class})
+@org.springframework.context.annotation.Import(com.funding.api.auth.SecurityConfig.class)
 @WebMvcTest(controllers = FunderController.class, properties = {
         "springdoc.paths-to-match=/api/v1/applications/**,/api/v1/versions/**",
         "springdoc.writer-with-order-by-keys=true"})
@@ -39,7 +40,7 @@ class FunderOpenApiTest {
             Files.writeString(CONTRACT, yaml);
         }
         assertThat(yaml).contains("/api/v1/versions/{versionId}/approve", "/api/v1/versions/{versionId}/stipulations/{stipId}",
-                "X-Funder-Id");
+                "bearerAuth").doesNotContain("X-Funder-Id");
         assertThat(Files.exists(CONTRACT)).as("run once with -Dwrite.contract=true to create " + CONTRACT).isTrue();
         assertThat(yaml).as("contracts/funder-api.openapi.yaml is stale: rerun with -Dwrite.contract=true and commit it")
                 .isEqualTo(Files.readString(CONTRACT));

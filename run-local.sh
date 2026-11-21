@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Local run (plan "Local Environment"): reuse-first emulator, Postgres and WireMock, then the app
+# Local run (plan "Local Environment"): reuse-first emulator, Postgres, WireMock and OIDC provider, then the app
 # under the 'local' profile (queue bootstrap, seed data, generated WireMock stubs, local Lambda runner).
 # Temporal must already be running at ${TEMPORAL_ADDRESS:-localhost:7233}.
 set -euo pipefail
@@ -8,6 +8,7 @@ source scripts/java-env.sh
 source scripts/emulator-env.sh
 source scripts/db-env.sh
 source scripts/wiremock-env.sh
+source scripts/oidc-env.sh
 export FUNDING_ENV="${FUNDING_ENV:-local}"
 temporal="${TEMPORAL_ADDRESS:-localhost:7233}"
 nc -z "${temporal%:*}" "${temporal##*:}" 2>/dev/null \

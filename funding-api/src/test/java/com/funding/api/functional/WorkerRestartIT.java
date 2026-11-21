@@ -47,7 +47,6 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 class WorkerRestartIT extends FunctionalTestBase {
 
-    private static final String FUNDER = "funder-it";
 
     @Autowired private SeedGates gates;
     @Autowired private SeedConfig config;
@@ -155,7 +154,7 @@ class WorkerRestartIT extends FunctionalTestBase {
         assertThat(rebuilt.step()).isEqualTo("WAITING_FOR_FUNDER");
         long stip = jdbc.sql("SELECT stip_id FROM stipulations WHERE application_version_id = ?").param(id).query(Long.class).single();
         HttpResponse<String> r = HTTP.send(HttpRequest.newBuilder(URI.create(base() + "/api/v1/versions/" + id + "/stipulations/" + stip))
-                .header("Content-Type", "application/json").header("X-Funder-Id", FUNDER)
+                .header("Content-Type", "application/json").header("Authorization", bearer())
                 .method("PATCH", HttpRequest.BodyPublishers.ofString("{\"status\":\"WAIVED\",\"reason\":\"1 cent, dealer confirmed\"}")).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(r.statusCode()).as(r.body()).isEqualTo(200);

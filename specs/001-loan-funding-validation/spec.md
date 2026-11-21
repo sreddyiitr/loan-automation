@@ -110,13 +110,13 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 ### US-10 Funder operations API (P2)
 - **AS-10.1** Get application overview: application ID, latest version number, dealer, borrower and co-borrower, stated income, VIN, status, assigned funder.
 - **AS-10.2** List stips for a version. Update a stip to SATISFIED or WAIVED, with a required reason and actor. `resolved_at` is set. The update is conditional (`WHERE status = 'PENDING'`), so when two funders act at once the second gets 409 `ALREADY_RESOLVED`.
-- **AS-10.3** Reassign the funder. Every change is recorded in the audit log.
+- **AS-10.3** Reassign the funder, or unassign the version (`funderId: null`, spec 002 AS-2.4). Every change is recorded in the audit log.
 - **AS-10.4** List validation results with expected-vs-actual details (backs the mismatches tab).
 - **AS-10.5** List document versions per type with `processed_at` and per-field confidence and bounding box.
 - **AS-10.6** Approve, reject, or re-run errored checks. These become Temporal signals to the version's workflow.
 - **AS-10.7** Writes against a non-latest version, or a version in a terminal status (`FUNDED`, `REJECTED`, `EXPIRED`), are refused with 409.
 - **AS-10.8** A funder can create a manual stip (for example `STIP_PROOF_OF_INCOME`; the owner confirmed this is done from the UI in spec 002, through this API) with `validation_check = NULL`. This moves an `APPROVED`-but-not-yet-disbursed or `PENDING_REVIEW` version to `STIPULATED`.
-- **AS-10.9** Every write names its actor in the header `X-Funder-Id` (a stand-in until auth exists). A missing header returns 400. Errors use RFC 9457 `application/problem+json`.
+- **AS-10.9** Every funder API call is made by an authenticated user: it carries an OIDC bearer token, and the actor is the token's `sub` (spec 002 FR-09, FR-11). A missing or invalid token returns 401. This replaces the `X-Funder-Id` header, which was a stand-in until auth existed. Errors use RFC 9457 `application/problem+json`.
 
 ## 5. Functional Requirements
 

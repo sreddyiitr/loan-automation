@@ -27,7 +27,7 @@ import software.amazon.awssdk.services.sqs.SqsClient;
  * NFR-08 isolation on the developer's shared services (plan "Isolation on shared services"):
  * {@code FUNDING_ENV=it-<runId>}, its own database {@code funding_it_<runId>} on the same Postgres,
  * its own queues, task queues, workflow IDs and WireMock stubs. Everything is removed afterwards.
- * Needs the env from {@code make test-functional} (emulator-env, db-env, wiremock-env).
+ * Needs the env from {@code make test-functional} (emulator-env, db-env, wiremock-env, oidc-env).
  */
 final class FunctionalEnvironment {
 
@@ -41,6 +41,10 @@ final class FunctionalEnvironment {
     private static final String DB_USER = require("FUNDING_DB_USER");
     private static final String DB_PASSWORD = System.getenv().getOrDefault("FUNDING_DB_PASSWORD", "");
     static final String WIREMOCK_URL = require("WIREMOCK_URL");
+    /** Spec 002 FR-09: the shared mock OIDC provider. Tokens need no isolation: they name a user, nothing else. */
+    static final String OIDC_ISSUER_URI = require("OIDC_ISSUER_URI");
+    /** The user the functional tests act as; SUPERVISOR, since supervisors may do everything (spec 002 D-11). */
+    static final String TEST_USER = "funder-it";
 
     static {
         require("AWS_ENDPOINT_URL");
@@ -51,6 +55,13 @@ final class FunctionalEnvironment {
     private FunctionalEnvironment() {}
 
     static Map<String, String> springProperties() {
+        Map<String, String> p = new java.util.HashMap<>(baseProperties());
+        p.put("spring.security.oauth2.resourceserver.jwt.issuer-uri", OIDC_ISSUER_URI);
+        p.put("funding.auth.users[" + TEST_USER + "]", "SUPERVISOR");
+        return Map.copyOf(p);
+    }
+
+    private static Map<String, String> baseProperties() {
         return Map.of(
                 "spring.datasource.url", dbUrl(),
                 "spring.datasource.username", DB_USER,
@@ -143,7 +154,7 @@ final class FunctionalEnvironment {
         String v = System.getenv(name);
         if (v == null || v.isBlank()) {
             throw new IllegalStateException(name + " is not set: run functional tests with `make test-functional` "
-                    + "(it sources emulator-env.sh, db-env.sh and wiremock-env.sh)");
+                    + "(it sources emulator-env.sh, db-env.sh, wiremock-env.sh and oidc-env.sh)");
         }
         return v;
     }

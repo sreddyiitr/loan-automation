@@ -36,6 +36,41 @@ abstract class FunctionalTestBase {
         return "http://localhost:" + FunctionalEnvironment.PORT;
     }
 
+    private static final java.util.Map<String, String> TOKENS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * A real access token for {@code userId} from the shared mock OIDC provider (spec 002 plan §4):
+     * {@code client_credentials} with {@code client_id=<user id>} gives {@code sub=<user id>} and
+     * {@code aud=funding-api}. Cached per user; tokens last an hour, longer than any run.
+     */
+    protected static String token(String userId) {
+        return TOKENS.computeIfAbsent(userId, u -> tokenFrom(FunctionalEnvironment.OIDC_ISSUER_URI, u, "funding-api"));
+    }
+
+    /** A token from any issuer path of the mock provider, for any audience ({@code scope}); uncached. */
+    protected static String tokenFrom(String issuerUri, String userId, String audience) {
+        try {
+            HttpResponse<String> r = HTTP.send(HttpRequest.newBuilder(URI.create(issuerUri + "/token"))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(HttpRequest.BodyPublishers.ofString("grant_type=client_credentials&client_id=" + userId
+                            + "&client_secret=unused&scope=" + audience)).build(), HttpResponse.BodyHandlers.ofString());
+            if (r.statusCode() != 200) {
+                throw new IllegalStateException("token for " + userId + ": HTTP " + r.statusCode() + " " + r.body());
+            }
+            return JSON.readTree(r.body()).path("access_token").asText();
+        } catch (java.io.IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** The {@code Authorization} header value for the functional tests' user. */
+    protected static String bearer() {
+        return "Bearer " + token(FunctionalEnvironment.TEST_USER);
+    }
+
     protected static HttpResponse<String> httpPost(String url, String body) throws Exception {
         return HTTP.send(HttpRequest.newBuilder(URI.create(url)).header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body == null ? "" : body)).build(), HttpResponse.BodyHandlers.ofString());

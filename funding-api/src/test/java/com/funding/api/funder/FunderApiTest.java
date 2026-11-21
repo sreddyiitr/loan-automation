@@ -10,9 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.funding.api.ProblemHandler;
+import com.funding.api.auth.ActorArgumentResolver;
 import com.funding.api.seed.SeedDataLoader;
 import com.funding.domain.Check;
 import com.funding.domain.CheckOutcome;
+import com.funding.domain.Role;
 import com.funding.domain.RuleEngine;
 import com.funding.domain.RulesConfig;
 import com.funding.persistence.TestDatabase;
@@ -48,6 +50,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -63,6 +68,7 @@ class FunderApiTest {
     private static final String ENV = "apitest";
     private static final TaskQueues QUEUES = TaskQueues.forEnv(ENV);
     private static final String FUNDER = "funder-7";
+    private static final Duration EXPIRE_AFTER = Duration.ofDays(30);
     private static final MediaType PROBLEM = MediaType.APPLICATION_PROBLEM_JSON;
 
     static final Queue<String> SIGNALS = new ConcurrentLinkedQueue<>();
@@ -104,10 +110,11 @@ class FunderApiTest {
         tx = new TransactionTemplate(new DataSourceTransactionManager(db.dataSource()));
         SeedConfig config = SeedConfig.fromDefaultsAndSystem(ENV);
         new SeedDataLoader(new SeedGates(SeedPaths.discover(), config, RuleFingerprints.fromClasspath()), config, jdbc, tx).load();
-        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30));
+        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, EXPIRE_AFTER);
 
-        FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults());
-        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler()).build();
+        FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults(), EXPIRE_AFTER);
+        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
+                .setCustomArgumentResolvers(new ActorArgumentResolver()).build();
     }
 
     @AfterEach
@@ -162,9 +169,20 @@ class FunderApiTest {
                 .params(id, code).query(Long.class).single();
     }
 
+    /**
+     * A write as {@link #FUNDER}. This MockMvc has no security filter (FunderAuthTest covers the
+     * token path), so the signed-in user is put in the security context directly. SUPERVISOR,
+     * because supervisors may do everything (spec 002 D-11), so spec 001's scenarios keep their meaning.
+     */
     private ResultActions write(MockHttpServletRequestBuilder req, String body) throws Exception {
-        req.header(FunderController.FUNDER_HEADER, FUNDER).contentType(MediaType.APPLICATION_JSON);
-        return mvc.perform(body == null ? req : req.content(body));
+        req.contentType(MediaType.APPLICATION_JSON);
+        SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                FUNDER, null, List.of(new SimpleGrantedAuthority("ROLE_" + Role.SUPERVISOR))));
+        try {
+            return mvc.perform(body == null ? req : req.content(body));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private ResultActions resolve(long id, long stipId, String status, String reason) throws Exception {
@@ -201,6 +219,132 @@ class FunderApiTest {
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.ssnItinEncrypted").doesNotExist());
         mvc.perform(get("/api/v1/applications/LA-404")).andExpect(problem(404, "NOT_FOUND"));
+    }
+
+    /** Spec 002 T103: a DRAFT has no run, no deadline and no payment. */
+    @Test
+    void AS_2_1_overviewOfADraft() throws Exception {
+        long id = latest("LA-1001");
+        mvc.perform(get("/api/v1/applications/LA-1001")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.workflowId").value(WorkflowIds.parent(ENV, id)))
+                .andExpect(jsonPath("$.workflowStep").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.inProgress").value(false))
+                .andExpect(jsonPath("$.payment.state").value("NOT_STARTED"));
+    }
+
+    /** Spec 002 T103 (AS-2.1, AS-2.5): a deal waiting for a funder; expiry is the workflow's own deadline (AS-8.6). */
+    @Test
+    void AS_2_1_overviewShowsExpiryWorkflowAndPayment() throws Exception {
+        long id = settled("LA-1006");
+        java.time.OffsetDateTime submitted = jdbc.sql("SELECT submitted_at FROM application_versions WHERE application_version_id = ?")
+                .param(id).query(java.time.OffsetDateTime.class).single();
+        String body = mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("STIPULATED"))
+                .andExpect(jsonPath("$.workflowId").value(WorkflowIds.parent(ENV, id)))
+                .andExpect(jsonPath("$.workflowStep").value("WAITING_FOR_FUNDER"))
+                .andExpect(jsonPath("$.inProgress").value(false))
+                .andExpect(jsonPath("$.payment.state").value("NOT_STARTED"))
+                .andReturn().getResponse().getContentAsString();
+        // This standalone MockMvc writes dates as epoch seconds (the app writes ISO-8601); compare instants.
+        com.fasterxml.jackson.databind.JsonNode expires = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("expiresAt");
+        java.time.Instant expected = submitted.plus(EXPIRE_AFTER).toInstant();
+        if (expires.isNumber()) {
+            java.math.BigDecimal secs = expires.decimalValue();
+            assertThat(java.time.Instant.ofEpochSecond(secs.longValue(), secs.remainder(java.math.BigDecimal.ONE).movePointRight(9).longValue()))
+                    .isCloseTo(expected, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+        } else {
+            assertThat(java.time.OffsetDateTime.parse(expires.asText()).toInstant()).isEqualTo(expected);
+        }
+    }
+
+    /** Spec 002 T103 (AS-2.2): every step but WAITING_FOR_FUNDER and DONE means something is running. */
+    @Test
+    void AS_2_2_inProgressWhileTheWorkflowIsBusy() throws Exception {
+        settled("LA-1006");
+        for (String busy : List.of("VALIDATING", "APPLYING", "DISBURSING", "EXPIRING")) {
+            step = busy;
+            mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.workflowStep").value(busy))
+                    .andExpect(jsonPath("$.inProgress").value(true));
+        }
+        step = "DONE";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.inProgress").value(false));
+    }
+
+    /** Spec 002 T103 (AS-2.1): the payment states, from the disbursement row and the workflow step. */
+    @Test
+    void AS_2_1_paymentStates() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("INSERT INTO disbursements (application_version_id, amount, dealership_id, status) VALUES (?, 25000.00, 'DLR-100', 'REQUESTED')")
+                .param(id).update();
+        step = "DISBURSING";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("IN_FLIGHT"))
+                .andExpect(jsonPath("$.payment.amount").value(25000.00));
+        step = "WAITING_FOR_FUNDER";   // retries exhausted, outcome unknown (C-8)
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("UNKNOWN"));
+        jdbc.sql("UPDATE disbursements SET status = 'FAILED' WHERE application_version_id = ?").param(id).update();
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("FAILED"));
+        jdbc.sql("UPDATE disbursements SET status = 'COMPLETED', external_reference = 'DSB-42' WHERE application_version_id = ?").param(id).update();
+        jdbc.sql("UPDATE application_versions SET version_status = 'FUNDED' WHERE application_version_id = ?").param(id).update();
+        step = "DONE";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("PAID"))
+                .andExpect(jsonPath("$.payment.reference").value("DSB-42"))
+                .andExpect(jsonPath("$.payment.amount").value(25000.00))
+                .andExpect(jsonPath("$.expiresAt").value(org.hamcrest.Matchers.nullValue()))   // paid: no deadline
+                .andExpect(jsonPath("$.inProgress").value(false));
+    }
+
+    /** Spec 002 AS-2.6: Take assigns an unassigned deal to the caller, and is audited. */
+    @Test
+    void AS_2_6_takeAnUnassignedDeal() throws Exception {
+        long id = settled("LA-1006");
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedFunder").value(FUNDER));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value(FUNDER));
+        mvc.perform(get("/api/v1/versions/{v}/audit", id))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].afterState.reason").value("TAKEN"))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].actor").value(FUNDER));
+    }
+
+    /** Spec 002 AS-2.4: a reassign can also go back to unassigned; it's audited, and the deal can be taken again. */
+    @Test
+    void AS_2_4_unassignWithNullFunderId() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET assigned_funder = 'funder-9' WHERE application_version_id = ?").param(id).update();
+        write(put("/api/v1/versions/{v}/assignee", id), "{\"funderId\":null}").andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedFunder").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value(org.hamcrest.Matchers.nullValue()));
+        mvc.perform(get("/api/v1/versions/{v}/audit", id))
+                .andExpect(jsonPath("$[?(@.action == 'ASSIGNEE_CHANGED')].beforeState.assignedFunder").value("funder-9"));
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        write(put("/api/v1/versions/{v}/assignee", id), "{\"funderId\":\"  \"}").andExpect(problem(400, "MISSING_FUNDERID"));
+    }
+
+    /** Spec 002 AS-2.6: taking a deal you already have changes nothing and writes no second audit row. */
+    @Test
+    void AS_2_6_takeIsIdempotentForTheAssignee() throws Exception {
+        long id = settled("LA-1006");
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        assertThat(jdbc.sql("SELECT count(*) FROM audit_log WHERE entity_id = ? AND action = 'ASSIGNEE_CHANGED'")
+                .param(Long.toString(id)).query(Long.class).single()).isEqualTo(1);
+    }
+
+    /** Spec 002 AS-2.6: a stale screen can't take someone else's deal. */
+    @Test
+    void AS_2_6_takeSomeoneElsesDealIs409() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET assigned_funder = 'funder-9' WHERE application_version_id = ?").param(id).update();
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(problem(409, "ALREADY_ASSIGNED"));
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.assignedFunder").value("funder-9"));
+    }
+
+    /** Spec 002 AS-2.6, with spec 001's guards: no Take on a closed version. */
+    @Test
+    void AS_2_6_takeAClosedVersionIs409() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("UPDATE application_versions SET version_status = 'REJECTED' WHERE application_version_id = ?").param(id).update();
+        write(post("/api/v1/versions/{v}/take", id), null).andExpect(problem(409, "VERSION_TERMINAL"));
     }
 
     @Test
@@ -418,13 +562,14 @@ class FunderApiTest {
                 {"reason":"x"}""").andExpect(problem(409, "VERSION_EXPIRED"));
     }
 
+    /** AS-10.9's token checks are in FunderAuthTest; here a write with no signed-in user changes nothing. */
     @Test
-    void AS_10_9_missingFunderHeader400() throws Exception {
+    void AS_10_9_writeWithoutUserIsRefused() throws Exception {
         long id = settled("LA-1006");
-        mvc.perform(post("/api/v1/versions/{v}/approve", id)).andExpect(problem(400, "MISSING_FUNDER_ID"));
+        mvc.perform(post("/api/v1/versions/{v}/approve", id)).andExpect(problem(401, "UNAUTHORIZED"));
         mvc.perform(patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_PRICE_MISMATCH"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"WAIVED\",\"reason\":\"x\"}"))
-                .andExpect(problem(400, "MISSING_FUNDER_ID"));
+                .andExpect(problem(401, "UNAUTHORIZED"));
         assertThat(versionStatus(id)).isEqualTo("STIPULATED");
         mvc.perform(get("/api/v1/versions/{v}/stipulations", 999999)).andExpect(problem(404, "NOT_FOUND"));
     }

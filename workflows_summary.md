@@ -6,7 +6,7 @@ replay exactly what happened: when each step ran, what it was given, what it dec
 
 Version 242 is a clean deal from a functional-test run (`FUNDING_ENV=it-2ea7a8`): every check
 passes, so the system approves it and pays the dealer with no human involved. The screenshots are
-from the Temporal web UI that ships with `temporal server start-dev` (http://localhost:8233).
+from the Temporal web UI that ships with the dev server (`make temporal`, http://localhost:8233).
 
 ---
 
@@ -139,7 +139,7 @@ children and a new `ApplyOutcome`, until the deal is funded, rejected or expires
   inside the income activity and sent only to the Income API; it never appears in any workflow
   input, result or history (FR-13, checked by `SsnNeverLeaksTest` against real histories).
 - **Not the system of record.** Workflow histories are kept for the namespace's retention period.
-  `start-dev` keeps them only in memory until it stops. The permanent business audit trail is
+  `make temporal` keeps them in `~/.temporal/funding.db` (plain `start-dev` only in memory). The permanent business audit trail is
   Postgres: `audit_log`, `validation_results` with every attempt, and `stipulations`, served by
   `GET /api/v1/versions/{id}/audit`. Temporal is the second, execution-level view of the same
   events: easy to browse, and exact about timing and inputs.
@@ -148,7 +148,7 @@ children and a new `ApplyOutcome`, until the deal is funded, rejected or expires
 
 ## Try it yourself
 
-1. `temporal server start-dev`, then `make run` (see the [README](README.md)).
+1. `make temporal`, then `make run` (see the [README](README.md)).
 2. `make seed-submit-all`.
 3. Open http://localhost:8233, choose the `default` namespace, and filter by
    `WorkflowId starts with "funding-local-<versionId>"`. A clean deal (LA-1001) looks like the

@@ -10,6 +10,11 @@ spring:
     password: ${FUNDING_DB_PASSWORD:funding}
   flyway.locations: classpath:db/migration
   mvc.problemdetails.enabled: true
+  # Spec 002 FR-09/FR-11: bearer tokens from this OIDC issuer, for this audience. Required outside
+  # local (no default), so a missing issuer fails at startup.
+  security.oauth2.resourceserver.jwt:
+    issuer-uri: ${OIDC_ISSUER_URI}
+    audiences: funding-api
 server:
   port: ${SERVER_PORT:8080}
 
@@ -43,10 +48,14 @@ funding:
   # Takes effect only where seeding runs (the local profile, behind funding.seed-data).
   seed.volume: ${FUNDING_SEED_VOLUME:false}
   mocks.load: false
+  # Spec 002 D-13: user id (the token's sub) → role, as funding.auth.users. None outside local
+  # until single sign-on, so every funder API call there is refused (403 UNKNOWN_USER).
 
 ---
 spring.config.activate.on-profile: local
 spring.flyway.locations: classpath:db/migration,classpath:db/local
+# The mock provider from scripts/oidc-env.sh (127.0.0.1, so the token's iss matches).
+spring.security.oauth2.resourceserver.jwt.issuer-uri: ${OIDC_ISSUER_URI:http://127.0.0.1:8090/funding}
 # T607: Spring and Temporal SDK metrics at /actuator/metrics, locally only (aws keeps health only).
 management.endpoints.web.exposure.include: health,info,metrics
 funding:
@@ -56,6 +65,13 @@ funding:
   trigger:
     api-key: ${FUNDING_TRIGGER_API_KEY:local-dev-key}
     local-runner.enabled: true
+  # Sign in as one of these on the mock provider's login page, or get a token with
+  # client_credentials and client_id=<user id> (plan §4).
+  auth.users:
+    funder-1: FUNDER
+    funder-2: FUNDER
+    income-1: INCOME_SPECIALIST
+    supervisor-1: SUPERVISOR
 
 ---
 spring.config.activate.on-profile: aws

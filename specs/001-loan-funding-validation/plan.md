@@ -12,7 +12,7 @@
 | Trigger Lambda | Java 21 handler (`aws-lambda-java-core` + `aws-lambda-java-events`), SQS event source mapping, `java.net.http.HttpClient` |
 | AWS emulation | **AWS Emulator** (official AWS, released 2026-11-11), run in Docker, for **SQS**. Lambda can't be emulated for this app (V-2, V-4) and RDS isn't real Postgres; see *Local Environment* |
 | External API mocks | **WireMock 3.x** for every external API: standalone Docker container `wiremock/wiremock` locally (reuse-first, like the emulator) and in-JVM `WireMockExtension` in tests. Stubs are generated (constitution P-5). Contracts in `contracts/*.openapi.yaml`, validated with `swagger-request-validator`. |
-| API conventions | RFC 9457 problem+json, springdoc OpenAPI, actor header `X-Funder-Id` (homehub OQ-1 / D-6 patterns) |
+| API conventions | RFC 9457 problem+json, springdoc OpenAPI, actor from the OIDC bearer token's `sub` (spec 002 FR-11; replaced the `X-Funder-Id` header) |
 | Observability | SLF4J + JSON logs with MDC (`loanApplicationId`, `applicationVersionId`, `workflowId`); Temporal SDK metrics through Micrometer. OTel agent optional (homehub `otel-env.sh` can be ported later). |
 | Money | `BigDecimal`, `MathContext.DECIMAL128`, `RoundingMode.HALF_UP` |
 | Tests | JUnit 5, AssertJ, Temporal `TestWorkflowEnvironment`, Testcontainers (Postgres 18), WireMock. Functional ITs (Failsafe) run against the shared AWS Emulator container. |
@@ -139,7 +139,7 @@ A Temporal workflow can't serve HTTP itself. The **start-workflow API** is a RES
     6. **Fallback:** only if 1–5 fail (no container, or it's unreachable), start a new `funding-emulator` (label `funding.managed=true`, `127.0.0.1:9297:9297`, `HOME` plus a bind mount of `~/.aws/emulator`, 2 GiB memory).
     - Then export `AWS_ENDPOINT_URL`, `AWS_SHARED_CREDENTIALS_FILE`, `AWS_CONFIG_FILE`, `AWS_CA_BUNDLE`, `AWS_EC2_METADATA_DISABLED`, `AWS_DISABLE_HOST_PREFIX_INJECTION` and **`AWS_REGION=us-west-2`**, and unset real credentials. `us-west-2` because regions are isolated in the emulator and AWS verifies fidelity in that region.
     - Telemetry stays at the emulator default (on). Drop homehub's telemetry-off flags.
-    - `make down` stops only `funding.managed=true` containers (the forwarder and any emulator we started). It never stops a reused container.
+    - `make down` stops and removes every project container: `funding.managed=true` ones (the forwarder and any emulator, Postgres, WireMock or OIDC container we started) and any named `funding-*`. A reused container from another project (same image, other name) is left running and listed.
   - **TLS:** the emulator's per-run `ca.pem` is trusted **only by the AWS SDK HTTP client** (`PemTrustManagers.fromPem` on `UrlConnectionHttpClient`). There is no JVM-wide trust store and no `JAVA_TOOL_OPTIONS`, so Temporal, Postgres and Maven are unaffected.
   - **`StartupGuard`:** the `local` profile requires a loopback `AWS_ENDPOINT_URL` and refuses to fall back to real AWS. The `aws` profile forbids bootstrapping.
   - **`InfraBootstrapRunner`** (`local` profile): the emulator keeps state in memory, so this runs on every start and is idempotent. It creates the `funding-pending-review-<FUNDING_ENV>` queue and its DLQ, with `RedrivePolicy maxReceiveCount=5` and visibility timeout 60 s. It doesn't create a Lambda, role or mapping locally (see the verification results).

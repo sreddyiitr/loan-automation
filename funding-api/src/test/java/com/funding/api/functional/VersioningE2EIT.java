@@ -33,7 +33,6 @@ import org.springframework.beans.factory.annotation.Value;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class VersioningE2EIT extends FunctionalTestBase {
 
-    private static final String FUNDER = "funder-it";
 
     @Autowired private SeedGates gates;
     @Autowired private SeedConfig config;
@@ -81,7 +80,7 @@ class VersioningE2EIT extends FunctionalTestBase {
 
     private HttpResponse<String> call(String method, String path, String body) throws Exception {
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base() + path)).header("Content-Type", "application/json")
-                .header("X-Funder-Id", FUNDER)
+                .header("Authorization", bearer())
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
         return HTTP.send(b.build(), HttpResponse.BodyHandlers.ofString());
     }
