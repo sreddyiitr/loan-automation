@@ -31,8 +31,8 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 | Actor | Role |
 |---|---|
 | **Funder** | Signs in, works their queue, reviews deals, resolves stips, decides (US-11 sets what each role may do). |
-| **Income specialist** | A funder specialised in verifying income ("speciality funder"). **The only role that works the income queue**: resolves income stips and income-check problems. |
-| **Supervisor** | Oversees every queue and assigns and reassigns work, including among income specialists. Can do anything a funder can, but **not income work**. |
+| **Income specialist** | A funder specialised in verifying income ("speciality funder"). Works the income queue: resolves income stips and income-check problems. Funders can't. |
+| **Supervisor** | Oversees every queue and assigns and reassigns work. **Can do everything**, including income work. |
 | **Dashboard client** | A browser app that renders A2UI v1.0 surfaces with the React renderer plus our custom catalog, and sends the funder's clicks back as A2UI `action` events. |
 | **Agent service** | Python with ADK and `a2ui-adk`. It builds surfaces from funder API data (code, no LLM), handles actions by calling the funder API, and hosts the assistant. |
 | **Funder API** | Spec 001's Java API, extended in §5. The only component that writes. |
@@ -59,7 +59,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   - the income stips `STIP_INCOME_VARIANCE_EXCEEDED` and `STIP_PROOF_OF_INCOME`;
   - an INCOME check that is FAIL, NEEDS_REVIEW or ERROR.
 
-  It routes to the income queue, which **only income specialists work** (US-11).
+  It routes to the income queue, which income specialists (and supervisors) work, not funders (US-11).
 - **Role:** `FUNDER`, `INCOME_SPECIALIST` or `SUPERVISOR`. It comes from sign-in and is enforced
   by the funder API.
 - **Assistant answer:** small structured JSON from the LLM, `{summary, suggestions[{action,
@@ -86,7 +86,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   It can be sorted by days to expiry (the default) or age. The filters combine: e.g. "STIPULATED with a pending `STIP_PROOF_OF_INCOME`, expiring within 5 days".
 - **AS-1.5** Opening a row opens that deal. Opening a loan id that doesn't exist shows "not found", not an error page.
 - **AS-1.6** Terminal deals (FUNDED, REJECTED, EXPIRED) and superseded versions never appear in a queue, but can be opened by id.
-- **AS-1.7** The **income queue** lists every deal with pending income work. It's the income specialist's main view. Supervisors can see it and assign its deals among income specialists, but can't work them (US-11).
+- **AS-1.7** The **income queue** lists every deal with pending income work. It's the income specialist's main view; supervisors see and work it too.
 
 ### US-2 Deal overview (P1) (source Tab 1)
 - **AS-2.1** The overview shows:
@@ -158,13 +158,13 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 
   | Action | Funder | Income specialist | Supervisor |
   |---|---|---|---|
-  | Queues | My queue, unassigned | Income queue, my queue | All queues, any user's queue (income queue: view and assign only) |
+  | Queues | My queue, unassigned | Income queue, my queue | All queues, any user's queue |
   | Satisfy or waive a stip that isn't income work, on a deal assigned to them | ✅ | ✅ | ✅ (any deal) |
-  | Satisfy or waive an **income stip** | ❌ (send it to the income queue) | ✅ | ❌ |
-  | Re-run the **INCOME** check | ❌ | ✅ | ❌ |
+  | Satisfy or waive an **income stip** | ❌ (send it to the income queue) | ✅ | ✅ |
+  | Re-run the **INCOME** check | ❌ | ✅ | ✅ |
   | Re-run any other check | ✅ (assigned) | ✅ (assigned) | ✅ |
   | Add a stip (including `STIP_PROOF_OF_INCOME`) | ✅ (assigned) | ✅ (assigned) | ✅ |
-  | Approve | ✅ (assigned), not while income work is pending | ✅ (assigned), including over an INCOME check in ERROR (the income decision is theirs) | ✅, not while income work is pending |
+  | Approve | ✅ (assigned), not while income work is pending | ✅ (assigned), including over an INCOME check in ERROR | ✅ (any deal, including over income work) |
   | Reject; retry payment | ✅ (assigned) | ✅ (assigned) | ✅ |
   | Take an unassigned deal (assign to self) | ✅ | ✅ (income work only) | ✅ |
   | **Send to the income queue** (hand a deal with income work to income specialists) | ✅ | n/a | ✅ |
@@ -173,7 +173,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-11.3** A write the role doesn't allow is refused by the API with **403** and a reason (`ROLE_NOT_ALLOWED`, `INCOME_WORK_NEEDS_SPECIALIST`, `NOT_ASSIGNED_TO_YOU`). The UI never offers it (AS-6.1), and shows the reason if it's attempted anyway, e.g. from a stale screen.
 - **AS-11.4** The audit trail records the actor's **role** with each change.
 - **AS-11.5** A deal sent to the income queue keeps its assigned funder. It goes back to that funder's queue once no income work is pending.
-- **AS-11.6** **Only income specialists work income work.** A supervisor or funder trying to resolve an income stip, re-run INCOME, or approve while income work is pending gets 403 `INCOME_WORK_NEEDS_SPECIALIST`.
+- **AS-11.6** **Funders don't do income work.** A funder trying to resolve an income stip, re-run INCOME, or approve while income work is pending gets 403 `INCOME_WORK_NEEDS_SPECIALIST`. Income specialists and supervisors may.
 
 ## 5. Functional Requirements
 
@@ -237,7 +237,7 @@ the expected result, for reference:
 | D-8 | Every PR updates `ui_summary.md`, `implementation_summary.md` and `README.md`. |
 | D-9 | Worklist filters include **stip type** and **hold reason** as well as status, dealer and days to expiry. |
 | D-10 | Three roles: **funder**, **income specialist** ("speciality funder", for verifying income) and **supervisor**, enforced by the funder API, with the permissions in AS-11.2 (confirmed 2026-11-21). A funder sends income work to the income queue and can't approve while it's pending. |
-| D-11 | **The income queue is worked only by income specialists.** Supervisors see it and assign within it, but don't resolve income work. |
+| D-11 | **Income work is done by income specialists or supervisors, never funders.** Supervisors can do everything (owner, 2026-11-21). |
 | D-12 | "Expiring soon" means 5 days or fewer to expiry (configurable). |
 
 **Open (owner):** none.

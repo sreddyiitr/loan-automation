@@ -31,7 +31,7 @@ Funding API (Java, spec 001): the only thing that writes
 | Area | What the funder can do |
 |---|---|
 | **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
-| **Roles** | **Funder** (own and unassigned deals; sends income work to the income queue), **income specialist** (the *only* role that works the income queue) and **supervisor** (all queues, reassigns, but no income work). Enforced by the API, not just the UI |
+| **Roles** | **Funder** (own and unassigned deals; sends income work to the income queue), **income specialist** (works the income queue) and **supervisor** (can do everything: all queues, income work, reassigns). Enforced by the API, not just the UI |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
 | **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |
