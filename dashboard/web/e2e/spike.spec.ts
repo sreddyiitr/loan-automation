@@ -13,6 +13,9 @@ test('a v1.0 surface renders and its button sends an action', async ({page}) => 
   await expect(page.getByText('Status: STIPULATED')).toBeVisible();      // formatString with ${/deal/status}
   await expect(page.getByText('Lone Star Motors')).toBeVisible();        // {"@path": ...}
   await expect(page.getByText('Assigned to: nobody')).toBeVisible();
+  // T003: our custom DataTable, rows bound with @path to a list in the data model
+  await expect(page.getByRole('columnheader', {name: 'Stip'})).toBeVisible();
+  await expect(page.getByRole('cell', {name: 'STIP_PRICE_MISMATCH'})).toBeVisible();
 
   await page.getByRole('button', {name: 'Take this deal'}).click();
   const events = page.getByTestId('events');

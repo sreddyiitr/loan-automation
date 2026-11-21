@@ -23,6 +23,7 @@ log = logging.getLogger("funder-agent")
 
 VERSION = "1.0"
 BASIC_CATALOG = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+FUNDER_CATALOG = "https://funding.local/a2ui/catalogs/funder/v1/catalog.json"
 PORT = 8091
 
 
@@ -30,14 +31,18 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
     """Pure: deal data in, A2UI v1.0 messages out (the shape every fixed-surface builder will have)."""
     sid = "deal_overview"
     return [
-        {"version": VERSION, "createSurface": {"surfaceId": sid, "catalogId": BASIC_CATALOG}},
+        {"version": VERSION, "createSurface": {"surfaceId": sid, "catalogId": FUNDER_CATALOG}},  # extends the basic catalog
         {"version": VERSION, "updateComponents": {"surfaceId": sid, "components": [
             {"id": "root", "component": "Card", "child": "body"},
-            {"id": "body", "component": "Column", "children": ["title", "status", "dealer", "assignee", "take_button"]},
+            {"id": "body", "component": "Column", "children": ["title", "status", "dealer", "assignee", "stips", "take_button"]},
             {"id": "title", "component": "Text", "text": {"@path": "/deal/loanApplicationId"}},
             {"id": "status", "component": "Text", "text": {"@call": "formatString", "args": {"value": "Status: ${/deal/status}"}}},
             {"id": "dealer", "component": "Text", "text": {"@path": "/deal/dealershipName"}},
             {"id": "assignee", "component": "Text", "text": {"@call": "formatString", "args": {"value": "Assigned to: ${/deal/assignedFunder}"}}},
+            # From OUR catalog. (A per-component "@catalogId" isn't supported by the published web_core 0.15.0.)
+            {"id": "stips", "component": "DataTable",
+             "columns": [{"key": "code", "title": "Stip"}, {"key": "status", "title": "Status"}],
+             "rows": {"@path": "/deal/stips"}, "emptyText": "No stips"},
             {"id": "take_label", "component": "Text", "text": "Take this deal"},
             {"id": "take_button", "component": "Button", "variant": "primary", "child": "take_label",
              "action": {"event": {"name": "deal.take", "context": {"loanApplicationId": {"@path": "/deal/loanApplicationId"}}}}},
@@ -47,7 +52,8 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 SPIKE_DEAL = {"loanApplicationId": "LA-1006", "status": "STIPULATED", "dealershipName": "Lone Star Motors",
-              "assignedFunder": "nobody"}
+              "assignedFunder": "nobody",
+              "stips": [{"code": "STIP_PRICE_MISMATCH", "status": "PENDING"}]}
 
 
 class FunderAgentExecutor(AgentExecutor):
@@ -80,7 +86,7 @@ def build_app():
         url=f"http://localhost:{PORT}", version="0.0.1",
         default_input_modes=["text"], default_output_modes=["text"],
         capabilities=AgentCapabilities(streaming=False, extensions=[
-            get_a2ui_agent_extension(version=VERSION, supported_catalog_ids=[BASIC_CATALOG])]),
+            get_a2ui_agent_extension(version=VERSION, supported_catalog_ids=[BASIC_CATALOG, FUNDER_CATALOG])]),
         skills=[AgentSkill(id="deal", name="Deal view", description="Shows a deal.", tags=["funder"])],
     )
     handler = DefaultRequestHandler(agent_executor=FunderAgentExecutor(card), task_store=InMemoryTaskStore())

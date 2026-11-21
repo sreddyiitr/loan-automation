@@ -3,6 +3,7 @@
 const EXTENSION = 'https://a2ui.org/a2a-extension/a2ui/v1.0';
 const MIME = 'application/a2ui+json';
 export const BASIC_CATALOG = 'https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json';
+export const FUNDER_CATALOG = 'https://funding.local/a2ui/catalogs/funder/v1/catalog.json';
 
 type Part = {kind: string; text?: string; data?: Record<string, unknown>; metadata?: Record<string, unknown>};
 
@@ -17,7 +18,7 @@ export async function sendToAgent(payload: string | Record<string, unknown>): Pr
       message: {
         messageId: crypto.randomUUID(), role: 'user', kind: 'message', parts: [part],
         // v1.0: renderer capabilities ride on message metadata, keyed by protocol version.
-        metadata: {a2uiRendererCapabilities: {'1.0': {supportedCatalogIds: [BASIC_CATALOG]}}},
+        metadata: {a2uiRendererCapabilities: {'1.0': {supportedCatalogIds: [BASIC_CATALOG, FUNDER_CATALOG]}}},
       },
     },
   };
