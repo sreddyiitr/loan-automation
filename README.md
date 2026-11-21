@@ -114,7 +114,8 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview and Take. Its
+Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview, Take and
+`make dashboard`. Its
 Java tests are in the 411. Its **46 agent tests** and **6 Playwright tests** are counted
 separately; see "Try the funder dashboard" below.
 
@@ -476,15 +477,21 @@ You sign in on the OIDC provider's login page, open a deal by its loan id, and s
 days to expiry, payment status, version history, and a link to the workflow in the Temporal UI.
 An agent builds the screen in code (A2UI v1.0, no LLM) and React draws it. The agent calls the
 funder API with your own token, and **Take this deal** writes through it. You need Python 3.12
-with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer, plus the app
-from steps 2 and 4 with LA-1006 submitted (step 5).
+with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer, plus Temporal
+(step 2).
 
 ```bash
-cd dashboard/agent && uv run python main.py      # the agent, port 8091 (its own terminal)
-cd dashboard/web && npm install && npm run dev   # its own terminal; then go to http://localhost:5173
-cd dashboard/agent && uv run pytest              # 46 agent tests, no services needed
-cd dashboard/web && npx playwright install chromium && npx playwright test   # 6 browser tests, start their own dev server
+make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
+make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
+make test-dashboard        # 46 agent tests, no services needed
+cd dashboard/web && npx playwright install chromium   # once
+make test-dashboard-e2e    # 6 browser tests, against the running make dashboard
 ```
+
+`make dashboard` reuses each part that's already running (including an app from `make run`),
+starts the rest, and submits the seeded scenarios still in DRAFT. The first start builds the app
+and takes a few minutes; logs are in `target/dashboard/`. `Ctrl+C` stops only what it started.
+Ollama is optional: without it the preflight warns, and only the assistant is unavailable.
 
 Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
 `supervisor-1`), click **Sign-in**, then open `LA-1006`. If it's unassigned, **Take this deal**
@@ -494,7 +501,8 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
 
 ### Step 12: Stop everything
 
-- Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
+- Press `Ctrl+C` in the `make run` (or `make dashboard`) terminal and in the
+  `temporal server start-dev` terminal.
 - `make down` stops and removes **every project container**: those the scripts started (label
   `funding.managed=true`, including the forwarder) and any container named `funding-*`, even one
   you started yourself (e.g. `funding-oidc`). The env scripts start them again on the next run;

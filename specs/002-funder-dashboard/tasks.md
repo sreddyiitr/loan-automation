@@ -148,7 +148,15 @@ verified user. Roles are only looked up here; D2 enforces them.
     - My first setup made a new version per run, and a stray dev call made one more. Together
       they left LA-1006 at v11 locally, with v2 an unsubmitted draft. No data was lost; the
       history is just longer.
-- [ ] **T107** `make dashboard`, the preflight script and the README section.
+- [x] **T107** `make dashboard`, the preflight script and the README section.
+  - `scripts/dashboard-preflight.sh`: each missing tool with its install command; Ollama only warns.
+  - `scripts/dashboard-run.sh`: reuse first (a part is reused only if it answers as ours), then
+    starts the API, agent and web app, and submits the seeded DRAFTs (34 on a fresh database).
+  - Playwright now reuses a running web app (`reuseExistingServer: true`).
+  - **Bug found and fixed:** `Ctrl+C` left the API up on 8080, because killing the port's
+    listener didn't stop the Maven `spring-boot:run` wrapper. The script now lists each started
+    process tree first, sends TERM, waits up to 20 s, then KILLs. Verified under a pty with a
+    real `Ctrl+C`: all three ports free, no leftover processes, in under 2 s.
 - [ ] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
 
 ## D2: Roles and permissions

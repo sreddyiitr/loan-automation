@@ -7,7 +7,7 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T106
+**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T107
 done). What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
@@ -91,15 +91,21 @@ Funding API (Java, spec 001): the only thing that writes
 ## Run the spike (today)
 
 Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is needed.
+`make dashboard-preflight` names anything missing, with its install command (AS-10.2).
 
-1. Start Temporal (`temporal server start-dev`) and the app (`make run`), then submit LA-1006
-   (`make seed-submit-all`).
-2. Start the agent: `cd dashboard/agent && uv run python main.py` (port 8091). It calls the funder
-   API on `localhost:8080`; override that with `FUNDER_API_URL`, and the Temporal UI link with
-   `TEMPORAL_UI_URL`.
-3. Start the web app: `cd dashboard/web && npm install && npm run dev`. The dev server proxies
-   `/agent` to the agent.
-4. Go to http://localhost:5173 and click **Sign in**. On the provider's login page ("Just a mock
+1. Start Temporal (`temporal server start-dev`), then run `make dashboard` (T107, AS-10.1). It
+   runs the preflight, then reuses or starts each part:
+   - the funding API, as `make run` does (reusing Postgres, the emulator, WireMock and the OIDC
+     provider), then submits every seeded scenario still in DRAFT (AS-10.3);
+   - the agent on port 8091 (`FUNDER_API_URL`, `TEMPORAL_UI_URL` and `AGENT_PORT` override it);
+   - the web app on port 5173, whose dev server proxies `/agent` to the agent.
+   A part counts as reused only if it answers as ours (the API refuses a call without a token,
+   the agent card is the dashboard's); a port held by anything else stops it with a message.
+   Logs are in `target/dashboard/`. `Ctrl+C` stops the whole process tree of each part it
+   started (the Maven wrapper forks the JVM), and leaves the reused parts running.
+2. By hand instead: `make run` and `make seed-submit-all`, then
+   `cd dashboard/agent && uv run python main.py`, then `cd dashboard/web && npm install && npm run dev`.
+3. Go to http://localhost:5173 and click **Sign in**. On the provider's login page ("Just a mock
    login"), type a user id: `funder-1`, `funder-2`, `income-1` or `supervisor-1`. Leave the claims
    box empty, then click **Sign-in**. Back on the dashboard, type a loan id (e.g. `LA-1006`) and
    click **Open**.
@@ -109,12 +115,12 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      browser-login tokens get the wrong audience and every deal says your sign-in isn't valid.
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
-5. Tests:
-   - Agent: `cd dashboard/agent && uv run pytest`. 46 tests, no services needed. Every surface
+4. Tests:
+   - Agent: `make test-dashboard`. 46 tests, no services needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
-   - Browser: `cd dashboard/web && npx playwright test`. 6 tests against the running stack, each
+   - Browser: `make test-dashboard-e2e`. 6 tests against the running stack, each
      signing in on the real login page. Each starts by unassigning LA-1006 through the API, so no
      versions are added:
      - open LA-1006 and see the overview;
@@ -123,20 +129,23 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      - an unknown loan id shows "not found";
      - a user who isn't in the directory is told so;
      - signed out shows only the sign-in screen.
-     It starts its own dev server; install the browser once with `npx playwright install chromium`.
+     It reuses the web app from `make dashboard`, or starts its own dev server if 5173 is free.
+     Install the browser once with `npx playwright install chromium`.
 
 Pinned versions: `@a2ui/react` / `@a2ui/web_core` 0.15.0 and React 19 on the web side; `a2a-sdk`
 0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0 (its `a2ui-core` 0.7.0 does the validation),
 `httpx` and `pyyaml` on the agent side, `oidc-client-ts` 3.5.0 on the web side, plus `pytest` for development (`package-lock.json`, `uv.lock`).
 
-## Developer setup (planned)
+## Developer setup
 
-- One command starts the Java app, the agent and the web app. It reuses Temporal, Postgres, the
-  emulator and WireMock from spec 001.
-- Seeded scenarios appear from the first launch.
-- New tools: Python 3.12 with `uv`, Node 22, and Ollama (only for the assistant).
-- Tests need no model: screens are checked against the A2UI v1.0 schemas, the browser tests run
-  against the real stack, and model responses are recorded and replayed.
+- **Built (T107):** `make dashboard` starts the Java app, the agent and the web app, reusing
+  Temporal, Postgres, the emulator, WireMock and the OIDC provider from spec 001. Seeded
+  scenarios are submitted on launch. `make dashboard-preflight` checks the tools.
+- New tools: Python 3.12 with `uv`, Node 22, and Ollama (only for the assistant; the preflight
+  only warns about it).
+- **Planned:**
+  - Tests need no model: screens are checked against the A2UI v1.0 schemas, the browser tests run
+    against the real stack, and model responses are recorded and replayed.
 
 ## Not in this spec
 

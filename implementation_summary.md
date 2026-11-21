@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T106 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; and Take is a confirmed, race-safe write. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T107 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; and `make dashboard` starts it all with one command. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -337,7 +337,15 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 - All four scripts can be sourced from **bash and zsh**. Their "start our own" fallback never
   removes a running container.
 - **`Makefile` targets:** `run`, `down` (stops and removes every project container: labeled `funding.managed=true` or named `funding-*`; volumes kept),
-  `seed-check`, `seed-regenerate`, `seed-submit-all`, `test-unit`, `test-functional`.
+  `seed-check`, `seed-regenerate`, `seed-submit-all`, `test-unit`, `test-functional`; spec 002
+  adds `dashboard`, `dashboard-preflight`, `test-dashboard` and `test-dashboard-e2e`.
+- **`scripts/dashboard-preflight.sh`** (spec 002, AS-10.2) names each missing prerequisite with
+  its install command and exits 1. Ollama with `gemma4:e4b` is only a warning (AS-10.4).
+- **`scripts/dashboard-run.sh`** (`make dashboard`, AS-10.1/10.3): preflight, then reuse or start
+  the funding API (`run-local.sh`), the agent and the web app, and submit the seeded DRAFTs. It
+  reuses a part only if it answers as ours. `Ctrl+C` stops the full process tree of what it
+  started, listed before any kill (the first version killed only the port's listener, and the
+  Maven `spring-boot:run` wrapper kept the API up on 8080).
 - **Claude Code hook** (owner decision B6): runs `make seed-check` after edits to rules,
   scenarios, mocks, contracts or rule config, and blocks the edit if the gates fail.
 
@@ -559,5 +567,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: spike D0 (one overview screen, one action) and the API half of sign-in (bearer tokens, user directory). Not yet: browser sign-in, worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T107): OIDC sign-in end to end, the overview, Take, and `make dashboard`. Not yet: T108 (Playwright AS ids), worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

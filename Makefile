@@ -7,7 +7,7 @@ WM    := source scripts/wiremock-env.sh
 OIDC  := source scripts/oidc-env.sh
 MVN   := mvn -q -B
 
-.PHONY: run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator
+.PHONY: run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e
 
 run:                      ## emulator + postgres + wiremock + OIDC provider + app (local profile: bootstrap, seed, stubs)
 	./run-local.sh
@@ -53,6 +53,18 @@ test-functional:          ## Failsafe ITs against the shared emulator, Postgres,
 
 test-functional-volume:   ## T604: one application per mock catalog entry through the real path; NFR-01 p95 report in funding-api/target/volume-report.md
 	@$(JAVA) && $(EMU) && $(DB) && $(WM) && $(OIDC) && $(MVN) install -DskipTests && $(MVN) -pl funding-api verify -Dtest=NoUnitTests -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=FundingVolumeIT
+
+dashboard:                ## spec 002: preflight, then the funding API, the agent and the web app (reuse first); Ctrl+C stops what it started
+	@./scripts/dashboard-run.sh
+
+dashboard-preflight:      ## spec 002 AS-10.2: names each missing prerequisite, with its install command
+	@./scripts/dashboard-preflight.sh
+
+test-dashboard:           ## spec 002 agent unit tests (no services needed)
+	@cd dashboard/agent && uv run pytest -q
+
+test-dashboard-e2e:       ## spec 002 Playwright tests (needs make dashboard running; starts its own dev server if 5173 is free)
+	@cd dashboard/web && npx playwright test
 
 verify-emulator:          ## T608: re-run plan V-2, V-4 and the RDS probe against the current emulator; writes target/verify-emulator.md
 	@./scripts/verify-emulator.sh
