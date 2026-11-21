@@ -23,6 +23,6 @@ test('a v1.0 surface renders and its button sends an action', async ({page}) => 
   await expect(events).toContainText('deal.take');
   await expect(events).toContainText('LA-1006');                         // context bound with @path, resolved by the renderer
   console.log('EVENT:', await events.textContent());
-  await expect(page.getByText('Assigned to: spike-funder')).toBeVisible();  // written through the funder API, then re-read
+  await expect(page.getByText('Assigned to: funder-1')).toBeVisible();      // the spike's user (T104: the signed-in user)  // written through the funder API, then re-read
   expect(errors, errors.join('\n')).toEqual([]);
 });

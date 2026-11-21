@@ -4,11 +4,12 @@ JAVA  := source scripts/java-env.sh
 EMU   := source scripts/emulator-env.sh
 DB    := source scripts/db-env.sh
 WM    := source scripts/wiremock-env.sh
+OIDC  := source scripts/oidc-env.sh
 MVN   := mvn -q -B
 
 .PHONY: run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator
 
-run:                      ## emulator + postgres + wiremock + app (local profile: bootstrap, seed, stubs)
+run:                      ## emulator + postgres + wiremock + OIDC provider + app (local profile: bootstrap, seed, stubs)
 	./run-local.sh
 
 # Stops and removes every project container: those our scripts started (label funding.managed=true)
@@ -47,11 +48,11 @@ seed-submit-all:          ## submit every seeded scenario through the real trigg
 test-unit:                ## unit tests + seed gates (Testcontainers Postgres; no emulator)
 	@$(JAVA) && $(MVN) test
 
-test-functional:          ## Failsafe ITs against the shared emulator, Postgres, WireMock and Temporal (NFR-08 isolation)
-	@$(JAVA) && $(EMU) && $(DB) && $(WM) && $(MVN) verify
+test-functional:          ## Failsafe ITs against the shared emulator, Postgres, WireMock, OIDC provider and Temporal (NFR-08 isolation)
+	@$(JAVA) && $(EMU) && $(DB) && $(WM) && $(OIDC) && $(MVN) verify
 
 test-functional-volume:   ## T604: one application per mock catalog entry through the real path; NFR-01 p95 report in funding-api/target/volume-report.md
-	@$(JAVA) && $(EMU) && $(DB) && $(WM) && $(MVN) install -DskipTests && $(MVN) -pl funding-api verify -Dtest=NoUnitTests -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=FundingVolumeIT
+	@$(JAVA) && $(EMU) && $(DB) && $(WM) && $(OIDC) && $(MVN) install -DskipTests && $(MVN) -pl funding-api verify -Dtest=NoUnitTests -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=FundingVolumeIT
 
 verify-emulator:          ## T608: re-run plan V-2, V-4 and the RDS probe against the current emulator; writes target/verify-emulator.md
 	@./scripts/verify-emulator.sh

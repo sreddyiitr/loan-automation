@@ -18,7 +18,7 @@ reorganises it into the plan's layout. What works end to end today:
 6. The screen updates, and the write appears in the audit trail.
 
 It's one screen, the LA-1006 overview with its stips, used by one hard-coded funder
-(`spike-funder`). There are no worklist, tabs, roles, sign-in or assistant yet (D1 onwards).
+(`funder-1`, with a token the agent fetches for it until T104 relays the signed-in user's). There are no worklist, tabs, roles, sign-in or assistant yet (D1 onwards).
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI? [`a2ui_overview.md`](a2ui_overview.md)
 walks through how the spike code works.
 

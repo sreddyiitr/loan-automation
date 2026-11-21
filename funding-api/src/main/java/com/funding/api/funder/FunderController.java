@@ -2,10 +2,14 @@ package com.funding.api.funder;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.funding.api.ApiProblem;
+import com.funding.api.auth.Actor;
+import com.funding.api.auth.SecurityConfig;
 import com.funding.domain.Check;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,22 +22,24 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Funder operations API (US-10; plan "Funder &amp; Dev API"). Every write names its actor in
- * {@code X-Funder-Id} (AS-10.9, a stand-in until auth exists); errors are RFC 9457 problem+json.
+ * Funder operations API (US-10; plan "Funder &amp; Dev API"). Every call carries an OIDC bearer
+ * token, and the actor is its {@code sub} (AS-10.9, spec 002 FR-11; see {@link SecurityConfig});
+ * errors are RFC 9457 problem+json.
  */
 @RestController
+@SecurityRequirement(name = "bearerAuth")
+@SecurityScheme(name = "bearerAuth", type = SecuritySchemeType.HTTP, scheme = "bearer", bearerFormat = "JWT",
+        description = "An OIDC access token for audience funding-api (spec 002 FR-09)")
 @RequestMapping("/api/v1")
 @Tag(name = "Funder", description = "Funder operations on loan application versions (US-10)")
 public class FunderController {
 
-    static final String FUNDER_HEADER = "X-Funder-Id";
     private static final Set<String> JSON_COLUMNS = Set.of("details", "bounding_box", "before_state", "after_state");
     private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -98,65 +104,52 @@ public class FunderController {
     @PostMapping("/versions/{versionId}/stipulations")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a manual stip", description = "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED to STIPULATED")
-    public Map<String, Object> addStip(@PathVariable long versionId, @RequestBody ManualStipRequest body, @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.addManualStip(versionId, body.code(), body.description(), actor(actor));
+    public Map<String, Object> addStip(@PathVariable long versionId, @RequestBody ManualStipRequest body, @Parameter(hidden = true) Actor actor) {
+        return funder.addManualStip(versionId, body.code(), body.description(), actor.id());
     }
 
     @PatchMapping("/versions/{versionId}/stipulations/{stipId}")
     @Operation(summary = "Resolve a stip (SATISFIED or WAIVED)", description = "AS-10.2; RISC stips can't be waived (AS-8.10)")
     public Map<String, Object> resolveStip(@PathVariable long versionId, @PathVariable long stipId, @RequestBody ResolveStipRequest body,
-                                           @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.resolveStip(versionId, stipId, body.status(), body.reason(), actor(actor));
+                                           @Parameter(hidden = true) Actor actor) {
+        return funder.resolveStip(versionId, stipId, body.status(), body.reason(), actor.id());
     }
 
     @PutMapping("/versions/{versionId}/assignee")
     @Operation(summary = "Reassign the funder", description = "AS-10.3")
     public Map<String, Object> reassign(@PathVariable long versionId, @RequestBody AssigneeRequest body,
-                                        @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.reassign(versionId, body.funderId(), actor(actor));
+                                        @Parameter(hidden = true) Actor actor) {
+        return funder.reassign(versionId, body.funderId(), actor.id());
     }
 
     @PostMapping("/versions/{versionId}/approve")
     @Operation(summary = "Manual approve", description = "AS-8.7, AS-8.10: no PENDING stips, complete RISC, TILA PASS")
-    public Map<String, Object> approve(@PathVariable long versionId, @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.approve(versionId, actor(actor));
+    public Map<String, Object> approve(@PathVariable long versionId, @Parameter(hidden = true) Actor actor) {
+        return funder.approve(versionId, actor.id());
     }
 
     @PostMapping("/versions/{versionId}/reject")
     @Operation(summary = "Reject", description = "AS-8.5")
     public Map<String, Object> reject(@PathVariable long versionId, @RequestBody RejectRequest body,
-                                      @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.reject(versionId, body.reason(), actor(actor));
+                                      @Parameter(hidden = true) Actor actor) {
+        return funder.reject(versionId, body.reason(), actor.id());
     }
 
     @PostMapping("/versions/{versionId}/rerun")
     @Operation(summary = "Re-run checks", description = "AS-8.4: the named checks, or by default those in ERROR")
     public Map<String, Object> rerun(@PathVariable long versionId, @RequestBody(required = false) RerunRequest body,
-                                     @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.rerun(versionId, body == null ? null : body.checks(), actor(actor));
+                                     @Parameter(hidden = true) Actor actor) {
+        return funder.rerun(versionId, body == null ? null : body.checks(), actor.id());
     }
 
     @PostMapping("/versions/{versionId}/retry-disbursement")
     @Operation(summary = "Retry a failed disbursement", description = "C-8")
     public Map<String, Object> retryDisbursement(@PathVariable long versionId,
-                                                 @FunderId @RequestHeader(value = FUNDER_HEADER, required = false) String actor) {
-        return funder.retryDisbursement(versionId, actor(actor));
+                                                 @Parameter(hidden = true) Actor actor) {
+        return funder.retryDisbursement(versionId, actor.id());
     }
 
     // ------------------------------------------------------------------ helpers
-
-    /** Documents the actor header in the OpenAPI output as required (it's checked here, to answer with problem+json). */
-    @Parameter(name = FUNDER_HEADER, description = "Acting funder (AS-10.9)", required = true)
-    @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME)
-    @java.lang.annotation.Target({java.lang.annotation.ElementType.PARAMETER})
-    @interface FunderId {}
-
-    private static String actor(String header) {
-        if (header == null || header.isBlank()) {
-            throw new ApiProblem(HttpStatus.BAD_REQUEST, "MISSING_FUNDER_ID", FUNDER_HEADER + " header is required on every write (AS-10.9)");
-        }
-        return header.trim();
-    }
 
     /** snake_case columns to camelCase keys; JSONB columns (returned as text) parsed back into JSON. */
     static List<Map<String, Object>> rows(List<Map<String, Object>> rows) {

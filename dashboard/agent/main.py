@@ -29,12 +29,25 @@ BASIC_CATALOG = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json
 FUNDER_CATALOG = "https://funding.local/a2ui/catalogs/funder/v1/catalog.json"
 PORT = 8091
 FUNDER_API = "http://localhost:8080/api/v1"   # spec 001's funder API (T005: real data)
-SPIKE_FUNDER = "spike-funder"                   # D1 replaces this with the signed-in user's token
+SPIKE_FUNDER = "funder-1"                       # a user in the funder API's directory (application.yml)
+OIDC_TOKEN_URL = "http://127.0.0.1:8090/funding/token"  # scripts/oidc-env.sh
+
+
+def spike_token() -> str:
+    """Bridge until T104: the funder API needs a bearer token, so the spike gets one for SPIKE_FUNDER.
+    T104 replaces this: the agent relays the signed-in user's own token and never creates one (FR-11)."""
+    r = httpx.post(OIDC_TOKEN_URL, data={"grant_type": "client_credentials", "client_id": SPIKE_FUNDER,
+                                         "client_secret": "unused", "scope": "funding-api"}, timeout=10)
+    return r.raise_for_status().json()["access_token"]
+
+
+def funder_api() -> httpx.Client:
+    return httpx.Client(base_url=FUNDER_API, timeout=10, headers={"Authorization": f"Bearer {spike_token()}"})
 
 
 def load_deal(loan_id: str) -> dict[str, Any]:
     """Reads the deal from the funder API and shapes the surface's data model."""
-    with httpx.Client(base_url=FUNDER_API, timeout=10) as api:
+    with funder_api() as api:
         o = api.get(f"/applications/{loan_id}").raise_for_status().json()
         stips = api.get(f"/versions/{o['applicationVersionId']}/stipulations").raise_for_status().json()
     return {"loanApplicationId": o["loanApplicationId"], "applicationVersionId": o["applicationVersionId"],
@@ -45,9 +58,8 @@ def load_deal(loan_id: str) -> dict[str, Any]:
 
 def take_deal(version_id: int) -> None:
     """A write, done by code after the funder's click (FR-03): assign the deal to the funder."""
-    with httpx.Client(base_url=FUNDER_API, timeout=10) as api:
-        api.put(f"/versions/{version_id}/assignee", json={"funderId": SPIKE_FUNDER},
-                headers={"X-Funder-Id": SPIKE_FUNDER}).raise_for_status()
+    with funder_api() as api:
+        api.put(f"/versions/{version_id}/assignee", json={"funderId": SPIKE_FUNDER}).raise_for_status()
 
 
 def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:

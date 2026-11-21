@@ -47,8 +47,21 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 verified user. Roles are only looked up here; D2 enforces them.
 **Exit:** AS-1.1, AS-1.5, AS-2.1, AS-2.3, AS-2.5, AS-10.1–10.3, AS-10.9 (spec 001, now bearer tokens).
 
-- [ ] **T101** OIDC: the funder API as an OAuth2 Resource Server (`issuer-uri` from `OIDC_ISSUER_URI`, audience `funding-api`), `UserDirectory` from `funding.auth.users` (401 / 403 `UNKNOWN_USER`), and `scripts/oidc-env.sh` sourced by `make run` and `make test-functional`. `X-Funder-Id` is removed from the controllers and the contract. Check the `aud` of a code-flow token from the mock provider (plan §10).
-- [ ] **T102** Spec 001 moves to tokens, in the same change as T101: `jwt()` in MockMvc; a `client_credentials` token helper for `FunderActionsE2EIT`, `VersioningE2EIT` and `WorkerRestartIT`; no assertion changed. `AS_10_9_…` covers 401 without a token and 403 `UNKNOWN_USER`. README `curl` examples get a token first.
+- [x] **T101** OIDC: the funder API as an OAuth2 Resource Server (`issuer-uri` from `OIDC_ISSUER_URI`, audience `funding-api`), `UserDirectory` from `funding.auth.users` (401 / 403 `UNKNOWN_USER`), and `scripts/oidc-env.sh` sourced by `make run` and `make test-functional`. `X-Funder-Id` is removed from the controllers and the contract. Check the `aud` of a code-flow token from the mock provider (plan §10).
+- [x] **T102** Spec 001 moves to tokens, in the same change as T101: `jwt()` in MockMvc; a `client_credentials` token helper for `FunderActionsE2EIT`, `VersioningE2EIT` and `WorkerRestartIT`; no assertion changed. `AS_10_9_…` covers 401 without a token and 403 `UNKNOWN_USER`. README `curl` examples get a token first.
+  **T101–T102 notes (done 2026-11-21):**
+  - Every funder API call needs a token (401 `UNAUTHORIZED`). An unlisted user gets 403 `UNKNOWN_USER`.
+  - `FunderAuthTest` (5) runs the real security chain with `jwt()`. The functional
+    `AS_10_9_realTokensFromTheMockProvider` tries no token, a garbage token, another issuer, the
+    wrong audience, an unknown user and a known user.
+  - Spec 001's assertions are unchanged. `FunderApiTest` signs its user in as SUPERVISOR (D-11).
+  - The contract drops `X-Funder-Id` and marks all 14 operations `bearerAuth`.
+  - The dev endpoints keep their optional `X-Funder-Id` audit label.
+  - Fixed on the way: `InfraBootstrap` now looks a queue up before creating it, so a second
+    `make run` on the same emulator no longer fails ("a different value for attribute RedrivePolicy").
+  - The spike agent fetches a token for `funder-1` until T104 relays the signed-in user's.
+  - **Still open:** the `aud` of a browser code-flow token (plan §10). It moves to T105, which
+    builds the browser sign-in.
 - [ ] **T103** Overview additions: `expiresAt`, `inProgress`, `payment`, with Java tests. (`allowedActions` comes in D2, from `Permissions`.)
 - [ ] **T104** Agent: the API client (relays the user's token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
 - [ ] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.

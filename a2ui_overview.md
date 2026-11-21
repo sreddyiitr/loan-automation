@@ -114,7 +114,7 @@ not text. The page also shows it under "Events sent back to the agent" so the te
 - Replies with **only** an `updateDataModel` for `/deal`, with no new layout.
 
 **4. The screen updates.** The processor merges the new data, and the "Assigned to:" text
-re-renders as `spike-funder`, because it was bound to `/deal/assignedFunder`. The layout never
+re-renders as `funder-1` (the spike's user), because it was bound to `/deal/assignedFunder`. The layout never
 changed; only the data did.
 
 This is the pattern the whole dashboard will use: **the funder clicks, code writes through the

@@ -36,7 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class FunderActionsE2EIT extends FunctionalTestBase {
 
-    private static final String FUNDER = "funder-it";
+    private static final String FUNDER = FunctionalEnvironment.TEST_USER;
     private static final Duration EXPIRES_IN = Duration.ofSeconds(20);
 
     @Autowired private SeedGates gates;
@@ -92,7 +92,7 @@ class FunderActionsE2EIT extends FunctionalTestBase {
 
     private HttpResponse<String> call(String method, String path, String body) throws Exception {
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base() + path)).header("Content-Type", "application/json")
-                .header("X-Funder-Id", FUNDER)
+                .header("Authorization", bearer())
                 .method(method, body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofString(body));
         return HTTP.send(b.build(), HttpResponse.BodyHandlers.ofString());
     }
@@ -139,6 +139,36 @@ class FunderActionsE2EIT extends FunctionalTestBase {
     }
 
     // ------------------------------------------------------------------ cases
+
+    /**
+     * AS-10.9 (spec 001) and AS-1.1 (spec 002) with real tokens from the shared mock OIDC provider:
+     * Spring Security checks signature, issuer and audience; the role comes from the user directory.
+     */
+    @Test
+    void AS_10_9_realTokensFromTheMockProvider() throws Exception {
+        String path = "/api/v1/applications/NO-SUCH-LOAN";
+        String otherIssuer = FunctionalEnvironment.OIDC_ISSUER_URI.replaceFirst("/[^/]+$", "/someone-else");
+        assertThat(getWith(path, null).statusCode()).as("no token").isEqualTo(401);
+        assertThat(getWith(path, "Bearer not-a-jwt").statusCode()).as("not a JWT").isEqualTo(401);
+        assertThat(getWith(path, "Bearer " + tokenFrom(otherIssuer, FUNDER, "funding-api")).statusCode())
+                .as("signed by the provider, but for another issuer").isEqualTo(401);
+        assertThat(getWith(path, "Bearer " + tokenFrom(FunctionalEnvironment.OIDC_ISSUER_URI, FUNDER, "some-other-api")).statusCode())
+                .as("our issuer, wrong audience").isEqualTo(401);
+        HttpResponse<String> stranger = getWith(path, "Bearer " + token("stranger-it"));
+        assertThat(stranger.statusCode()).as("valid token, user not in the directory").isEqualTo(403);
+        assertThat(JSON.readTree(stranger.body()).path("reason").asText()).isEqualTo("UNKNOWN_USER");
+        HttpResponse<String> known = getWith(path, bearer());
+        assertThat(known.statusCode()).as("valid token, known user: past auth, the loan doesn't exist").isEqualTo(404);
+        assertThat(JSON.readTree(known.body()).path("reason").asText()).isEqualTo("NOT_FOUND");
+    }
+
+    private HttpResponse<String> getWith(String path, String authorization) throws Exception {
+        HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(base() + path)).GET();
+        if (authorization != null) {
+            b.header("Authorization", authorization);
+        }
+        return HTTP.send(b.build(), HttpResponse.BodyHandlers.ofString());
+    }
 
     @Test
     void LA_1006_approveWithPendingStipIs409ThenWaiveFunds() throws Exception {

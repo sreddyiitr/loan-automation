@@ -10,9 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.funding.api.ProblemHandler;
+import com.funding.api.auth.ActorArgumentResolver;
 import com.funding.api.seed.SeedDataLoader;
 import com.funding.domain.Check;
 import com.funding.domain.CheckOutcome;
+import com.funding.domain.Role;
 import com.funding.domain.RuleEngine;
 import com.funding.domain.RulesConfig;
 import com.funding.persistence.TestDatabase;
@@ -48,6 +50,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -107,7 +112,8 @@ class FunderApiTest {
         activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30));
 
         FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults());
-        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler()).build();
+        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
+                .setCustomArgumentResolvers(new ActorArgumentResolver()).build();
     }
 
     @AfterEach
@@ -162,9 +168,20 @@ class FunderApiTest {
                 .params(id, code).query(Long.class).single();
     }
 
+    /**
+     * A write as {@link #FUNDER}. This MockMvc has no security filter (FunderAuthTest covers the
+     * token path), so the signed-in user is put in the security context directly. SUPERVISOR,
+     * because supervisors may do everything (spec 002 D-11), so spec 001's scenarios keep their meaning.
+     */
     private ResultActions write(MockHttpServletRequestBuilder req, String body) throws Exception {
-        req.header(FunderController.FUNDER_HEADER, FUNDER).contentType(MediaType.APPLICATION_JSON);
-        return mvc.perform(body == null ? req : req.content(body));
+        req.contentType(MediaType.APPLICATION_JSON);
+        SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                FUNDER, null, List.of(new SimpleGrantedAuthority("ROLE_" + Role.SUPERVISOR))));
+        try {
+            return mvc.perform(body == null ? req : req.content(body));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     private ResultActions resolve(long id, long stipId, String status, String reason) throws Exception {
@@ -418,13 +435,14 @@ class FunderApiTest {
                 {"reason":"x"}""").andExpect(problem(409, "VERSION_EXPIRED"));
     }
 
+    /** AS-10.9's token checks are in FunderAuthTest; here a write with no signed-in user changes nothing. */
     @Test
-    void AS_10_9_missingFunderHeader400() throws Exception {
+    void AS_10_9_writeWithoutUserIsRefused() throws Exception {
         long id = settled("LA-1006");
-        mvc.perform(post("/api/v1/versions/{v}/approve", id)).andExpect(problem(400, "MISSING_FUNDER_ID"));
+        mvc.perform(post("/api/v1/versions/{v}/approve", id)).andExpect(problem(401, "UNAUTHORIZED"));
         mvc.perform(patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_PRICE_MISMATCH"))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"WAIVED\",\"reason\":\"x\"}"))
-                .andExpect(problem(400, "MISSING_FUNDER_ID"));
+                .andExpect(problem(401, "UNAUTHORIZED"));
         assertThat(versionStatus(id)).isEqualTo("STIPULATED");
         mvc.perform(get("/api/v1/versions/{v}/stipulations", 999999)).andExpect(problem(404, "NOT_FOUND"));
     }

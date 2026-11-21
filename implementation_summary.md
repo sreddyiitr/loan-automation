@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 done (2026-11-21)** on `feat/002-d0-spike`: a skeleton in `dashboard/` (see "Spec 002: funder dashboard, spike D0" below and [`ui_summary.md`](ui_summary.md)) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T102 done**, so the funder API takes OIDC bearer tokens. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -331,9 +331,12 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   on 55432.
 - **`scripts/wiremock-env.sh`** reuses a running WireMock, otherwise starts `funding-wiremock`
   on 8089.
-- All three scripts can be sourced from **bash and zsh**. Their "start our own" fallback never
+- **`scripts/oidc-env.sh`** (spec 002) reuses a running `mock-oauth2-server` that publishes a port,
+  refuses one that doesn't (printing the fix), otherwise starts `funding-oidc` on 8090. It pulls
+  the image only if it isn't local, and exports `OIDC_ISSUER_URI`.
+- All four scripts can be sourced from **bash and zsh**. Their "start our own" fallback never
   removes a running container.
-- **`Makefile` targets:** `run`, `down` (stops only containers labeled `funding.managed=true`),
+- **`Makefile` targets:** `run`, `down` (stops and removes every project container: labeled `funding.managed=true` or named `funding-*`; volumes kept),
   `seed-check`, `seed-regenerate`, `seed-submit-all`, `test-unit`, `test-functional`.
 - **Claude Code hook** (owner decision B6): runs `make seed-check` after edits to rules,
   scenarios, mocks, contracts or rule config, and blocks the edit if the gates fail.
@@ -363,13 +366,13 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
 | `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 41 | ✅ |
-| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 67 | ✅ |
+| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 46 | ✅ |
+| **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
 | **Spec 002 spike** `dashboard/web/e2e/spike.spec.ts` (Playwright) | the agent, the running app (`make run`, LA-1006 submitted), Chromium | 1 | ✅ |
 
-**Total: 396 tests** for spec 001 (328 unit, 1 of them skipped, 67 functional and 1 volume). Spec 002's spike adds 1 Playwright test. Test names trace to the
+**Total: 402 tests** (333 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 6 of them (5 `FunderAuthTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) and 1 Playwright test. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -433,6 +436,22 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 ## 5. Decisions and deviations
 
 These are recorded in full under each slice's notes in `tasks.md`.
+
+Spec 002, D1 (T101–T102):
+
+- **The funder API is an OAuth2 Resource Server.** Spring Security checks every funder API call,
+  reads included: the signature from the issuer's JWKS, `iss`, audience `funding-api`, `exp` and
+  `nbf`. The actor is the token's `sub`.
+- **Roles come from `funding.auth.users`** (the `UserDirectory`), not from the token, because the
+  mock provider sends no role claim (D-13). An unlisted user gets 403 `UNKNOWN_USER`; no valid
+  token gets 401 `UNAUTHORIZED`. Roles aren't enforced on actions yet; that's D2.
+- **`X-Funder-Id` is gone**, with no compatibility rule. Spec 001's tests use tokens with no
+  assertion changed: `FunderApiTest` signs its user in as SUPERVISOR (who may do everything, D-11),
+  and the functional tests get `client_credentials` tokens from the shared provider. The dev
+  endpoints keep their optional `X-Funder-Id`, which only labels the audit row.
+- **`make run` on a reused emulator:** `InfraBootstrap` now looks a queue up before creating it.
+  The emulator refused `CreateQueue` for a queue that already had a redrive policy, so every second
+  `make run` on the same emulator failed.
 
 S6:
 
@@ -519,5 +538,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Only spike D0 is built (one overview screen, one action, a hard-coded funder); D1 onwards (sign-in and roles, worklist, tabs, assistant) is not. Overview in [`ui_summary.md`](ui_summary.md). |
-| Spike shortcuts | The agent's funder API URL and funder ID are constants in `main.py`; `httpx` is used directly but only arrives through `a2a-sdk`; the web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). All for D1/D2. |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: spike D0 (one overview screen, one action) and the API half of sign-in (bearer tokens, user directory). Not yet: browser sign-in, worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spike shortcuts | The agent's funder API URL and funder ID are constants in `main.py`, and it fetches its own token for `funder-1` until T104 relays the signed-in user's; `httpx` is used directly but only arrives through `a2a-sdk`; the web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). All for D1/D2. |

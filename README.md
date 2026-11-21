@@ -41,7 +41,7 @@ hardening)**. End to end:
 > check that needs it** into review (`STIP_EXTRACTION_REVIEW_REQUIRED`). If everything passes and
 > the RISC is complete, the system pays the dealer. Otherwise the version waits for a funder.
 >
-> **Then a funder takes over** through the funder API (`X-Funder-Id` on every write): waive or
+> **Then a funder takes over** through the funder API (an OIDC bearer token on every call): waive or
 > satisfy stips, add a manual stip, approve, reject, re-run checks, retry a failed disbursement,
 > reassign. Each action is a guarded, audited DB write, then a signal to the waiting workflow.
 > Only the status changes in spec §6 are allowed. A version not funded or rejected **30 days**
@@ -97,7 +97,7 @@ Behind that:
 
 ## How we know it works
 
-**396 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**402 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -109,15 +109,16 @@ scenario through the full trigger path.
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API, dev endpoints, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 41 | ✅ all pass |
-| **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 67 | ✅ all pass |
+| API (start API, funder API, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 46 | ✅ all pass |
+| **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, real OIDC tokens, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider** | 68 | ✅ all pass |
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002's funder dashboard is only a spike so far. It adds **1 Playwright test** (the A2UI
-round trip; see "Try the funder dashboard spike" below), which isn't counted in the 396.
+Spec 002 (the funder dashboard) is under way: its spike, and bearer-token sign-in on the funder
+API. It adds **1 Playwright test** (the A2UI round trip; see "Try the funder dashboard spike"
+below), which isn't counted in the 402.
 
-<sub>Last full run: 2026-11-20, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -149,6 +150,7 @@ build yourself; the other three download on first use.
 | AWS Emulator (SQS) | the scripts, or you (step 3) | `https://127.0.0.1:9297` | The scripts reuse a running `aws-emulator:latest` container, otherwise they start `funding-emulator`. |
 | PostgreSQL 18 | the scripts | `127.0.0.1:55432` | The scripts reuse a running `postgres:18` container that publishes a port, otherwise they start `funding-postgres` (volume `funding-pgdata`). |
 | WireMock | the scripts | `http://127.0.0.1:8089` | The scripts reuse a running `wiremock/wiremock` container that publishes a port, otherwise they start `funding-wiremock`. |
+| OIDC provider (`mock-oauth2-server`) | the scripts, or you | `http://127.0.0.1:8090/funding` | Issues the funder API's bearer tokens (step 6). `oidc-env.sh` reuses a running `mock-oauth2-server` container that publishes a port, otherwise it starts `funding-oidc`; it pulls the image only if it isn't local. A running one with **no** published port is refused with the command to fix it. |
 
 ### 3. Docker images
 
@@ -157,6 +159,7 @@ build yourself; the other three download on first use.
 | `aws-emulator:latest` | ~1.6 GB | **You build it once** (step 1); AWS publishes no prebuilt image | SQS queue + DLQ |
 | `postgres:18` | ~700 MB | Downloaded automatically the first time `db-env.sh` or the tests need it | The app database, and the Testcontainers tests |
 | `wiremock/wiremock:latest` | ~480 MB | Downloaded automatically by `wiremock-env.sh` | Mocks of the Disbursement and Income Verification APIs |
+| `ghcr.io/navikt/mock-oauth2-server:6.1.5` | ~145 MB | Downloaded automatically by `oidc-env.sh`, only if it isn't local | The local OIDC provider: bearer tokens for the funder API |
 | `alpine/socat:latest` | ~16 MB | Downloaded automatically, **only if** your emulator container publishes no port | Port forwarder `funding-emulator-proxy` |
 | `testcontainers/ryuk` | ~30 MB | Downloaded automatically by Testcontainers during `make test-unit` | Removes test containers after the tests |
 
@@ -165,13 +168,14 @@ To download everything up front (useful on a slow or metered network):
 ```bash
 docker pull postgres:18
 docker pull wiremock/wiremock:latest
+docker pull ghcr.io/navikt/mock-oauth2-server:6.1.5
 docker pull alpine/socat:latest
 # aws-emulator: build it, see step 1
 ```
 
 ### 4. Free ports
 
-`8080` (app), `7233` and `8233` (Temporal), `9297` (emulator), `55432` (Postgres), `8089` (WireMock).
+`8080` (app), `7233` and `8233` (Temporal), `9297` (emulator), `55432` (Postgres), `8089` (WireMock), `8090` (OIDC provider).
 Check with `lsof -nP -iTCP:8080 -sTCP:LISTEN`. Already used by a container the scripts can reuse?
 That's fine. Already used by something else? See [Troubleshooting](#troubleshooting).
 
@@ -338,7 +342,11 @@ plus `docker volume rm funding-pgdata`.
 
 ### Step 6: Act as a funder
 
-The funder API needs no key, but every write needs an `X-Funder-Id` header. Errors are RFC 9457
+Every funder API call, reads included, needs an OIDC **bearer token**. You get one from the local
+provider in one call. The `client_id` you send becomes the user, and the app gives that user a role
+from its user directory: `funder-1` and `funder-2` (FUNDER), `income-1` (INCOME_SPECIALIST) and
+`supervisor-1` (SUPERVISOR), in `application.yml`. Any other id gets 403 `UNKNOWN_USER`, and no
+token gets 401. Errors are RFC 9457
 `application/problem+json` with a `reason` (`VERSION_EXPIRED`, `PENDING_STIPS`,
 `RISC_STIP_NOT_WAIVABLE`, …). The full contract is in
 [`contracts/funder-api.openapi.yaml`](contracts/funder-api.openapi.yaml) and in the Swagger UI.
@@ -346,13 +354,17 @@ The funder API needs no key, but every write needs an `X-Funder-Id` header. Erro
 Clear LA-1006's price stip and watch it fund:
 
 ```bash
-VID=$(curl -s localhost:8080/api/v1/applications/LA-1006 | python3 -c "import json,sys; print(json.load(sys.stdin)['applicationVersionId'])")
-curl -s localhost:8080/api/v1/versions/$VID/stipulations          # note the stipId of STIP_PRICE_MISMATCH
+TOKEN=$(curl -s -X POST http://127.0.0.1:8090/funding/token \
+  -d grant_type=client_credentials -d client_id=funder-1 -d client_secret=any -d scope=funding-api \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+AUTH="Authorization: Bearer $TOKEN"                               # valid for an hour
+VID=$(curl -s -H "$AUTH" localhost:8080/api/v1/applications/LA-1006 | python3 -c "import json,sys; print(json.load(sys.stdin)['applicationVersionId'])")
+curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/stipulations   # note the stipId of STIP_PRICE_MISMATCH
 curl -s -X PATCH localhost:8080/api/v1/versions/$VID/stipulations/<stipId> \
-  -H 'X-Funder-Id: funder-1' -H 'Content-Type: application/json' \
+  -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"status":"WAIVED","reason":"1 cent, dealer confirmed"}'
 # {"stipId":…,"status":"WAIVED","versionStatus":"APPROVED"}   … a second later the version is FUNDED
-curl -s localhost:8080/api/v1/versions/$VID/audit                 # who did what, before and after
+curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit      # who did what (actor = funder-1), before and after
 ```
 
 Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `{"reason":…}`,
@@ -470,8 +482,8 @@ cd dashboard/web && npm install && npm run dev   # http://localhost:5173 (its ow
 cd dashboard/web && npx playwright install chromium && npx playwright test   # 1 test, starts its own dev server
 ```
 
-Clicking **Take this deal** assigns LA-1006 to `spike-funder`. Check it with
-`curl -s localhost:8080/api/v1/versions/$VID/audit`. More in [`ui_summary.md`](ui_summary.md).
+Clicking **Take this deal** assigns LA-1006 to `funder-1`. The spike agent fetches a token for that user from the OIDC provider until T104. Check it with
+`curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit` (with `$AUTH` from step 6). More in [`ui_summary.md`](ui_summary.md).
 
 ### Step 12: Stop everything
 
@@ -518,7 +530,8 @@ Clicking **Take this deal** assigns LA-1006 to `spike-funder`. Check it with
 | `make seed-check` fails with `lock … changed` | Expected after a rule or config change: run `make seed-regenerate` and review the `rules.lock` diff |
 | `401` from `/api/v1/funding-workflows` | Send `X-Trigger-Api-Key: local-dev-key` (or your `FUNDING_TRIGGER_API_KEY`) |
 | `409 NOT_DRAFT` on submit | That version was already submitted; see the end of step 5 |
-| `400 MISSING_FUNDER_ID` from the funder API | Send `X-Funder-Id: <your id>` on every write |
+| `401 UNAUTHORIZED` from the funder API | Send `Authorization: Bearer <token>` (step 6). An expired token (after an hour), or one from another issuer or audience, is refused too. The issuer must be `127.0.0.1`, not `localhost` |
+| `403 UNKNOWN_USER` from the funder API | The token's user isn't in `funding.auth.users`; use `funder-1`, `funder-2`, `income-1` or `supervisor-1` |
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
 | `409 DOCUMENTS_FROZEN` from the dev documents endpoint | The version is APPROVED, FUNDED, REJECTED or EXPIRED. Resubmit as a new version instead (step 7) |
