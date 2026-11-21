@@ -95,7 +95,32 @@ verified user. Roles are only looked up here; D2 enforces them.
   - Tests: 32 agent tests (`uv run pytest`) and 2 Playwright tests. The Playwright overview test
     first assigns LA-1006 to `funder-2`, so Take visibly changes it.
   - `httpx` and `pyyaml` are declared explicitly now, and `pytest` is a dev dependency.
-- [ ] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
+- [x] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
+  **Notes (done 2026-11-21):**
+  - **The open `aud` question, settled.** By default, a browser-login access token from
+    `mock-oauth2-server` 6.1.5 has `aud=default`, whatever the scope. `audience=` and `resource=`
+    don't change it.
+  - **The fix is provider config, not a weaker API:** `scripts/oidc-config.json` (as
+    `JSON_CONFIG`) gives the dashboard's client and `scope=funding-api` tokens
+    `aud=funding-api`. That's the local version of Auth0's `audience`.
+  - `oidc-env.sh` starts its own container with the config and refuses a reused one without it
+    (a one-request probe). The owner's `funding-oidc` was recreated with it.
+  - **Web sign-in:** `oidc-client-ts` 3.5.0 (pinned). The access token is in memory
+    (`InMemoryWebStorage`); only the PKCE verifier and state sit in sessionStorage for the round
+    trip.
+  - The callback is handled once per page load. StrictMode's double effect had exchanged the
+    code twice, and the provider refused the second exchange with a 400.
+  - **Stand-ins removed:** `window.__FUNDER_TOKEN__` and the `#access_token=` dev stand-in are gone.
+  - **Shell:** sign-in screen → "Signed in as <id>" with sign out, plus open by loan id. Only the
+    surfaces of the last opened deal are shown, plus any notice an action brings back.
+  - **`StatusBadge`** is in both catalogs, written out with the colour only grouping (NFR-04).
+    The overview uses it.
+  - **Tests:** 33 agent tests. 4 Playwright tests, each signing in on the real login page:
+    overview and Take, unknown loan, unknown user, signed out and sign out.
+  - **Not done here:** a tab bar. The overview is the only tab until D3 adds the next one.
+  - **Not done here:** fixing `npm audit`'s 4 high and 1 moderate findings. They're all in the
+    A2UI packages pinned at D0 (`@a2ui/react`, `@a2ui/web_core`, `@a2ui/markdown-it` via
+    `dompurify`) and in `zod`, not in `oidc-client-ts`.
 - [ ] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
 - [ ] **T107** `make dashboard`, the preflight script and the README section.
 - [ ] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.

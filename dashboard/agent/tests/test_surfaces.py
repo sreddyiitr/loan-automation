@@ -33,6 +33,12 @@ def test_NFR_05_theValidatorReallyRejects(break_it):
         validate(bad)
 
 
+def test_AS_2_1_statusIsAStatusBadgeBoundToTheDeal():
+    components = overview_surface(deal_model(OVERVIEW, VERSIONS, NOW))[1]["updateComponents"]["components"]
+    assert next(c for c in components if c["id"] == "status") == \
+        {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}}
+
+
 def test_AS_2_1_overviewShowsTheDealFacts():
     deal = deal_model(OVERVIEW, VERSIONS, NOW)
     assert deal["loanApplicationId"] == "LA-1006" and deal["versionNumber"] == 2

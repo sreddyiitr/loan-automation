@@ -7,7 +7,7 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T104
+**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T105
 done). What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
@@ -17,11 +17,10 @@ done). What works end to end today:
 5. Agent code calls the funder API (`PUT /assignee`) with that same token, then re-reads the deal.
 6. The screen updates, and the write appears in the audit trail.
 
-It's one screen: the LA-1006 overview. It shows the deal facts, days to expiry, payment status, a
+You sign in on the OIDC provider's login page, then open any deal by its loan id. The overview
+is the one screen so far. It shows the deal facts, days to expiry, payment status, a
 "running" note while the workflow is busy, a link to the run in the Temporal UI, and the version
 history. The actor in every write is whoever the token names. Not yet built:
-- the browser sign-in screen (T105; until then a token is handed to the page, see below);
-- opening any loan id;
 - the worklist, the other tabs, role enforcement (D2) and the assistant.
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -79,7 +78,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0), then `StatusBadge` and `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0) and `StatusBadge` (**built** in T105; the status is always written out, never colour alone), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -99,27 +98,30 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    `TEMPORAL_UI_URL`.
 3. Start the web app: `cd dashboard/web && npm install && npm run dev`. The dev server proxies
    `/agent` to the agent.
-4. **Sign in, for now by handing the page a token** (T105 adds a real sign-in screen). Get a token
-   for one of the directory's users and open the page with it in the URL fragment. The page keeps
-   it in memory and clears it from the address bar; the fragment never reaches a server, and this
-   works in the dev server only.
-   ```bash
-   TOKEN=$(curl -s -X POST http://127.0.0.1:8090/funding/token -d grant_type=client_credentials \
-     -d client_id=funder-1 -d client_secret=any -d scope=funding-api \
-     | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
-   open "http://localhost:5173/#access_token=$TOKEN"
-   ```
-   Without a token the page says "Sign in to use the funder dashboard."
+4. Go to http://localhost:5173 and click **Sign in**. On the provider's login page ("Just a mock
+   login"), type a user id: `funder-1`, `funder-2`, `income-1` or `supervisor-1`. Leave the claims
+   box empty, then click **Sign-in**. Back on the dashboard, type a loan id (e.g. `LA-1006`) and
+   click **Open**.
+   - The sign-in is OIDC Authorization Code with PKCE (`src/auth.ts`, `oidc-client-ts`). The
+     token stays in memory, so reloading the page means signing in again.
+   - The provider must run with `scripts/oidc-config.json`, which `oidc-env.sh` checks. Without it,
+     browser-login tokens get the wrong audience and every deal says your sign-in isn't valid.
+   - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
+     dashboard".
 5. Tests:
-   - Agent: `cd dashboard/agent && uv run pytest`. 32 tests, no services needed. Every surface
+   - Agent: `cd dashboard/agent && uv run pytest`. 33 tests, no services needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05).
-   - Browser: `cd dashboard/web && npx playwright test`. 2 tests against the running stack: the
-     overview and Take, and the signed-out page. It starts its own dev server; install the
-     browser once with `npx playwright install chromium`.
+   - Browser: `cd dashboard/web && npx playwright test`. 4 tests against the running stack, each
+     signing in on the real login page:
+     - open LA-1006, see the overview and Take it;
+     - an unknown loan id shows "not found";
+     - a user who isn't in the directory is told so;
+     - signed out shows only the sign-in screen.
+     It starts its own dev server; install the browser once with `npx playwright install chromium`.
 
 Pinned versions: `@a2ui/react` / `@a2ui/web_core` 0.15.0 and React 19 on the web side; `a2a-sdk`
 0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0 (its `a2ui-core` 0.7.0 does the validation),
-`httpx` and `pyyaml` on the agent side, plus `pytest` for development (`package-lock.json`, `uv.lock`).
+`httpx` and `pyyaml` on the agent side, `oidc-client-ts` 3.5.0 on the web side, plus `pytest` for development (`package-lock.json`, `uv.lock`).
 
 ## Developer setup (planned)
 

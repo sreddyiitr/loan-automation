@@ -150,7 +150,7 @@ build yourself; the other three download on first use.
 | AWS Emulator (SQS) | the scripts, or you (step 3) | `https://127.0.0.1:9297` | The scripts reuse a running `aws-emulator:latest` container, otherwise they start `funding-emulator`. |
 | PostgreSQL 18 | the scripts | `127.0.0.1:55432` | The scripts reuse a running `postgres:18` container that publishes a port, otherwise they start `funding-postgres` (volume `funding-pgdata`). |
 | WireMock | the scripts | `http://127.0.0.1:8089` | The scripts reuse a running `wiremock/wiremock` container that publishes a port, otherwise they start `funding-wiremock`. |
-| OIDC provider (`mock-oauth2-server`) | the scripts, or you | `http://127.0.0.1:8090/funding` | Issues the funder API's bearer tokens (step 6). `oidc-env.sh` reuses a running `mock-oauth2-server` container that publishes a port, otherwise it starts `funding-oidc`; it pulls the image only if it isn't local. A running one with **no** published port is refused with the command to fix it. |
+| OIDC provider (`mock-oauth2-server`) | the scripts, or you | `http://127.0.0.1:8090/funding` | Issues the funder API's bearer tokens (step 6) and the dashboard's login page. It must run with `scripts/oidc-config.json` (passed as `JSON_CONFIG`). `oidc-env.sh` reuses a running `mock-oauth2-server` container that publishes a port, otherwise it starts `funding-oidc` with the config. It pulls the image only if it isn't local. It refuses a running one with **no** published port, or **without the config**, and prints the command to fix it. |
 
 ### 3. Docker images
 
@@ -471,24 +471,24 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 
 ### Try the funder dashboard (spec 002, optional)
 
-The dashboard has one screen so far: LA-1006's overview, with its days to expiry, payment status,
-version history and a link to the workflow in the Temporal UI. An agent builds it in code (A2UI
-v1.0, no LLM) and React draws it. The agent calls the funder API with your own token. **Take this deal** writes through the funder API. You
-need Python 3.12 with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer,
-plus the app from steps 2 and 4 with LA-1006 submitted (step 5).
+You sign in on the OIDC provider's login page, open a deal by its loan id, and see its overview:
+days to expiry, payment status, version history, and a link to the workflow in the Temporal UI.
+An agent builds the screen in code (A2UI v1.0, no LLM) and React draws it. The agent calls the
+funder API with your own token, and **Take this deal** writes through it. You need Python 3.12
+with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer, plus the app
+from steps 2 and 4 with LA-1006 submitted (step 5).
 
 ```bash
 cd dashboard/agent && uv run python main.py      # the agent, port 8091 (its own terminal)
-cd dashboard/web && npm install && npm run dev   # its own terminal; then open the page with a token, below
-cd dashboard/agent && uv run pytest              # 32 agent tests, no services needed
-cd dashboard/web && npx playwright install chromium && npx playwright test   # 2 browser tests, start their own dev server
+cd dashboard/web && npm install && npm run dev   # its own terminal; then go to http://localhost:5173
+cd dashboard/agent && uv run pytest              # 33 agent tests, no services needed
+cd dashboard/web && npx playwright install chromium && npx playwright test   # 4 browser tests, start their own dev server
 ```
 
-Until T105 adds a sign-in screen, hand the page a token: open
-`http://localhost:5173/#access_token=<token>`, with a token from step 6 (`$TOKEN`). The page keeps
-it in memory and clears it from the address bar. Clicking **Take this deal** assigns LA-1006 to
-whoever the token names. Check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`.
-More in [`ui_summary.md`](ui_summary.md).
+Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
+`supervisor-1`), click **Sign-in**, then open `LA-1006`. **Take this deal** assigns it to you;
+check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More in
+[`ui_summary.md`](ui_summary.md).
 
 ### Step 12: Stop everything
 
@@ -536,6 +536,8 @@ More in [`ui_summary.md`](ui_summary.md).
 | `401` from `/api/v1/funding-workflows` | Send `X-Trigger-Api-Key: local-dev-key` (or your `FUNDING_TRIGGER_API_KEY`) |
 | `409 NOT_DRAFT` on submit | That version was already submitted; see the end of step 5 |
 | `401 UNAUTHORIZED` from the funder API | Send `Authorization: Bearer <token>` (step 6). An expired token (after an hour), or one from another issuer or audience, is refused too. The issuer must be `127.0.0.1`, not `localhost` |
+| `oidc-env: … runs without scripts/oidc-config.json` | Your provider container was started without the config, so browser-login tokens would have the wrong audience. Run the two commands it prints (the image is local) |
+| The dashboard says your sign-in "has expired or isn't valid" right after signing in | The provider runs without `scripts/oidc-config.json` (source `scripts/oidc-env.sh` to check), or it restarted and the app still holds its old keys: restart the app |
 | `403 UNKNOWN_USER` from the funder API | The token's user isn't in `funding.auth.users`; use `funder-1`, `funder-2`, `income-1` or `supervisor-1` |
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |

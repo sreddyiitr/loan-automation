@@ -34,7 +34,7 @@ screen you usually just send new data; the layout stays.
 Browser (dashboard/web)                  Agent (dashboard/agent/funder_agent)            Funder API (Java, spec 001)
   App.tsx       – holds the screen state   server.py   route() – routing                 GET  /applications/LA-1006
   a2a.ts        – sends/receives JSON-RPC ⇄ surfaces/overview.py – builds JSON       ⇄   GET  /applications/LA-1006/versions
-  auth.ts       – the user's token          actions/deal.py – open_deal, take             PUT  /versions/{id}/assignee
+  auth.ts       – sign-in, token in memory  actions/deal.py – open_deal, take             PUT  /versions/{id}/assignee
   funderCatalog – our DataTable widget      api/client.py – HTTP calls, relays the token
 ```
 
@@ -44,7 +44,7 @@ agent through a Vite proxy (`/agent` → port 8091, see `dashboard/web/vite.conf
 
 ## Flow 1: opening the page
 
-**1. The browser asks.** When the page loads, `App.tsx` calls `sendToAgent('open LA-1006')`. In
+**1. The browser asks.** After you sign in and type a loan id, `App.tsx` calls `sendToAgent('open LA-1006')`. In
 `a2a.ts`, that string goes in as a **text part**. The metadata tells the agent which catalogs the
 browser can draw (`a2uiRendererCapabilities` → `supportedCatalogIds`), and the
 `X-A2A-Extensions` header turns on A2UI v1.0.

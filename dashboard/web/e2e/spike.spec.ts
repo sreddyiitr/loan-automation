@@ -1,18 +1,16 @@
 import {expect, test, type Page} from '@playwright/test';
 
-// The A2UI round trip through the real stack (spec 002 D0, then T104): the browser asks the agent
-// over A2A with the user's bearer token; the agent relays it to the funder API and answers with an
-// A2UI v1.0 surface built by code (no LLM); a click goes back as an action and is written through
-// the funder API. Needs the funding app (make run, with LA-1006 submitted), the OIDC provider
-// (scripts/oidc-env.sh) and the agent (`uv run python main.py` in dashboard/agent).
-const OIDC_TOKEN_URL = process.env.OIDC_ISSUER_URI
-  ? `${process.env.OIDC_ISSUER_URI}/token` : 'http://127.0.0.1:8090/funding/token';
-
+// The walking skeleton through the real stack (spec 002 D1): sign in on the OIDC provider's login
+// page (Authorization Code + PKCE), open a deal by loan id, see the overview the agent builds in code
+// (A2UI v1.0, no LLM) from the funder API with the user's own token, and Take the deal.
+// Needs the funding app (make run, with LA-1006 submitted), the OIDC provider with
+// scripts/oidc-config.json (scripts/oidc-env.sh) and the agent (`uv run python main.py` in dashboard/agent).
+const ISSUER = process.env.OIDC_ISSUER_URI ?? 'http://127.0.0.1:8090/funding';
 const FUNDER_API = process.env.FUNDER_API_URL ?? 'http://localhost:8080/api/v1';
 
-/** A real access token from the mock provider. */
+/** A token without a browser, only to set up data straight through the funder API. */
 async function tokenFor(user: string): Promise<string> {
-  const res = await fetch(OIDC_TOKEN_URL, {
+  const res = await fetch(`${ISSUER}/token`, {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
     body: new URLSearchParams({grant_type: 'client_credentials', client_id: user, client_secret: 'unused', scope: 'funding-api'}),
@@ -21,13 +19,6 @@ async function tokenFor(user: string): Promise<string> {
   return (await res.json()).access_token as string;
 }
 
-/** Puts the user's token in the page's memory (T105 replaces this with the browser sign-in). */
-async function signInAs(page: Page, user: string) {
-  const token = await tokenFor(user);
-  await page.addInitScript((t) => { window.__FUNDER_TOKEN__ = t; }, token);
-}
-
-/** Straight through the funder API, so the test starts from a known assignee. */
 async function assignLa1006To(user: string) {
   const auth = {Authorization: `Bearer ${await tokenFor(user)}`};
   const overview = await (await fetch(`${FUNDER_API}/applications/LA-1006`, {headers: auth})).json();
@@ -37,6 +28,21 @@ async function assignLa1006To(user: string) {
   expect(res.ok, `assign LA-1006 to ${user}`).toBeTruthy();
 }
 
+/** AS-1.1: the real sign-in, on the provider's own login page. */
+async function signInAs(page: Page, user: string) {
+  await page.goto('/');
+  await page.getByRole('button', {name: 'Sign in'}).click();
+  await page.locator('input[name="username"]').fill(user);          // mock-oauth2-server's login form
+  await page.getByRole('button', {name: 'Sign-in'}).click();
+  await expect(page.getByTestId('user')).toHaveText(user);
+  expect(new URL(page.url()).pathname).toBe('/');                    // the callback cleaned the URL
+}
+
+async function openDeal(page: Page, loanId: string) {
+  await page.getByLabel('Loan id').fill(loanId);
+  await page.getByRole('button', {name: 'Open'}).click();
+}
+
 function watchErrors(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -44,33 +50,47 @@ function watchErrors(page: Page): string[] {
   return errors;
 }
 
-test('AS_2_1 the overview renders from the funder API, and Take writes through it', async ({page}) => {
+test('AS_1_1 sign in, open LA-1006, see the overview, and Take it as the signed-in user', async ({page}) => {
   const errors = watchErrors(page);
-  await assignLa1006To('funder-2');                                       // so Take visibly changes it
+  await assignLa1006To('funder-2');                                        // so Take visibly changes it
   await signInAs(page, 'funder-1');
-  await page.goto('/');
-  await expect(page.getByText('Assigned to: funder-2')).toBeVisible();
+  await openDeal(page, 'LA-1006');
+
   await expect(page.getByText(/^LA-1006 · v\d+$/)).toBeVisible();          // formatString over the data model
-  await expect(page.getByText(/^Status: /)).toBeVisible();
+  await expect(page.locator('.status-badge')).toContainText('Status: ');   // StatusBadge, written out (NFR-04)
   await expect(page.getByText('Dealer: Lone Star Motors')).toBeVisible();
   await expect(page.getByText(/^Expiry: /)).toBeVisible();
   await expect(page.getByText(/^Payment: /)).toBeVisible();
-  // AS-2.3: version history in our custom DataTable
-  await expect(page.getByRole('columnheader', {name: 'Version'})).toBeVisible();
+  await expect(page.getByRole('columnheader', {name: 'Version'})).toBeVisible();   // AS-2.3, our DataTable
   await expect(page.getByRole('cell', {name: 'latest'})).toBeVisible();
+  await expect(page.getByText('Assigned to: funder-2')).toBeVisible();
 
   await page.getByRole('button', {name: 'Take this deal'}).click();
-  const events = page.getByTestId('events');
-  await expect(events).toContainText('deal.take');
-  await expect(events).toContainText('LA-1006');                            // context bound with @path, resolved by the renderer
-  await expect(page.getByText('Assigned to: funder-1')).toBeVisible();     // written through the funder API as the token's user, then re-read
+  await expect(page.getByText('Assigned to: funder-1')).toBeVisible();     // written as the token's user, then re-read
+  await expect(page.getByTestId('events')).toContainText('deal.take');
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
-test('FR_11 without a token the agent asks the user to sign in', async ({page}) => {
+test('AS_1_5 an unknown loan id shows "not found", not an error page', async ({page}) => {
   const errors = watchErrors(page);
-  await page.goto('/');
-  await expect(page.getByText('Sign in to use the funder dashboard.')).toBeVisible();
-  await expect(page.getByText(/^LA-1006/)).toHaveCount(0);
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-404');
+  await expect(page.getByText("That deal doesn't exist. Check the loan id.")).toBeVisible();
   expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('AS_1_1 a user who is not in the directory is told so', async ({page}) => {
+  await signInAs(page, 'stranger');
+  await openDeal(page, 'LA-1006');
+  await expect(page.getByText(/isn't set up for the dashboard/)).toBeVisible();   // 403 UNKNOWN_USER
+  await expect(page.getByText(/^LA-1006 · v/)).toHaveCount(0);
+});
+
+test('FR_11 signed out there is only the sign-in screen, and signing out returns to it', async ({page}) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', {name: 'Sign in'})).toBeVisible();
+  await expect(page.getByLabel('Loan id')).toHaveCount(0);
+  await signInAs(page, 'supervisor-1');
+  await page.getByRole('button', {name: 'Sign out'}).click();
+  await expect(page.getByRole('button', {name: 'Sign in'})).toBeVisible();
 });

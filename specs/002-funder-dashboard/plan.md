@@ -75,6 +75,13 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
   `scripts/oidc-env.sh` (reuse first, P-3), at `OIDC_ISSUER_URI=http://127.0.0.1:8090/funding`. It
   signs RS256 tokens and publishes discovery and JWKS. Everything uses `127.0.0.1`, because the
   provider builds `iss` from the URL it was called on.
+- **Provider config (`scripts/oidc-config.json`, passed as `JSON_CONFIG`):** tokens for the
+  dashboard's client (`client_id=funder-dashboard`, the browser login) and for `scope=funding-api`
+  (tests, `curl`) carry `aud=funding-api`. Without it, a browser-login token has `aud=default`
+  and the API rightly refuses it (verified on 6.1.5, 2026-11-21). This is the local version of
+  what Auth0's `audience`, or an Okta or Entra ID API registration, does. The API's audience check
+  stays strict. `oidc-env.sh` starts its own container with the config. A reused container must
+  prove the rule is active with one token request, or the script refuses with the fix.
 - **Browser sign-in:** the web app runs Authorization Code with PKCE as a public client
   (`funder-dashboard`). On the provider's login page the user types an id, which becomes `sub`.
   The token is kept in memory only (never `localStorage`). The web app sends it to the agent as
@@ -207,5 +214,5 @@ Test names follow `AS_x_y_…` (constitution P-1).
 | The React renderer's v1.0 support is partial (types are v0.9; no per-component `@catalogId`) | Settled by D0: v1.0 renders; one extended catalog per surface; re-check when `@a2ui/react` 0.16 ships |
 | One invalid component blanks the page | Validate every surface on the agent before sending (NFR-05); a React error boundary around each surface |
 | The roles change breaks spec 001 tests | T102 moves them to tokens (`jwt()` in MockMvc, `client_credentials` tokens in functional tests) without changing any assertion; the spec 001 suites must stay green in every slice |
-| The browser code flow's `aud` differs from `funding-api` | T101 checks the claims the mock provider sets for the code flow and configures the client or scope so both flows carry `funding-api` |
+| The browser code flow's `aud` differs from `funding-api` | **Confirmed in T105:** by default it's `default`. Settled by the provider config (§4); the API's audience check stays strict |
 | Gemma's 4K context can't hold the generated-view prompt | `express` format or a small catalog subset; raise `num_ctx` if memory allows |

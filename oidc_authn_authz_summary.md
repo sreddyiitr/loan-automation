@@ -4,8 +4,8 @@ How the funder API knows **who** is calling (authentication, through OIDC) and *
 do (authorization), told as a school story. It covers spec 002 (`FR-09`, `FR-11`, `D-13`,
 `AS-11.2`), and the code in `funding-api/src/main/java/com/funding/api/auth/`.
 
-**Status (2026-11-21):** steps 1–4 and 6 are built (T101–T102). Step 5, the permission rules, is
-the next slice (D2).
+**Status (2026-11-21):** steps 1–4 and 6 are built (T101–T105), including the browser sign-in.
+Step 5, the permission rules, is the next slice (D2).
 
 ---
 
@@ -41,9 +41,15 @@ sub: funder-1   iss: http://127.0.0.1:8090/funding   aud: funding-api   exp: …
 ```
 
 There are two ways to ask for a card:
-- **In the browser** (coming in T105): the dashboard sends you to the provider's login page. You
-  type `funder-1`, and you're sent back with the card. This is OIDC's "Authorization Code with
-  PKCE" flow.
+- **In the browser:** the dashboard's **Sign in** button sends you to the provider's login page.
+  You type `funder-1`, and you're sent back with the card. This is OIDC's "Authorization Code with
+  PKCE" flow, done by the `oidc-client-ts` library in `dashboard/web/src/auth.ts`. The card is
+  kept in memory only, so reloading the page means signing in again.
+  - **Telling the office which door the card is for.** Out of the box, our practice office writes
+    `aud: default` on browser cards, and our door refuses them. So the office runs with a small
+    rule book, `scripts/oidc-config.json`: "cards for the dashboard are for door `funding-api`".
+    A real office has the same setting: Auth0 calls it the API's *audience*, and Okta and Entra ID
+    register the API. `scripts/oidc-env.sh` checks the rule book is loaded before anything starts.
 - **Without a browser** (tests and `curl`): one request that says "a card for
   `client_id=funder-1`, please". README step 6 does this:
 

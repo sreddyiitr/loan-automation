@@ -118,7 +118,7 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
          "children": ["title", "status", "progress", *[f["id"] for f in facts], "actions", "history_title", "history"]},
         {"id": "title", "component": "Text",
          "text": {"@call": "formatString", "args": {"value": "${/deal/loanApplicationId} · v${/deal/versionNumber}"}}},
-        {"id": "status", "component": "Text", "text": {"@call": "formatString", "args": {"value": "Status: ${/deal/status}"}}},
+        {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         *facts,
         {"id": "actions", "component": "Row", "children": ["take_button", "temporal_button"]},

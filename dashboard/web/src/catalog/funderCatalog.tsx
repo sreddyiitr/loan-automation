@@ -1,4 +1,5 @@
-// Spike D0 / T003: our custom catalog (plan §6). The Basic Catalog has no table, so we add one.
+// Our custom catalog (plan §6): the Basic Catalog has no table or status badge, so we add them.
+// Keep it in step with dashboard/agent/funder_agent/catalog.py.
 // A component = an API (Zod schema built from CommonSchemas, so bindings resolve) + a React implementation.
 import {z} from 'zod';
 import {Catalog, CommonSchemas} from '@a2ui/web_core/v1_0';
@@ -11,7 +12,7 @@ export const DataTableApi = {
   name: 'DataTable',
   schema: z.object({
     columns: z.array(z.object({key: z.string(), title: z.string()})),
-    rows: CommonSchemas.DynamicValue, // usually {"@path": "/deal/stips"}: resolved to the list itself
+    rows: CommonSchemas.DynamicValue, // usually {"@path": "/deal/versions"}: resolved to the list itself
     emptyText: CommonSchemas.DynamicString.optional(),
   }),
 };
@@ -34,12 +35,30 @@ const DataTable = createComponentImplementation(DataTableApi as never, ({props})
   );
 });
 
+// StatusBadge (plan §6, NFR-04): the version status as a badge. The status is always written out,
+// so it's never shown by colour alone; the colour only groups (waiting, done, refused).
+export const StatusBadgeApi = {
+  name: 'StatusBadge',
+  schema: z.object({status: CommonSchemas.DynamicString}),
+};
+
+const TONE: Record<string, string> = {
+  DRAFT: 'neutral', PENDING_REVIEW: 'busy', STIPULATED: 'waiting', APPROVED: 'busy',
+  FUNDED: 'done', REJECTED: 'refused', EXPIRED: 'refused',
+};
+
+const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({props}) => {
+  const status = String((props as {status?: unknown}).status ?? '');
+  const label = status.replaceAll('_', ' ').toLowerCase();
+  return <span className={`status-badge status-${TONE[status] ?? 'neutral'}`} data-status={status}>Status: {label}</span>;
+});
+
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
 // catalog. Our catalog therefore EXTENDS the Basic Catalog: all 18 basic components and 15 functions,
 // plus ours. Surfaces are created with this catalog's id.
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge] as never,
   [...basicCatalog.functions.values()] as never,
 );

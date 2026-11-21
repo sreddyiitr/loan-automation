@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T103 done**: the funder API takes OIDC bearer tokens, and the overview has expiry, workflow step and payment. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T105 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; and the browser signs in with OIDC (PKCE) and opens deals by loan id. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -376,10 +376,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 32 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright): overview and Take as the token's user; the signed-out page | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider, Chromium | 2 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 33 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright), each signing in on the real login page: overview and Take; unknown loan; unknown user; signed out | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider with its config, Chromium | 4 | ✅ |
 
-**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 32 agent tests and 2 Playwright tests. Test names trace to the
+**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 33 agent tests and 4 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -456,6 +456,11 @@ Spec 002, D1 (T101–T102):
   assertion changed: `FunderApiTest` signs its user in as SUPERVISOR (who may do everything, D-11),
   and the functional tests get `client_credentials` tokens from the shared provider. The dev
   endpoints keep their optional `X-Funder-Id`, which only labels the audit row.
+- **Browser sign-in (T105):** OIDC Authorization Code with PKCE via `oidc-client-ts` 3.5.0, with
+  the token in memory. By default the mock provider gives browser-login tokens `aud=default`, so
+  it runs with `scripts/oidc-config.json` (tokens for the dashboard's client carry
+  `aud=funding-api`), and `oidc-env.sh` refuses a provider without it. The API's audience check
+  stays strict.
 - **Overview fields (T103):** `expiresAt` is `submittedAt` + `funding.workflow.expire-after`, the
   workflow's own deadline, computed from the DB so a worklist can use it too. `inProgress` and
   `workflowStep` come from the workflow query. `payment.state` is NOT_STARTED, IN_FLIGHT, PAID,
@@ -550,4 +555,4 @@ Spec 001's slices are all done. What is still open:
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
 | Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: spike D0 (one overview screen, one action) and the API half of sign-in (bearer tokens, user directory). Not yet: browser sign-in, worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
-| Dashboard stand-ins | Until T105, the page gets its token from the Playwright test, or in the dev server from `#access_token=` in the URL; there is no sign-in screen yet. It opens only LA-1006. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |
+| Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

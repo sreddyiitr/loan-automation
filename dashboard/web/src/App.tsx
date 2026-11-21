@@ -1,60 +1,130 @@
-// Spike D0: the overview surface now comes from the agent over A2A, and clicks go back to it.
-import {useEffect, useState} from 'react';
+// The dashboard shell (spec 002 T105): sign in (OIDC, auth.ts), then open a deal by its loan id.
+// Everything inside a deal is an A2UI surface from the agent; clicks go back to it as actions.
+import {useEffect, useState, type FormEvent} from 'react';
 import {MessageProcessor} from '@a2ui/web_core/v1_0';
 import {basicCatalog} from '@a2ui/web_core/catalogs/basic/v1';
 import {A2uiSurface} from '@a2ui/react';
 import {sendToAgent} from './a2a';
+import {CALLBACK_PATH, completeSignIn, signIn, signOut, userId} from './auth';
 import {funderCatalog} from './catalog/funderCatalog';
+
+type Message = Record<string, unknown>;
 
 /**
  * Applies agent messages, skipping a createSurface for a surface that already exists. A2UI treats a
  * duplicate as an integrity error, and the agent may resend a surface (React's StrictMode also
  * double-runs effects in development). The official React sample guards the same way.
+ * Returns the ids of the surfaces the reply created or recreated.
  */
-function apply(p: MessageProcessor, messages: Record<string, unknown>[]) {
-  const fresh = messages.filter((m) => {
-    const cs = m.createSurface as {surfaceId?: string} | undefined;
-    return !cs?.surfaceId || !p.model.surfacesMap.has(cs.surfaceId);
+function apply(p: MessageProcessor, messages: Message[]): string[] {
+  const created = messages.flatMap((m) => {
+    const id = (m.createSurface as {surfaceId?: string} | undefined)?.surfaceId;
+    return id ? [id] : [];
   });
-  p.processMessages(fresh as never);
+  p.processMessages(messages.filter((m) => {
+    const id = (m.createSurface as {surfaceId?: string} | undefined)?.surfaceId;
+    return !id || !p.model.surfacesMap.has(id);
+  }) as never);
+  return created;
+}
+
+function SignIn({error}: {error?: string}) {
+  return (
+    <section className="sign-in">
+      <h1>Funder dashboard</h1>
+      <p>Sign in to work your deals.</p>
+      {error && <p role="alert">{error}</p>}
+      <button type="button" onClick={() => void signIn()}>Sign in</button>
+    </section>
+  );
 }
 
 export default function App() {
+  const [user, setUser] = useState<string | undefined>(userId());
+  const [signInError, setSignInError] = useState<string>();
+  const [loanId, setLoanId] = useState('');
+  const [visible, setVisible] = useState<string[]>([]);
   const [events, setEvents] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [processor] = useState(() => {
     const p: MessageProcessor = new MessageProcessor([basicCatalog, funderCatalog] as never, (action: unknown) => {
       // A click: forward it to the agent as an A2UI v1.0 renderer_to_agent "action", apply its reply.
       setEvents((e) => [...e, JSON.stringify(action)]);
-      sendToAgent({version: '1.0', action: action as Record<string, unknown>})
-        .then((reply) => apply(p, reply))
+      sendToAgent({version: '1.0', action: action as Message})
+        .then((reply) => {
+          const created = apply(p, reply);
+          if (created.length) setVisible((v) => [...new Set([...v, ...created])]);   // e.g. a refusal notice
+        })
         .catch((err) => setError(String(err)));
     });
     return p;
   });
-  const [surfaces, setSurfaces] = useState(() => Array.from(processor.model.surfacesMap.values()));
+  const [, setTick] = useState(0);
+
   useEffect(() => {
-    const sync = () => setSurfaces(Array.from(processor.model.surfacesMap.values()));
+    const sync = () => setTick((t) => t + 1);
     const created = processor.onSurfaceCreated(sync);
     const deleted = processor.onSurfaceDeleted(sync);
-    sendToAgent('open LA-1006')
-      .then((messages) => apply(processor, messages))
-      .catch((err) => setError(String(err)));
     return () => {
       created.unsubscribe();
       deleted.unsubscribe();
     };
   }, [processor]);
 
+  useEffect(() => {
+    if (window.location.pathname !== CALLBACK_PATH) return;
+    completeSignIn()
+      .then((u) => setUser(u.profile.sub))
+      .catch((err) => {
+        window.history.replaceState(null, '', '/');
+        setSignInError(`Sign-in failed: ${err instanceof Error ? err.message : String(err)}`);
+      });
+  }, []);
+
+  if (!user) {
+    return window.location.pathname === CALLBACK_PATH && !signInError
+      ? <p>Signing in…</p>
+      : <SignIn error={signInError} />;
+  }
+
+  // AS-1.5: open a deal by its loan id; an unknown id gets the agent's "not found" notice.
+  function open(e: FormEvent) {
+    e.preventDefault();
+    const id = loanId.trim().toUpperCase();
+    if (!id) return;
+    setError(undefined);
+    sendToAgent(`open ${id}`)
+      .then((messages) => setVisible(apply(processor, messages)))
+      .catch((err) => setError(String(err)));
+  }
+
+  const surfaces = visible.flatMap((id) => {
+    const s = processor.model.surfacesMap.get(id);
+    return s ? [s] : [];
+  });
+
   return (
-    <main style={{fontFamily: 'system-ui', maxWidth: 640, margin: '2rem auto'}}>
-      <h1>A2UI spike</h1>
+    <main>
+      <header className="shell-header">
+        <strong>Funder dashboard</strong>
+        <span>
+          Signed in as <span data-testid="user">{user}</span>{' '}
+          <button type="button" onClick={() => void signOut().then(() => { setUser(undefined); setVisible([]); })}>Sign out</button>
+        </span>
+      </header>
+      <form className="open-deal" onSubmit={open}>
+        <label htmlFor="loan-id">Loan id</label>
+        <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="LA-1006" autoComplete="off" />
+        <button type="submit">Open</button>
+      </form>
       {error && <p role="alert">{error}</p>}
       {surfaces.map((s) => (
         <A2uiSurface key={s.id} surface={s as never} />
       ))}
-      <h3>Events sent back to the agent</h3>
-      <pre data-testid="events">{events.join('\n') || '(none yet)'}</pre>
+      <details>
+        <summary>Events sent back to the agent</summary>
+        <pre data-testid="events">{events.join('\n') || '(none yet)'}</pre>
+      </details>
     </main>
   );
 }

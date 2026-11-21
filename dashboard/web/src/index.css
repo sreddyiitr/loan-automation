@@ -109,3 +109,15 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Dashboard shell (T105) */
+main { font-family: var(--sans); max-width: 720px; margin: 2rem auto; padding: 0 16px; }
+.shell-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.open-deal { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+.sign-in { max-width: 420px; margin: 4rem auto; text-align: center; }
+.status-badge { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; border: 1px solid currentColor; font-weight: 600; }
+.status-neutral { color: #555; }
+.status-busy { color: #1f5fbf; }
+.status-waiting { color: #a35c00; }
+.status-done { color: #1d7a3a; }
+.status-refused { color: #b3261e; }

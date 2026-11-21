@@ -1,0 +1,21 @@
+{
+  "interactiveLogin": true,
+  "tokenCallbacks": [
+    {
+      "issuerId": "funding",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "client_id",
+          "match": "funder-dashboard",
+          "claims": { "aud": ["funding-api"] }
+        },
+        {
+          "requestParam": "scope",
+          "match": "funding-api",
+          "claims": { "sub": "${clientId}", "aud": ["funding-api"] }
+        }
+      ]
+    }
+  ]
+}

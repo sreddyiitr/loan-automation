@@ -36,7 +36,21 @@ DATA_TABLE = ComponentApi("DataTable", {
     "required": ["id", "component", "columns", "rows"],
 })
 
-FUNDER_COMPONENTS = [DATA_TABLE]
+STATUS_BADGE = ComponentApi("StatusBadge", {
+    "type": "object",
+    "description": "The version status as a badge. The status is always written out, never shown by colour alone (NFR-04).",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"},
+        "component": {"const": "StatusBadge"},
+        "status": _DYNAMIC,
+        "weight": {"type": "number"},
+        "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "status"],
+})
+
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE]
 
 
 @lru_cache(maxsize=1)
