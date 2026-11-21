@@ -68,6 +68,7 @@ class FunderApiTest {
     private static final String ENV = "apitest";
     private static final TaskQueues QUEUES = TaskQueues.forEnv(ENV);
     private static final String FUNDER = "funder-7";
+    private static final Duration EXPIRE_AFTER = Duration.ofDays(30);
     private static final MediaType PROBLEM = MediaType.APPLICATION_PROBLEM_JSON;
 
     static final Queue<String> SIGNALS = new ConcurrentLinkedQueue<>();
@@ -109,9 +110,9 @@ class FunderApiTest {
         tx = new TransactionTemplate(new DataSourceTransactionManager(db.dataSource()));
         SeedConfig config = SeedConfig.fromDefaultsAndSystem(ENV);
         new SeedDataLoader(new SeedGates(SeedPaths.discover(), config, RuleFingerprints.fromClasspath()), config, jdbc, tx).load();
-        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30));
+        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, EXPIRE_AFTER);
 
-        FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults());
+        FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults(), EXPIRE_AFTER);
         mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
                 .setCustomArgumentResolvers(new ActorArgumentResolver()).build();
     }
@@ -218,6 +219,79 @@ class FunderApiTest {
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.ssnItinEncrypted").doesNotExist());
         mvc.perform(get("/api/v1/applications/LA-404")).andExpect(problem(404, "NOT_FOUND"));
+    }
+
+    /** Spec 002 T103: a DRAFT has no run, no deadline and no payment. */
+    @Test
+    void AS_2_1_overviewOfADraft() throws Exception {
+        long id = latest("LA-1001");
+        mvc.perform(get("/api/v1/applications/LA-1001")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresAt").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.workflowId").value(WorkflowIds.parent(ENV, id)))
+                .andExpect(jsonPath("$.workflowStep").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.inProgress").value(false))
+                .andExpect(jsonPath("$.payment.state").value("NOT_STARTED"));
+    }
+
+    /** Spec 002 T103 (AS-2.1, AS-2.5): a deal waiting for a funder; expiry is the workflow's own deadline (AS-8.6). */
+    @Test
+    void AS_2_1_overviewShowsExpiryWorkflowAndPayment() throws Exception {
+        long id = settled("LA-1006");
+        java.time.OffsetDateTime submitted = jdbc.sql("SELECT submitted_at FROM application_versions WHERE application_version_id = ?")
+                .param(id).query(java.time.OffsetDateTime.class).single();
+        String body = mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("STIPULATED"))
+                .andExpect(jsonPath("$.workflowId").value(WorkflowIds.parent(ENV, id)))
+                .andExpect(jsonPath("$.workflowStep").value("WAITING_FOR_FUNDER"))
+                .andExpect(jsonPath("$.inProgress").value(false))
+                .andExpect(jsonPath("$.payment.state").value("NOT_STARTED"))
+                .andReturn().getResponse().getContentAsString();
+        // This standalone MockMvc writes dates as epoch seconds (the app writes ISO-8601); compare instants.
+        com.fasterxml.jackson.databind.JsonNode expires = new com.fasterxml.jackson.databind.ObjectMapper().readTree(body).path("expiresAt");
+        java.time.Instant expected = submitted.plus(EXPIRE_AFTER).toInstant();
+        if (expires.isNumber()) {
+            java.math.BigDecimal secs = expires.decimalValue();
+            assertThat(java.time.Instant.ofEpochSecond(secs.longValue(), secs.remainder(java.math.BigDecimal.ONE).movePointRight(9).longValue()))
+                    .isCloseTo(expected, org.assertj.core.api.Assertions.within(1, java.time.temporal.ChronoUnit.MILLIS));
+        } else {
+            assertThat(java.time.OffsetDateTime.parse(expires.asText()).toInstant()).isEqualTo(expected);
+        }
+    }
+
+    /** Spec 002 T103 (AS-2.2): every step but WAITING_FOR_FUNDER and DONE means something is running. */
+    @Test
+    void AS_2_2_inProgressWhileTheWorkflowIsBusy() throws Exception {
+        settled("LA-1006");
+        for (String busy : List.of("VALIDATING", "APPLYING", "DISBURSING", "EXPIRING")) {
+            step = busy;
+            mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.workflowStep").value(busy))
+                    .andExpect(jsonPath("$.inProgress").value(true));
+        }
+        step = "DONE";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.inProgress").value(false));
+    }
+
+    /** Spec 002 T103 (AS-2.1): the payment states, from the disbursement row and the workflow step. */
+    @Test
+    void AS_2_1_paymentStates() throws Exception {
+        long id = settled("LA-1006");
+        jdbc.sql("INSERT INTO disbursements (application_version_id, amount, dealership_id, status) VALUES (?, 25000.00, 'DLR-100', 'REQUESTED')")
+                .param(id).update();
+        step = "DISBURSING";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("IN_FLIGHT"))
+                .andExpect(jsonPath("$.payment.amount").value(25000.00));
+        step = "WAITING_FOR_FUNDER";   // retries exhausted, outcome unknown (C-8)
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("UNKNOWN"));
+        jdbc.sql("UPDATE disbursements SET status = 'FAILED' WHERE application_version_id = ?").param(id).update();
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("FAILED"));
+        jdbc.sql("UPDATE disbursements SET status = 'COMPLETED', external_reference = 'DSB-42' WHERE application_version_id = ?").param(id).update();
+        jdbc.sql("UPDATE application_versions SET version_status = 'FUNDED' WHERE application_version_id = ?").param(id).update();
+        step = "DONE";
+        mvc.perform(get("/api/v1/applications/LA-1006")).andExpect(jsonPath("$.payment.state").value("PAID"))
+                .andExpect(jsonPath("$.payment.reference").value("DSB-42"))
+                .andExpect(jsonPath("$.payment.amount").value(25000.00))
+                .andExpect(jsonPath("$.expiresAt").value(org.hamcrest.Matchers.nullValue()))   // paid: no deadline
+                .andExpect(jsonPath("$.inProgress").value(false));
     }
 
     @Test

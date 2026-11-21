@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T102 done**, so the funder API takes OIDC bearer tokens. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T103 done**: the funder API takes OIDC bearer tokens, and the overview has expiry, workflow step and payment. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -366,13 +366,13 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
 | `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 46 | ✅ |
+| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 50 | ✅ |
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
 | **Spec 002 spike** `dashboard/web/e2e/spike.spec.ts` (Playwright) | the agent, the running app (`make run`, LA-1006 submitted), Chromium | 1 | ✅ |
 
-**Total: 402 tests** (333 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 6 of them (5 `FunderAuthTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) and 1 Playwright test. Test names trace to the
+**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) and 1 Playwright test. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -449,6 +449,10 @@ Spec 002, D1 (T101–T102):
   assertion changed: `FunderApiTest` signs its user in as SUPERVISOR (who may do everything, D-11),
   and the functional tests get `client_credentials` tokens from the shared provider. The dev
   endpoints keep their optional `X-Funder-Id`, which only labels the audit row.
+- **Overview fields (T103):** `expiresAt` is `submittedAt` + `funding.workflow.expire-after`, the
+  workflow's own deadline, computed from the DB so a worklist can use it too. `inProgress` and
+  `workflowStep` come from the workflow query. `payment.state` is NOT_STARTED, IN_FLIGHT, PAID,
+  FAILED or UNKNOWN.
 - **`make run` on a reused emulator:** `InfraBootstrap` now looks a queue up before creating it.
   The emulator refused `CreateQueue` for a queue that already had a redrive policy, so every second
   `make run` on the same emulator failed.

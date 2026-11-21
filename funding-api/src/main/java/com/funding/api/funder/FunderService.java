@@ -7,6 +7,7 @@ import com.funding.domain.rules.RiscCompleteness;
 import com.funding.domain.status.StipWaivers;
 import com.funding.domain.status.VersionStatus;
 import com.funding.persistence.AuditRepository;
+import com.funding.persistence.DisbursementRepository;
 import com.funding.persistence.FunderQueries;
 import com.funding.persistence.SnapshotRepository;
 import com.funding.persistence.StipRepository;
@@ -18,10 +19,14 @@ import com.funding.workflows.FundingWorkflow;
 import com.funding.workflows.WorkflowIds;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowException;
+import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,10 +56,17 @@ public class FunderService {
     private final AuditRepository audit;
     private final SnapshotRepository snapshots;
     private final FunderQueries queries;
+    private final DisbursementRepository disbursements;
+    private final Duration expireAfter;
+
+    /** Workflow steps with nothing running: every other step means checks, a re-run or a payment is under way (AS-2.2). */
+    private static final Set<String> IDLE_STEPS = Set.of("WAITING_FOR_FUNDER", "DONE");
 
     public FunderService(@Value("${funding.env}") String env, JdbcClient jdbc, TransactionTemplate tx, WorkflowClient client,
-                         RulesConfig rules) {
+                         RulesConfig rules, @Value("${funding.workflow.expire-after}") Duration expireAfter) {
         this.env = env;
+        this.expireAfter = expireAfter;
+        this.disbursements = new DisbursementRepository(jdbc);
         this.tx = tx;
         this.client = client;
         this.rules = rules;
@@ -82,7 +94,41 @@ public class FunderService {
         m.put("vehicleVin", v.vehicleVin());
         m.put("assignedFunder", v.assignedFunder());
         m.put("submittedAt", v.submittedAt());
+        // Spec 002 T103 (AS-2.1, AS-2.2, AS-2.5; plan §5)
+        FundingState state = state(v.applicationVersionId());
+        String step = state == null ? null : state.step();
+        m.put("expiresAt", expiresAt(v));
+        m.put("workflowId", WorkflowIds.parent(env, v.applicationVersionId()));
+        m.put("workflowStep", step);
+        m.put("inProgress", step != null && !IDLE_STEPS.contains(step));
+        m.put("payment", payment(v.applicationVersionId(), step));
         return m;
+    }
+
+    /** AS-8.6: the workflow's own deadline. None before submission, and none once paid or rejected. */
+    private OffsetDateTime expiresAt(VersionRow v) {
+        if (v.submittedAt() == null || "FUNDED".equals(v.status()) || "REJECTED".equals(v.status())) {
+            return null;
+        }
+        return v.submittedAt().plus(expireAfter);
+    }
+
+    /** AS-2.1: not started, in flight, paid (reference and amount), failed, or outcome unknown (C-8). */
+    private Map<String, Object> payment(long versionId, String step) {
+        Map<String, Object> p = new LinkedHashMap<>();
+        Optional<DisbursementRepository.Disbursement> d = disbursements.find(versionId);
+        if (d.isEmpty()) {
+            p.put("state", "NOT_STARTED");
+            return p;
+        }
+        p.put("state", switch (d.get().status()) {
+            case "COMPLETED" -> "PAID";
+            case "FAILED" -> "FAILED";
+            default -> "DISBURSING".equals(step) ? "IN_FLIGHT" : "UNKNOWN";   // REQUESTED
+        });
+        p.put("reference", d.get().reference());
+        p.put("amount", d.get().amount());
+        return p;
     }
 
     public List<Map<String, Object>> versions(String loanApplicationId) {

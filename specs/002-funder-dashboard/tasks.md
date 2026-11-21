@@ -62,7 +62,18 @@ verified user. Roles are only looked up here; D2 enforces them.
   - The spike agent fetches a token for `funder-1` until T104 relays the signed-in user's.
   - **Still open:** the `aud` of a browser code-flow token (plan §10). It moves to T105, which
     builds the browser sign-in.
-- [ ] **T103** Overview additions: `expiresAt`, `inProgress`, `payment`, with Java tests. (`allowedActions` comes in D2, from `Permissions`.)
+- [x] **T103** Overview additions: `expiresAt`, `inProgress`, `payment`, with Java tests. (`allowedActions` comes in D2, from `Permissions`.)
+  **Notes (done 2026-11-21):**
+  - Also added `workflowId` (for the Temporal UI link, AS-2.5) and `workflowStep`. The exact rules are in plan §5.
+  - Four tests in `FunderApiTest`:
+    - `AS_2_1_overviewOfADraft`;
+    - `AS_2_1_overviewShowsExpiryWorkflowAndPayment`;
+    - `AS_2_2_inProgressWhileTheWorkflowIsBusy`;
+    - `AS_2_1_paymentStates`: all five states, and no deadline once paid.
+  - The overview runs one workflow query. With no run, for example after a Temporal dev-server
+    restart, `workflowStep` is `null` and `inProgress` is `false`.
+  - The funder contract describes these responses as plain maps, so `FunderOpenApiTest` doesn't
+    see the new fields.
 - [ ] **T104** Agent: the API client (relays the user's token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
 - [ ] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
 - [ ] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
