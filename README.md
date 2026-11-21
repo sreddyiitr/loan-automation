@@ -550,6 +550,8 @@ This project:
 - [`ui_summary.md`](ui_summary.md): the funder dashboard (spec 002, ADK + A2UI) at a glance:
   what it will do, what's built by code and what by the LLM, roles, the local model, and how to
   run spike D0.
+- [`oidc_auth0_authz_summary.md`](oidc_auth0_authz_summary.md): sign-in and permissions explained
+  simply: how the funder API knows who is calling (OIDC bearer tokens) and what they may do.
 - [`a2ui_overview.md`](a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
   surfaces, catalogs, the data model, bindings and the click round trip.
 - [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
