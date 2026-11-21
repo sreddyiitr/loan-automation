@@ -17,6 +17,13 @@ Auto loan funding validation: Java 21, Spring Boot, Temporal (`localhost:7233`),
   - A new external API needs a contract, a catalog covering every band and fault class (`minPerBand` ≥ 5), and an `apis` entry on its `RuleCatalog` rule.
 - **Local services (P-3).** Reuse the developer's running emulator, Postgres and WireMock containers (`scripts/emulator-env.sh`, `db-env.sh`, `wiremock-env.sh`), and start new ones only if none is reachable. Don't use LocalStack. Leave emulator telemetry at its default.
 
+## Every PR updates the summaries
+
+Before opening any PR, bring these up to date with what the PR changes (say "no change" in the PR body if one truly isn't affected):
+- `ui_summary.md`: funder dashboard capabilities, what is fixed vs dynamic, components, model, setup.
+- `implementation_summary.md`: what's built, tests and counts, decisions, known gaps.
+- `README.md`: how to run and use it, test counts.
+
 ## Commands
 
 `make run` · `make down` · `make seed-check` · `make seed-regenerate` · `make seed-submit-all` · `make test-unit` · `make test-functional` · `make test-functional-volume` · `make verify-emulator`
