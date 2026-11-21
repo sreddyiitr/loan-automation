@@ -271,7 +271,17 @@ doesn't wait for D2.
     no SSN; LA-1007's VINs are its failing check), and has the shape `summary_input` sends today.
     If that shape changes, the test says to rerun `make record-assistant`. The invalid-once,
     invalid-twice and unavailable cases stay scripted (T153, T154): the real model never failed.
-- [ ] **T156** Playwright: `AS_8_1_…` (replayed) and `AS_8_4_…` (no model: the overview still works).
+- [x] **T156** Playwright: `AS_8_1_…` (replayed) and `AS_8_4_…` (no model: the overview still works).
+  **Notes (done 2026-11-21):**
+  - `e2e/assistant.spec.ts`, 3 tests: `AS_8_1` on LA-1006 (the recorded summary as plain text,
+    the disclosure, no buttons in the panel, the overview untouched, and a second click rebuilds
+    one panel); `AS_8_1` on a finished deal (LA-1001, FUNDED); `AS_8_4` on LA-1002, which has no
+    recording (unavailable, and the overview and opening another deal still work).
+  - The shared helpers moved to `e2e/support.ts`. 13 Playwright tests, all passing twice in a row.
+  - **Caught on the way:** my first panel locator matched nothing, so "no buttons" passed
+    trivially. The test now first asserts it found exactly one panel.
+  - "Summarizing…" before the answer is checked on the agent over `message/stream`
+    (`test_assistant_panel.py`); a replayed answer arrives too fast for the browser to show it.
 - [ ] **T157** Measure the summary's p95 on the seeded deals against local Gemma (NFR-02, < 5 s),
   and write it in a2ui-notes §12b.
 

@@ -1,73 +1,16 @@
 import {readdirSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {expect, test, type Page} from '@playwright/test';
+import {expect, test} from '@playwright/test';
+import {api, openDeal, signInAs, takeAs, unassignedLa1006, watchErrors} from './support';
 
 // Spec 002 D1, the walking skeleton through the real stack: sign in on the OIDC provider's login
 // page (Authorization Code + PKCE), open a deal by loan id, see the overview the agent builds in code
 // (A2UI v1.0, no LLM) from the funder API with the user's own token, and Take the deal.
 // Test names trace to the acceptance scenarios (constitution P-1): AS_x_y_… is AS-x.y.
-// Needs `make dashboard` running (or make run with the seeds submitted, the agent, and the OIDC
-// provider with scripts/oidc-config.json). Playwright reuses its web app, or starts its own.
-const ISSUER = process.env.OIDC_ISSUER_URI ?? 'http://127.0.0.1:8090/funding';
-const FUNDER_API = process.env.FUNDER_API_URL ?? 'http://localhost:8080/api/v1';
+// Needs the funding API (seeds submitted) and the OIDC provider with scripts/oidc-config.json:
+// `make dashboard`. Playwright starts its own agent and web app (playwright.config.ts).
 const SCENARIOS = fileURLToPath(new URL('../../../test/data/scenarios', import.meta.url));
-
-/** A token without a browser, only to set up or read data straight through the funder API. */
-async function tokenFor(user: string): Promise<string> {
-  const res = await fetch(`${ISSUER}/token`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams({grant_type: 'client_credentials', client_id: user, client_secret: 'unused', scope: 'funding-api'}),
-  });
-  expect(res.ok, `token for ${user}`).toBeTruthy();
-  return (await res.json()).access_token as string;
-}
-
-async function api(user: string, path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(`${FUNDER_API}${path}`, {...init, headers: {...init.headers, Authorization: `Bearer ${await tokenFor(user)}`}});
-}
-
-/**
- * LA-1006's latest version, unassigned: a supervisor's unassign through the funder API (AS-2.4),
- * so every run starts from a deal nobody has taken, without adding versions. Returns the overview.
- */
-async function unassignedLa1006(): Promise<Record<string, any>> {
-  const overview = await (await api('supervisor-1', '/applications/LA-1006')).json();
-  const res = await api('supervisor-1', `/versions/${overview.applicationVersionId}/assignee`, {
-    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({funderId: null}),
-  });
-  expect(res.ok, `unassign LA-1006: ${res.status} ${await res.clone().text()}`).toBeTruthy();
-  return {...overview, assignedFunder: null};
-}
-
-/** Takes the deal straight through the funder API, as another user would from their own screen. */
-async function takeAs(user: string, versionId: number) {
-  const res = await api(user, `/versions/${versionId}/take`, {method: 'POST'});
-  expect(res.ok, `take as ${user}`).toBeTruthy();
-}
-
-/** AS-1.1: the real sign-in, on the provider's own login page. */
-async function signInAs(page: Page, user: string) {
-  await page.goto('/');
-  await page.getByRole('button', {name: 'Sign in'}).click();
-  await page.locator('input[name="username"]').fill(user);          // mock-oauth2-server's login form
-  await page.getByRole('button', {name: 'Sign-in'}).click();
-  await expect(page.getByTestId('user')).toHaveText(user);
-  expect(new URL(page.url()).pathname).toBe('/');                    // the callback cleaned the URL
-}
-
-async function openDeal(page: Page, loanId: string) {
-  await page.getByLabel('Loan id').fill(loanId);
-  await page.getByRole('button', {name: 'Open', exact: true}).click();
-}
-
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  page.on('pageerror', (e) => errors.push(e.message));
-  return errors;
-}
 
 /** Each seeded scenario's id and expected status, read from its intent (P-2), never copied here. */
 function seededScenarios(): {id: string; status: string}[] {
