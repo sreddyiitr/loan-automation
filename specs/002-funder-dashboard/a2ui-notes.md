@@ -248,6 +248,33 @@ Other catalogs exist in the repo: `catalogs/vegachart/v1` (charts), `catalogs/mc
 - **Also in the repo:** `conformance/` (core, e2e, agent formats, A2A and ADK extensions),
   `eval/` (LLM-output evals), `tools/composer`, and a CLI.
 
+## 12a. Evals and model choice (from `eval/README.md`, read 2026-11-20)
+
+- **Two-stage strict checks, then an optional LLM judge:**
+  - Stage 1: schema validation
+  - Stage 2: deterministic assertions
+  - Stage 3: an LLM judge (needs a Gemini key)
+
+  `--no-judge` grades on structure only.
+- **Datasets:** `core_v1_0.yaml`, `core_v0_9_1.yaml` and a multi-turn set. They're encrypted at
+  rest (transcrypt) to prevent contamination.
+- **Models:** any Inspect AI model name. Gemini (`google/`, the default; CI runs only Gemini, with
+  a quick check on `gemini-3.1-flash-lite`), **local Ollama** (`ollama/<model>`, no key; the README
+  example is `ollama/gemma4:e4b`), and any OpenAI-compatible server
+  (`openai-api/<provider>/<model>`, e.g. llama.cpp or LM Studio).
+- **Profiles:** `cloud`, `local` (`--max-samples 1`, longer time limit) and `offline` (local, no
+  judge).
+- **Strategies and formats:**
+  - **Output formats:** `direct_json` (raw A2UI JSON) or **`express`**, a compact inference
+    format, presumably easier for small models.
+  - **`subagent_tool`:** a specialist model call writes the payload.
+  - **`skill_mode`:** the A2UI prompt isn't put in the system message. The model loads catalog
+    "skills" through a tool, which saves prompt tokens.
+- **Self-repair:** `--max-validation-retries N` sends a failed payload back with the validation
+  error.
+- **For us:** the same harness can compare a free local model, Gemini's free tier and Claude Haiku
+  on *our* catalog before we choose.
+
 ## 13. ADK integration (`pip install a2ui-adk`, `"a2ui-adk[a2a]"` for A2A)
 
 - **`SendA2uiToClientToolset`:** an ADK toolset that lets the LLM send A2UI through a **tool
