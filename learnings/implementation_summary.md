@@ -4,14 +4,14 @@ What has been built for spec 001 (auto loan funding validation), and what is lef
 Status as of **2026-11-20**: all six slices are done: **S1 (walking skeleton)**, **S2 (document rules)**,
 **S3 (income + mock catalog)**, **S4 (funder operations)**, **S5 (versioning)** and **S6 (breadth and
 hardening)**. Tasks and their deviations are in
-[`specs/001-loan-funding-validation/tasks.md`](specs/001-loan-funding-validation/tasks.md).
+[`specs/001-loan-funding-validation/tasks.md`](../specs/001-loan-funding-validation/tasks.md).
 
 | Item | Where |
 |---|---|
-| Principles | [`specs/constitution.md`](specs/constitution.md) (P-1 … P-5) |
-| Requirements | [`spec.md`](specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
-| Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
-| Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
+| Principles | [`specs/constitution.md`](../specs/constitution.md) (P-1 … P-5) |
+| Requirements | [`spec.md`](../specs/001-loan-funding-validation/spec.md) (user stories, acceptance scenarios `AS-x.y`) |
+| Design | [`plan.md`](../specs/001-loan-funding-validation/plan.md), [`data-model.md`](../specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](../specs/001-loan-funding-validation/seed-data.md) |
+| Task list and progress | [`tasks.md`](../specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
 | Spec 002 | **Spike D0 merged (PR #10); D1, the walking skeleton, merged (PR #11); D1b, Summarize, done** on `feat/002-d1b-summarize` (T151–T157): a read-only summary from the local model, as an ADK agent with its answers checked by code, streamed into its own panel, and replayed from recordings in the tests. D1 (T101–T108): the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; `make dashboard` starts it all with one command; and the Playwright tests are named for their acceptance scenarios. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
@@ -46,7 +46,7 @@ POST /api/v1/dev/applications/{id}/submit        (stands in for OCR finishing)
 Measured on the developer machine: submit → first validation result in **under 1 s** (AS-1.1
 allows 10 s). All **35** generated scenarios reach their expected status, check outcomes and stips; WireMock
 reports **0 unmatched requests**. The full table, generated from the intents, is in
-[`seed-data.md`](specs/001-loan-funding-validation/seed-data.md#scenarios).
+[`seed-data.md`](../specs/001-loan-funding-validation/seed-data.md#scenarios).
 
 | Area | Scenarios | Result |
 |---|---|---|
@@ -594,5 +594,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, role enforcement (D2), the assistant's suggest and draft stip (D8). A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, role enforcement (D2), the assistant's suggest and draft stip (D8). A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

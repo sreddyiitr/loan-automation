@@ -7,7 +7,7 @@
 | **Builds on** | Spec 001: the funder API ([`contracts/funder-api.openapi.yaml`](../../contracts/funder-api.openapi.yaml)), its status machine (spec 001 §6) and its seeded scenarios |
 | **Scope** | A funder dashboard: an A2UI v1.0 web client, a Python ADK agent service, a custom component catalog, the funder-API additions the UI needs, a local LLM assistant, and a one-command developer setup |
 | **Out of scope** | Editing extracted values, uploading documents, messaging dealers, bulk actions, real single sign-on (a local OIDC provider stands in), document storage and the PDF page viewer (a later spec), AWS deployment |
-| **Reference** | [`a2ui-notes.md`](a2ui-notes.md) (the protocol and ADK, read 2026-11-20), [`ui_summary.md`](../../ui_summary.md) |
+| **Reference** | [`a2ui-notes.md`](a2ui-notes.md) (the protocol and ADK, read 2026-11-20), [`learnings/ui_summary.md`](../../learnings/ui_summary.md) |
 
 ---
 
@@ -235,7 +235,7 @@ the expected result, for reference:
 | D-5 | Field views first; the PDF page viewer waits for a document-storage decision. |
 | D-6 | Local OIDC first (a mock provider in Docker); real single sign-on later, as configuration (FR-09). Replaces the earlier HMAC dev-token design (owner, 2026-11-21). |
 | D-7 | **No paid LLM.** Local Gemma (`gemma4:e4b`) through Ollama is the default, and **the model stays swappable through configuration** (FR-07). |
-| D-8 | Every PR updates `ui_summary.md`, `implementation_summary.md` and `README.md`. |
+| D-8 | Every PR updates `learnings/ui_summary.md`, `learnings/implementation_summary.md` and `README.md`. |
 | D-9 | Worklist filters include **stip type** and **hold reason** as well as status, dealer and days to expiry. |
 | D-10 | Three roles: **funder**, **income specialist** ("speciality funder", for verifying income) and **supervisor**, enforced by the funder API, with the permissions in AS-11.2 (confirmed 2026-11-21). A funder sends income work to the income queue and can't approve while it's pending. |
 | D-11 | **Income work is done by income specialists or supervisors, never funders.** Supervisors can do everything (owner, 2026-11-21). |

@@ -2,7 +2,7 @@
 
 Ordered work for [`spec.md`](spec.md) and [`plan.md`](plan.md). Each slice is a PR. The spec 001
 suites (`make test-unit`, `make test-functional`) stay green in every slice, and every PR updates
-`ui_summary.md`, `implementation_summary.md` and `README.md` (D-8). Test names follow `AS_x_y_…`.
+`learnings/ui_summary.md`, `learnings/implementation_summary.md` and `README.md` (D-8). Test names follow `AS_x_y_…`.
 
 ## D0: Spike (2–3 days, a throwaway branch)
 

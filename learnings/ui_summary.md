@@ -2,8 +2,8 @@
 
 A dashboard where funders (underwriters) handle the loans the automation couldn't fund on its own.
 It is built on the spec 001 funder API and uses **A2UI** for the UI and **ADK** for the agent.
-Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) and
-[`a2ui-notes.md`](specs/002-funder-dashboard/a2ui-notes.md).
+Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md) and
+[`a2ui-notes.md`](../specs/002-funder-dashboard/a2ui-notes.md).
 
 ## Status (2026-11-21)
 

@@ -25,17 +25,17 @@ assistant. You need no AWS account, no paid AI service, and pay nothing.
 The project is **spec-driven**: read [`specs/constitution.md`](specs/constitution.md) first, then
 [`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/) and
 [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/). What's built so far is in
-[`implementation_summary.md`](implementation_summary.md), and the dashboard is summarized in
-[`ui_summary.md`](ui_summary.md).
+[`learnings/implementation_summary.md`](learnings/implementation_summary.md), and the dashboard is summarized in
+[`learnings/ui_summary.md`](learnings/ui_summary.md).
 
 ## Architecture
 
-![How funding-automation fits together today: the funder's browser (React + A2UI) talks A2A to a Python agent, which builds screens in code, runs Summarize through ADK on local Gemma, and calls the Java funding app's funder API with the user's token; the funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all on one laptop](screenshots/Architecture.svg)
+![How funding-automation fits together today: the funder's browser (React + A2UI) talks A2A to a Python agent, which builds screens in code, runs Summarize through ADK on local Gemma, and calls the Java funding app's funder API with the user's token; the funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all on one laptop](Architecture.svg)
 
 Top to bottom: the **browser** draws A2UI screens and signs in with OIDC. The **agent** builds
 every screen in code, and only "Summarize" calls the local model, through ADK. The **funding app**
 (spec 001) is the only thing that writes, and runs each deal as a Temporal workflow. Everything
-under it runs locally. A PNG copy for slides or posts: [`screenshots/Architecture.png`](screenshots/Architecture.png).
+under it runs locally. A PNG copy for slides or posts: [`Architecture.png`](Architecture.png).
 The SVG is the source; edit it, then re-render the PNG.
 
 ## What it does today
@@ -556,7 +556,7 @@ Then, at http://localhost:5173:
 
 The browser tests start their own agent (replaying recorded answers) and web app, so they always
 test the current code; they need `make dashboard`'s funding API and sign-in. More, including how
-the assistant works, in [`ui_summary.md`](ui_summary.md).
+the assistant works, in [`learnings/ui_summary.md`](learnings/ui_summary.md).
 
 ### Step 12: Stop everything
 
@@ -635,17 +635,17 @@ the assistant works, in [`ui_summary.md`](ui_summary.md).
 
 This project:
 
-- [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
-- [`ui_summary.md`](ui_summary.md): the funder dashboard (spec 002, A2UI + ADK) at a glance:
+- [`learnings/implementation_summary.md`](learnings/implementation_summary.md): what's built, by module, and what's next.
+- [`learnings/ui_summary.md`](learnings/ui_summary.md): the funder dashboard (spec 002, A2UI + ADK) at a glance:
   what's built and what's next, what's built by code and what by the LLM, roles, the local model,
   how to run it and its tests.
 - [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/): `spec.md`, `plan.md`, `tasks.md`
   (with notes on every task), and `a2ui-notes.md` (what we learned about A2UI, ADK and local Gemma).
-- [`oidc_authn_authz_summary.md`](oidc_authn_authz_summary.md): sign-in and permissions explained
+- [`learnings/oidc_authn_authz_summary.md`](learnings/oidc_authn_authz_summary.md): sign-in and permissions explained
   simply: how the funder API knows who is calling (OIDC bearer tokens) and what they may do.
-- [`a2ui_overview.md`](a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
+- [`learnings/a2ui_overview.md`](learnings/a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
   surfaces, catalogs, the data model, bindings and the click round trip.
-- [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
+- [`learnings/workflows_summary.md`](learnings/workflows_summary.md): one loan followed through the Temporal UI, with
   screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
   rule-derived seed data and mocks, local-first, determinism).

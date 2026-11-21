@@ -20,8 +20,8 @@ Auto loan funding validation: Java 21, Spring Boot, Temporal (`localhost:7233`),
 ## Every PR updates the summaries
 
 Before opening any PR, bring these up to date with what the PR changes (say "no change" in the PR body if one truly isn't affected):
-- `ui_summary.md`: funder dashboard capabilities, what is fixed vs dynamic, components, model, setup.
-- `implementation_summary.md`: what's built, tests and counts, decisions, known gaps.
+- `learnings/ui_summary.md`: funder dashboard capabilities, what is fixed vs dynamic, components, model, setup.
+- `learnings/implementation_summary.md`: what's built, tests and counts, decisions, known gaps.
 - `README.md`: how to run and use it, test counts.
 
 ## Commands
@@ -30,4 +30,4 @@ Before opening any PR, bring these up to date with what the PR changes (say "no 
 
 - `make test-unit` needs only Docker (Testcontainers `postgres:18`). `make test-functional` sources the env scripts and runs the `*IT` tests against the shared emulator, Postgres, WireMock and Temporal, isolated as `FUNDING_ENV=it-<runId>`.
 - `scripts/*-env.sh` are sourced from both bash and zsh (macOS default), so keep them free of arrays and of reliance on word splitting.
-- Progress: `specs/001-loan-funding-validation/tasks.md` (S1–S6 done). Summary: `implementation_summary.md`.
+- Progress: `specs/001-loan-funding-validation/tasks.md` (S1–S6 done). Summary: `learnings/implementation_summary.md`.

@@ -54,7 +54,7 @@ The source starts at one application; a funder starts at *"what needs me?"*.
 | 2.4 | **Days left before expiry** (the clock starts at first submission and never resets, C-11) | 🟡 | Add `expiresAt` to the overview |
 | 2.5 | **"Being processed" state:** checks running, re-run in progress, payment in flight. The UI disables actions that would get 409 `DISBURSEMENT_IN_PROGRESS` | 🟡 | The workflow knows (`getState().step`), but only the trigger API exposes it, behind its key. Add a `processing` field to the overview |
 | 2.6 | **Payment state:** not started, paid (with reference and amount), failed (C-8), outcome unknown | 🟡 | The `disbursements` row exists; no funder read. Add it to the overview |
-| 2.7 | Link to the run in the Temporal UI (the workflow ID is deterministic) for engineers and auditors | ✅ | `funding-<env>-<versionId>`; see [`workflows_summary.md`](../../workflows_summary.md) |
+| 2.7 | Link to the run in the Temporal UI (the workflow ID is deterministic) for engineers and auditors | ✅ | `funding-<env>-<versionId>`; see [`learnings/workflows_summary.md`](../../learnings/workflows_summary.md) |
 
 ## 3. Work the stipulations (source Tab 2: Stips and exception queue)
 
