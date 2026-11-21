@@ -13,6 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
+| Spec 002 | **Spike D0 done (2026-11-21)** on `feat/002-d0-spike`: a skeleton in `dashboard/` (see "Spec 002: funder dashboard, spike D0" below and [`ui_summary.md`](ui_summary.md)) |
 
 ---
 
@@ -339,6 +340,19 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 
 ---
 
+### Spec 002: funder dashboard, spike D0 (`dashboard/`)
+
+- **`dashboard/agent`** (Python 3.12, `uv`): an A2A server (`a2a-sdk` 0.3.26) whose own
+  `AgentExecutor` routes in code, with no LLM and no ADK. A text request (`open LA-1006`) returns
+  an A2UI v1.0 overview surface built from `GET /applications/{id}` and its stips. The `deal.take`
+  action calls `PUT /versions/{id}/assignee` and returns a data-model update from a re-read.
+- **`dashboard/web`** (React 19, Vite, `@a2ui/react` 0.15.0): renders v1.0 surfaces with our
+  catalog, which extends the Basic Catalog with a custom `DataTable`. It talks plain A2A JSON-RPC
+  through a Vite proxy (`/agent` → port 8091) and shows the actions it sent, for the test.
+- **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
+  catalog per surface; versions pinned. Recorded in `specs/002-funder-dashboard/plan.md`, with the
+  details and pitfalls in `a2ui-notes.md` §12d.
+
 ## 3. Tests
 
 | Suite | Runs against | Tests | Result |
@@ -353,7 +367,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal | 67 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-**Total: 396 tests** (328 unit, 1 of them skipped, 67 functional and 1 volume). Test names trace to the
+| **Spec 002 spike** `dashboard/web/e2e/spike.spec.ts` (Playwright) | the agent, the running app (`make run`, LA-1006 submitted), Chromium | 1 | ✅ |
+
+**Total: 396 tests** for spec 001 (328 unit, 1 of them skipped, 67 functional and 1 volume). Spec 002's spike adds 1 Playwright test. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -503,4 +519,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`); not built yet. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Only spike D0 is built (one overview screen, one action, a hard-coded funder); D1 onwards (sign-in and roles, worklist, tabs, assistant) is not. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spike shortcuts | The agent's funder API URL and funder ID are constants in `main.py`; `httpx` is used directly but only arrives through `a2a-sdk`; the web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). All for D1/D2. |
