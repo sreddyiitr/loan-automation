@@ -261,7 +261,7 @@ Versioning intents (S5) use three top-level keys besides `given`:
 |---|---|---|
 | LA-1006 STIPULATED | Waive `STIP_PRICE_MISMATCH` with a reason | Stip WAIVED, `resolved_at` set → workflow continues → FUNDED; audit row written |
 | LA-1012 STIPULATED | Mark the income stip SATISFIED | → FUNDED |
-| LA-1027 STIPULATED | Resolve the VIN and income stips | Stays STIPULATED: the 3rd (TILA) stip is RISC-bound and resolves only via a corrected RISC version (C-15). A corrected RISC re-runs every check, and the still-failing VIN and income checks raise their stips again (C-23, awaiting confirmation) |
+| LA-1027 STIPULATED | Resolve the VIN and income stips | Stays STIPULATED: the 3rd (TILA) stip is RISC-bound and resolves only via a corrected RISC version (C-15). A corrected RISC re-runs every check, and the still-failing VIN and income checks raise their stips again (C-23, confirmed) |
 | LA-1016 held (ERROR) | `MockControl.switchIntent(LA-1016, income, ok-100k)`, then `rerunChecks({INCOME})` | INCOME PASS (attempt 2) → FUNDED |
 | LA-1006 STIPULATED | Manual approve while the price stip is PENDING | 409 `PENDING_STIPS` (AS-8.7) |
 | LA-1016 held (ERROR) | Manual approve (no PENDING stips) | APPROVED → FUNDED (AS-8.7 override) |

@@ -286,8 +286,12 @@ public final class MockStubGenerator {
                 Map.of("magnitude", amount));
     }
 
+    /** First loan id of the disbursement catalog entries (T603: the volume seed's LA-6xxx applications). */
+    public static final int DISBURSEMENT_CATALOG_FIRST_LOAN = 6001;
+
     private List<MockStub> catalogDisbursement(MockCatalog c) {
         List<MockStub> out = new ArrayList<>();
+        int n = DISBURSEMENT_CATALOG_FIRST_LOAN;
         for (Map.Entry<String, MockCatalog.ClassSpec> e : c.classes().entrySet()) {
             String cls = e.getKey();
             List<Integer> ks = "retryBudget".equals(e.getValue().k())
@@ -295,18 +299,23 @@ public final class MockStubGenerator {
             for (String amount : c.magnitudes()) {
                 for (Integer k : ks) {
                     String id = "DISBURSEMENT/catalog/" + cls + "/" + amount + (k == null ? "" : "/k" + k);
-                    String key = "catalog-" + env + "-" + slug(id);
+                    // Matched like a scenario stub: the app's own key (its workflow ID) plus a per-entry
+                    // loanApplicationId (LA-6001… in catalog order), so the real client can reach every entry
+                    // (T601) and the volume seed's LA-6xxx application for it pays through it (T603).
+                    String loanId = "LA-" + (n++);
+                    String keyPattern = "funding-" + env + "-[0-9]+";
                     List<Interaction> calls = k == null
                             ? disbursementInteractions(cls, reference(id))
                             : retryThenOk(k, json(201, disbursementBody(reference(id))));
                     out.add(new MockStub(id, ExternalApi.DISBURSEMENT, "catalog", cls,
-                            "Idempotency-Key=" + key.replace(env, "{env}"), "POST", DISBURSEMENT_PATH,
-                            new MockStub.RequestMatch(Map.of("Idempotency-Key", key), Map.of(), Map.of("amount", amount)),
-                            Map.of("Idempotency-Key", key),
-                            disbursementRequest(1, "CAT-" + slug(id), "DLR-100", amount),
+                            "Idempotency-Key~funding-{env}-[0-9]+ loanApplicationId=" + loanId, "POST", DISBURSEMENT_PATH,
+                            new MockStub.RequestMatch(Map.of(), Map.of("Idempotency-Key", keyPattern),
+                                    Map.of("loanApplicationId", loanId, "amount", amount)),
+                            Map.of("Idempotency-Key", "funding-" + env + "-1"),
+                            disbursementRequest(1, loanId, "DLR-100", amount),
                             calls, e.getValue().expect(), e.getValue().violatesContract(),
-                            k == null ? Map.of("magnitude", amount, "idempotencyKey", key)
-                                    : Map.of("magnitude", amount, "idempotencyKey", key, "k", Integer.toString(k))));
+                            k == null ? Map.of("magnitude", amount, "loanApplicationId", loanId)
+                                    : Map.of("magnitude", amount, "loanApplicationId", loanId, "k", Integer.toString(k))));
                 }
             }
         }

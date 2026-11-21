@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.funding.domain.income.IncomeApiResponse;
 import com.funding.domain.income.IncomeVerification;
 import com.funding.workflows.IncomeActivities;
-import com.funding.workflows.WorkflowIds;
 import io.temporal.failure.ApplicationFailure;
 import java.io.IOException;
 import java.net.URI;
@@ -15,7 +14,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -29,7 +27,6 @@ public class IncomeActivitiesImpl implements IncomeActivities {
     private static final Logger LOG = LoggerFactory.getLogger(IncomeActivitiesImpl.class);
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    private final String env;
     private final JdbcClient jdbc;
     private final HttpClient http;
     private final URI uri;
@@ -40,8 +37,7 @@ public class IncomeActivitiesImpl implements IncomeActivities {
      * @param timeout       per-call HTTP timeout (the activity's start-to-close)
      * @param maxRetryDelay cap for a server's {@code Retry-After} (the retry policy's maximum interval, C-13)
      */
-    public IncomeActivitiesImpl(String env, JdbcClient jdbc, String baseUrl, Duration timeout, Duration maxRetryDelay) {
-        this.env = env;
+    public IncomeActivitiesImpl(JdbcClient jdbc, String baseUrl, Duration timeout, Duration maxRetryDelay) {
         this.jdbc = jdbc;
         this.uri = URI.create(baseUrl.replaceAll("/+$", "") + PATH);
         this.timeout = timeout;
@@ -51,8 +47,6 @@ public class IncomeActivitiesImpl implements IncomeActivities {
 
     @Override
     public IncomeVerification verifyIncome(long versionId) {
-        MDC.put("applicationVersionId", Long.toString(versionId));
-        MDC.put("workflowId", WorkflowIds.parent(env, versionId));
         String token = jdbc.sql("SELECT ssn_itin_encrypted FROM application_versions WHERE application_version_id = ?")
                 .param(versionId).query(String.class).optional().orElse(null);
         if (token == null || token.isBlank()) {

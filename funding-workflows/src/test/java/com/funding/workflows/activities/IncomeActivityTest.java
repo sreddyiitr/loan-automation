@@ -92,7 +92,7 @@ class IncomeActivityTest {
     }
 
     private IncomeActivitiesImpl activity(Duration maxRetryDelay) {
-        return new IncomeActivitiesImpl(Fixtures.ENV, jdbc, wm.baseUrl(), BUDGET.startToClose(), maxRetryDelay);
+        return new IncomeActivitiesImpl(jdbc, wm.baseUrl(), BUDGET.startToClose(), maxRetryDelay);
     }
 
     /** Points this test's version at a generated catalog stub (by its token) and returns that token. */

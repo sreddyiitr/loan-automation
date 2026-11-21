@@ -40,6 +40,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-failsafe-plugin</artifactId>
+        <configuration>
+          <!-- T604: the volume run is its own target (make test-functional-volume, -Dit.test=FundingVolumeIT). -->
+          <excludes>
+            <exclude>**/*VolumeIT.java</exclude>
+          </excludes>
+        </configuration>
       </plugin>
     </plugins>
   </build>

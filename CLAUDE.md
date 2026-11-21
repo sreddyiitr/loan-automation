@@ -19,8 +19,8 @@ Auto loan funding validation: Java 21, Spring Boot, Temporal (`localhost:7233`),
 
 ## Commands
 
-`make run` · `make down` · `make seed-check` · `make seed-regenerate` · `make seed-submit-all` · `make test-unit` · `make test-functional` · `make test-functional-volume` (arrives in S6)
+`make run` · `make down` · `make seed-check` · `make seed-regenerate` · `make seed-submit-all` · `make test-unit` · `make test-functional` · `make test-functional-volume` · `make verify-emulator`
 
 - `make test-unit` needs only Docker (Testcontainers `postgres:18`). `make test-functional` sources the env scripts and runs the `*IT` tests against the shared emulator, Postgres, WireMock and Temporal, isolated as `FUNDING_ENV=it-<runId>`.
 - `scripts/*-env.sh` are sourced from both bash and zsh (macOS default), so keep them free of arrays and of reliance on word splitting.
-- Progress: `specs/001-loan-funding-validation/tasks.md` (S1–S5 done). Summary: `implementation_summary.md`.
+- Progress: `specs/001-loan-funding-validation/tasks.md` (S1–S6 done). Summary: `implementation_summary.md`.

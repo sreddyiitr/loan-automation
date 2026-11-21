@@ -15,8 +15,6 @@ server:
 
 funding:
   env: ${FUNDING_ENV:local}
-  # Children the parent fans out to; only checks with a rule run (tasks.md: removed in T606).
-  checks.enabled: TILA,PRICE,VIN,INCOME,GAP
   temporal:
     target: ${TEMPORAL_ADDRESS:localhost:7233}
     namespace: ${TEMPORAL_NAMESPACE:default}
@@ -41,11 +39,16 @@ funding:
   income.base-url: ${FUNDING_INCOME_BASE_URL:http://127.0.0.1:8089}
   bootstrap-infra: false
   seed-data: false
+  # T603: also seed one application per mock catalog entry (LA-5xxx income, LA-6xxx disbursement).
+  # Takes effect only where seeding runs (the local profile, behind funding.seed-data).
+  seed.volume: ${FUNDING_SEED_VOLUME:false}
   mocks.load: false
 
 ---
 spring.config.activate.on-profile: local
 spring.flyway.locations: classpath:db/migration,classpath:db/local
+# T607: Spring and Temporal SDK metrics at /actuator/metrics, locally only (aws keeps health only).
+management.endpoints.web.exposure.include: health,info,metrics
 funding:
   bootstrap-infra: true
   seed-data: true

@@ -32,7 +32,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -79,9 +78,9 @@ class SsnNeverLeaksTest {
 
         env = TestWorkflowEnvironment.newInstance();
         Workers.register(env.getWorkerFactory(), QUEUES,
-                new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, EnumSet.allOf(Check.class), Duration.ofDays(30)),
+                new FundingActivitiesImpl(Fixtures.ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30)),
                 new DisbursementActivitiesImpl(Fixtures.ENV, jdbc, tx, wm.baseUrl(), OPTIONS.externalStartToClose()),
-                new IncomeActivitiesImpl(Fixtures.ENV, jdbc, wm.baseUrl(), OPTIONS.externalStartToClose(), OPTIONS.maximumInterval()),
+                new IncomeActivitiesImpl(jdbc, wm.baseUrl(), OPTIONS.externalStartToClose(), OPTIONS.maximumInterval()),
                 OPTIONS);
         env.start();
     }

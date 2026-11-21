@@ -42,12 +42,15 @@ public class MockStubLoader implements ApplicationRunner {
     private final SeedGates gates;
     private final SeedConfig config;
     private final String wiremockUrl;
+    private final boolean volume;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
-    public MockStubLoader(SeedGates gates, SeedConfig config, @Value("${funding.disbursement.base-url}") String wiremockUrl) {
+    public MockStubLoader(SeedGates gates, SeedConfig config, @Value("${funding.disbursement.base-url}") String wiremockUrl,
+                          @Value("${funding.seed.volume:false}") boolean volume) {
         this.gates = gates;
         this.config = config;
         this.wiremockUrl = wiremockUrl.replaceAll("/+$", "");
+        this.volume = volume;
     }
 
     @Override
@@ -59,7 +62,11 @@ public class MockStubLoader implements ApplicationRunner {
         SeedPaths paths = SeedPaths.discover();
         var catalogs = MockSet.catalogs(paths);
         MockBudget budget = MockBudget.from(config);
-        List<MockStub> stubs = MockSet.generate(config.env(), budget, config.rules().incomeVarianceThreshold(), gates.generate().fixtures(), catalogs);
+        List<MockStub> stubs = new java.util.ArrayList<>(
+                MockSet.generate(config.env(), budget, config.rules().incomeVarianceThreshold(), gates.generate().fixtures(), catalogs));
+        if (volume) { // T603: the volume applications' generated stubs for the API their catalog entry doesn't cover
+            stubs.addAll(com.funding.seed.VolumeSet.companionStubs(new com.funding.seed.VolumeSet(config, paths).cases()));
+        }
         GateResult contract = MockGates.contract(stubs, catalogs, paths.contracts());
         if (!contract.passed()) {
             throw new IllegalStateException("refusing to load WireMock stubs: contract gate failed\n" + String.join("\n", contract.failures()));

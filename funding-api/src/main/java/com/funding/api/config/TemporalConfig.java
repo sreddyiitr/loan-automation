@@ -23,9 +23,19 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration
 public class TemporalConfig {
 
+    /**
+     * T607: the Temporal SDK's client and worker metrics (requests, latencies, task slots, poll
+     * results, workflow and activity outcomes) go to the app's Micrometer registry, next to Spring's
+     * own; {@code /actuator/metrics} shows them under {@code local}.
+     */
     @Bean(destroyMethod = "shutdown")
-    public WorkflowServiceStubs workflowServiceStubs(@Value("${funding.temporal.target}") String target) {
-        return WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder().setTarget(target).build());
+    public WorkflowServiceStubs workflowServiceStubs(@Value("${funding.temporal.target}") String target,
+                                                     io.micrometer.core.instrument.MeterRegistry registry) {
+        com.uber.m3.tally.Scope metrics = new com.uber.m3.tally.RootScopeBuilder()
+                .reporter(new io.temporal.common.reporter.MicrometerClientStatsReporter(registry))
+                .reportEvery(com.uber.m3.util.Duration.ofSeconds(10));
+        return WorkflowServiceStubs.newServiceStubs(WorkflowServiceStubsOptions.newBuilder().setTarget(target)
+                .setMetricsScope(metrics).build());
     }
 
     @Bean
@@ -35,9 +45,9 @@ public class TemporalConfig {
 
     @Bean
     public FundingActivitiesImpl fundingActivities(@Value("${funding.env}") String env, JdbcClient jdbc, TransactionTemplate tx,
-                                                   RulesConfig rules, CoreConfig.EnabledChecks enabled,
+                                                   RulesConfig rules,
                                                    @Value("${funding.workflow.expire-after}") java.time.Duration expireAfter) {
-        return new FundingActivitiesImpl(env, jdbc, tx, () -> rules, enabled.checks(), expireAfter);
+        return new FundingActivitiesImpl(env, jdbc, tx, () -> rules, expireAfter);
     }
 
     @Bean
@@ -48,15 +58,15 @@ public class TemporalConfig {
     }
 
     @Bean
-    public IncomeActivitiesImpl incomeActivities(@Value("${funding.env}") String env, JdbcClient jdbc,
+    public IncomeActivitiesImpl incomeActivities(JdbcClient jdbc,
                                                  @Value("${funding.income.base-url}") String baseUrl, ActivityOptionsConfig options) {
-        return new IncomeActivitiesImpl(env, jdbc, baseUrl, options.externalStartToClose(), options.maximumInterval());
+        return new IncomeActivitiesImpl(jdbc, baseUrl, options.externalStartToClose(), options.maximumInterval());
     }
 
     @Bean
     public WorkerFactory workerFactory(WorkflowClient client, TaskQueues queues, FundingActivitiesImpl db,
                                        DisbursementActivitiesImpl disbursement, IncomeActivitiesImpl income, ActivityOptionsConfig options) {
-        WorkerFactory f = WorkerFactory.newInstance(client);
+        WorkerFactory f = WorkerFactory.newInstance(client, Workers.factoryOptions()); // NFR-05 log correlation
         Workers.register(f, queues, db, disbursement, income, options);
         return f;
     }

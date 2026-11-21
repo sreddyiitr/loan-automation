@@ -23,8 +23,9 @@ in [`implementation_summary.md`](implementation_summary.md).
 
 ## What it does today
 
-Slices **S1 (walking skeleton)**, **S2 (document rules)**, **S3 (income and mock catalog)**,
-**S4 (funder operations)** and **S5 (versioning)** of a bigger build are done. End to end:
+All six slices of spec 001 are done: **S1 (walking skeleton)**, **S2 (document rules)**, **S3
+(income and mock catalog)**, **S4 (funder operations)**, **S5 (versioning)** and **S6 (breadth and
+hardening)**. End to end:
 
 > **Check a deal and fund it.** Submit an application version. Five checks run **in parallel**:
 >
@@ -83,14 +84,20 @@ Behind that:
   someone changes a rule without updating the scenarios, the build fails (constitution P-2,
   P-5). See [step 11](#step-11-change-a-rule-and-watch-the-gates-stop-you).
 
-The volume test, the full replay suite and the worker-restart test arrive in S6
-([`tasks.md`](specs/001-loan-funding-validation/tasks.md)).
+**Hardened (S6).**
+- Every mock catalog entry runs through the real client: 186 income and 66 disbursement entries.
+- A volume run submits one application per catalog entry (252) at once. With healthy APIs, p95
+  validation time is **12.2 s** against the 30 s target.
+- A worker killed mid-run comes back and finishes every run the same way.
+- Every recorded workflow history must keep replaying.
+- Activity and relay log lines carry the loan, version and workflow IDs, and Temporal's metrics
+  appear at `/actuator/metrics`.
 
 ---
 
 ## How we know it works
 
-**384 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**396 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -98,15 +105,16 @@ scenario through the full trigger path.
 |---|---|---|---:|---|
 | Domain rules (incl. income, API classifier, status machine) | JUnit 5, AssertJ | nothing (pure Java) | 136 | ✅ all pass |
 | Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 38 | ✅ all pass |
-| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 34 | ✅ all pass |
+| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 37 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
-| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 61 | ✅ 60 pass, 1 skipped (the history recorder, on request only) |
+| Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
 | API (start API, funder API, dev endpoints, OpenAPI contract) | Spring MockMvc, Temporal test env | test Temporal + Postgres | 41 | ✅ all pass |
-| **Functional** (every scenario, all 186 income catalog stubs, 13 funder actions, 6 versioning cases) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 62 | ✅ all pass |
+| **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal** | 67 | ✅ all pass |
+| **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-<sub>Last full run: 2026-11-19, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-20, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -274,6 +282,8 @@ Leave this terminal running. Useful pages:
 
 - Swagger UI: http://localhost:8080/swagger-ui.html
 - Health: http://localhost:8080/actuator/health
+- Metrics (Spring and Temporal SDK, `local` only): http://localhost:8080/actuator/metrics;
+  the Temporal SDK's meters are the names starting with `temporal_`
 - Temporal UI: http://localhost:8233 (look for `funding-local-<versionId>`)
 
 ### Step 5: Submit the scenarios and watch them settle
@@ -401,7 +411,17 @@ container shared with another project is safe.
 make test-unit          # needs only Docker (Testcontainers postgres:18); includes the seed gates
 make seed-check         # the 8 data gates, writes nothing
 make test-functional    # needs Temporal + Docker; reuses your emulator, Postgres and WireMock
+make test-functional-volume   # 252 applications (one per mock catalog entry) at once; ~2 min; NFR-01 report
+make verify-emulator    # re-checks what the emulator can do (Lambda java21, Lambda -> host, RDS); see below
 ```
+
+- `make test-functional-volume` seeds one application per mock catalog entry, submits them all
+  through the real trigger path, and checks every status, stip and result. It writes
+  `funding-api/target/volume-report.md`, with p50 and p95 validation times.
+- `make verify-emulator` re-runs the checks that shaped the local setup: plan V-2, V-4 and the RDS
+  probe. It creates temporary `funding-verify-*` resources in your emulator, removes them, and
+  writes `target/verify-emulator.md` saying whether the local Lambda runner or `postgres:18` can
+  now be replaced. Run it after an emulator upgrade.
 
 `make test-functional` doesn't disturb your local data. Each run uses
 `FUNDING_ENV=it-<runId>`: its own database `funding_it_<runId>`, its own queues, task queues,

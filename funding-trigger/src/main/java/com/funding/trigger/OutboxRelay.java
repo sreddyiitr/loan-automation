@@ -36,14 +36,36 @@ public final class OutboxRelay {
         Integer n = tx.execute(s -> {
             int sent = 0;
             for (OutboxRepository.Event e : outbox.claimUnpublished(batchSize)) {
-                String messageId = sqs.sendMessage(SendMessageRequest.builder().queueUrl(queueUrl).messageBody(e.payload()).build()).messageId();
-                outbox.markPublished(e.eventId());
-                LOG.info("outbox event {} ({}) published as SQS message {}", e.eventId(), e.eventType(), messageId);
+                correlate(e); // NFR-05: the relay's log lines carry the application's ids
+                try {
+                    String messageId = sqs.sendMessage(SendMessageRequest.builder().queueUrl(queueUrl).messageBody(e.payload()).build()).messageId();
+                    outbox.markPublished(e.eventId());
+                    LOG.info("outbox event {} ({}) published as SQS message {}", e.eventId(), e.eventType(), messageId);
+                } finally {
+                    org.slf4j.MDC.remove("loanApplicationId");
+                    org.slf4j.MDC.remove("applicationVersionId");
+                }
                 sent++;
             }
             return sent;
         });
         return n == null ? 0 : n;
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    private static void correlate(OutboxRepository.Event e) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode p = JSON.readTree(e.payload());
+            if (p.hasNonNull("loan_application_id")) {
+                org.slf4j.MDC.put("loanApplicationId", p.get("loan_application_id").asText());
+            }
+            if (p.hasNonNull("application_version_id")) {
+                org.slf4j.MDC.put("applicationVersionId", p.get("application_version_id").asText());
+            }
+        } catch (java.io.IOException ignored) {
+            // an unreadable payload still gets published; the consumer acknowledges and logs it (plan: 400)
+        }
     }
 
     public int purge(int days) {

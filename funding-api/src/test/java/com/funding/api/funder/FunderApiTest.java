@@ -34,7 +34,6 @@ import io.temporal.testing.TestWorkflowEnvironment;
 import io.temporal.workflow.Workflow;
 import java.time.Duration;
 import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -105,8 +104,7 @@ class FunderApiTest {
         tx = new TransactionTemplate(new DataSourceTransactionManager(db.dataSource()));
         SeedConfig config = SeedConfig.fromDefaultsAndSystem(ENV);
         new SeedDataLoader(new SeedGates(SeedPaths.discover(), config, RuleFingerprints.fromClasspath()), config, jdbc, tx).load();
-        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults,
-                EnumSet.of(Check.TILA, Check.PRICE, Check.VIN, Check.GAP), Duration.ofDays(30));
+        activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, Duration.ofDays(30));
 
         FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults());
         mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler()).build();

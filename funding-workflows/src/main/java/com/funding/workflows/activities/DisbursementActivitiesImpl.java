@@ -124,6 +124,7 @@ public class DisbursementActivitiesImpl implements DisbursementActivities {
         VersionRow v;
         try {
             v = versions.lockLatest(versionId);
+            com.funding.workflows.MdcInterceptor.loanApplicationId(v.loanApplicationId()); // NFR-05
         } catch (SupersededException e) {
             LOG.info("version {} superseded; not disbursing", versionId);
             return null;
