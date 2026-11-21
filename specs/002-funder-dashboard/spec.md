@@ -210,7 +210,7 @@ the expected result, for reference:
 | ID | Requirement |
 |---|---|
 | NFR-01 | Locally, a deal's overview renders in under 1 s after opening (fixed surfaces, no LLM). |
-| NFR-02 | The assistant's summary answers in under 5 s at p95 on the default local model (thinking off). Fixed surfaces never wait for the assistant. |
+| NFR-02 | The assistant's summary answers within **15 s** on the default local model (thinking off), including a cold start; it shows "Summarizing…" meanwhile. Fixed surfaces never wait for the assistant. Speed isn't tuned further (owner, 2026-11-21: was 5 s at p95). |
 | NFR-03 | **$0 by default:** the default configuration uses only the local model; no paid service is needed to build, test or use the dashboard. |
 | NFR-04 | Accessibility: every interactive component has an `@accessibility` label; status and confidence are never shown by color alone. |
 | NFR-05 | Every fixed surface is checked against the A2UI v1.0 JSON schemas and our catalog in automated tests. |

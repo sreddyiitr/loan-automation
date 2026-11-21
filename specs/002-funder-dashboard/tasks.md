@@ -247,8 +247,8 @@ doesn't wait for D2.
     model means "unavailable" quickly, with no model call. A funder API refusal mid-way removes
     the panel and shows the notice. `models.yaml` is read on first use, so screens never need it.
   - **Live in the browser** (LA-1012, LA-1006, LA-1001): "Summarizing…" within 30 ms; the answer
-    in **1.3–1.8 s warm**, but **8.9 s cold**. Ollama unloads the model after 5 idle minutes. T157
-    measures both.
+    in **1.3–1.8 s warm**, but **8.9 s cold**. Ollama unloads the model after 5 idle minutes. Within
+    NFR-02's 15 s (T157).
   - Tests: 11 new (96 agent tests), 3 of them through the real A2A app over HTTP, including
     `message/stream` order; 10 Playwright still pass with actions on the stream.
 - [x] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
@@ -282,8 +282,10 @@ doesn't wait for D2.
     trivially. The test now first asserts it found exactly one panel.
   - "Summarizing…" before the answer is checked on the agent over `message/stream`
     (`test_assistant_panel.py`); a replayed answer arrives too fast for the browser to show it.
-- [ ] **T157** Measure the summary's p95 on the seeded deals against local Gemma (NFR-02, < 5 s),
-  and write it in a2ui-notes §12b.
+- [x] **T157** ~~Measure the summary's p95 against local Gemma (NFR-02, < 5 s).~~ **Dropped by the
+  owner (2026-11-21):** NFR-02 is now "within 15 s, including a cold start", and speed isn't tuned
+  further. Observed in T153–T155: **0.7–2.1 s warm**, **8.9 s cold** (Ollama unloads the model after
+  5 idle minutes), all within 15 s. No `keep_alive` tuning.
 
 ## D2: Roles and permissions
 
@@ -347,7 +349,7 @@ doesn't wait for D2.
 - [x] **T801** Moved to D1b as T152.
 - [ ] **T802** Suggest and draft stip (the summary is D1b's T153): prompts, schemas, validate and one retry, suggestion filtering against `allowedActions`.
 - [ ] **T803** Record and replay suggest and draft stip, on D1b's recorder (T155).
-- [ ] **T804** `make eval-assistant` (offline eval plus reference answers) and a measured p95 for NFR-02.
+- [ ] **T804** `make eval-assistant` (offline eval plus reference answers); suggestions within NFR-02's 15 s.
 
 ## D9: Generated view (learning)
 

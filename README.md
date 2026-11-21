@@ -116,7 +116,7 @@ scenario through the full trigger path.
 
 Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview, Take and
 `make dashboard`. Its
-Java tests are in the 411. Its **46 agent tests** and **10 Playwright tests** are counted
+Java tests are in the 411. Its **121 agent tests** and **13 Playwright tests** are counted
 separately; see "Try the funder dashboard" below.
 
 <sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
@@ -479,22 +479,29 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 You sign in on the OIDC provider's login page, open a deal by its loan id, and see its overview:
 days to expiry, payment status, version history, and a link to the workflow in the Temporal UI.
 An agent builds the screen in code (A2UI v1.0, no LLM) and React draws it. The agent calls the
-funder API with your own token, and **Take this deal** writes through it. You need Python 3.12
+funder API with your own token, and **Take this deal** writes through it. **Summarize** asks a
+local model (Gemma through Ollama, $0, nothing leaves the laptop) to explain where the deal stands,
+in a read-only panel. You need Python 3.12
 with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer, plus Temporal
 (step 2).
 
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 46 agent tests, no services needed
+make test-dashboard        # 121 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 10 browser tests, against the running make dashboard
+make test-dashboard-e2e    # 13 browser tests: their own agent and web app, make dashboard's API and sign-in
+make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
 ```
 
 `make dashboard` reuses each part that's already running (including an app from `make run`),
 starts the rest, and submits the seeded scenarios still in DRAFT. The first start builds the app
 and takes a few minutes; logs are in `target/dashboard/`. `Ctrl+C` stops only what it started.
 Ollama is optional: without it the preflight warns, and only the assistant is unavailable.
+With it (`brew install ollama && ollama serve && ollama pull gemma4:e4b`), Summarize answers in
+about 1–2 s, or up to ~10 s when the model has to load first. The model is set in
+`dashboard/agent/models.yaml`, not in code. The tests never need it: they replay answers recorded
+from it.
 
 Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
 `supervisor-1`), click **Sign-in**, then open `LA-1006`. If it's unassigned, **Take this deal**

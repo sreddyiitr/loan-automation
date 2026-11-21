@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T108 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; `make dashboard` starts it all with one command; and the Playwright tests are named for their acceptance scenarios. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10); D1, the walking skeleton, merged (PR #11); D1b, Summarize, done** on `feat/002-d1b-summarize` (T151–T157): a read-only summary from the local model, as an ADK agent with its answers checked by code, streamed into its own panel, and replayed from recordings in the tests. D1 (T101–T108): the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; `make dashboard` starts it all with one command; and the Playwright tests are named for their acceptance scenarios. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -370,6 +370,21 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   catalog, which extends the Basic Catalog with a custom `DataTable`. It talks plain A2A JSON-RPC
   through a Vite proxy (`/agent` → port 8091), sends the user's token (held in memory by
   `src/auth.ts`), and shows the actions it sent, for the test.
+- **The assistant** (`funder_agent/assistant`, D1b, D-14):
+  - `models.yaml` and `models.py`: the model registry (FR-07). Each feature names its model and
+    whether it thinks; each model has a LiteLLM string, a `health` URL and its `reasoning_effort`
+    levels. A test fails if a provider or model name appears in the agent's code.
+  - `summary.py`: `summary_input` gives the model only this deal, trimmed (facts, passed check
+    names, failing comparisons, stips; no names, ids or SSN; 120–220 tokens). `parse` strips the
+    fence and validates `{summary}`. `summarize` retries once in the same conversation.
+    `AdkConversation` runs an ADK `LlmAgent` on a fresh `InMemoryRunner` session per request.
+  - `service.py` checks the `health` URL first (AS-8.4); `replay.py` answers from recordings when
+    `ASSISTANT_REPLAY` is set; `record.py` is `make record-assistant`.
+  - `deal.summarize` streams the `deal_<versionId>_assistant` panel over A2A `message/stream`:
+    "Summarizing…" as a `working` update at once, the answer completes the task. Each update
+    rebuilds the panel (`deleteSurface` first), since a second `createSurface` is an integrity
+    error. The model's text is only data in a fixed Card of Texts.
+  - The web app sends every action over `message/stream` and applies each update as it arrives.
 - **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
   catalog per surface; versions pinned. Recorded in `specs/002-funder-dashboard/plan.md`, with the
   details and pitfalls in `a2ui-notes.md` §12d.
@@ -388,10 +403,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 46 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11` | `make dashboard` (the app with the seeds submitted, the agent, the OIDC provider with its config), Chromium | 10 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 121 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 13 | ✅ |
 
-**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 46 agent tests and 10 Playwright tests. Test names trace to the
+**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 121 agent tests and 13 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -449,6 +464,7 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | US-9 Versioning | AS-9.1–9.7 |
 | FR | FR-02 to FR-17 |
 | NFR | NFR-01 (volume p95 12.2 s with healthy APIs), NFR-02 (worker restart), NFR-03, 04, 06, 07 (replay suite), 08; NFR-05 for activities and the relay |
+| **Spec 002, D1b** | AS-8.1, 8.4, 8.5 (Summarize); FR-07, FR-08; NFR-02 (15 s, owner); AS-10.4, 10.5 for the assistant |
 | **Spec 002, D1** | AS-1.1, 1.5, 2.1, 2.3, 2.5, 2.6, 10.1–10.3 (2.2 in part: the in-progress note; disabling refused actions waits for D2) (10.3 without the waive, which is T304), 10.9; FR-11; NFR-04, NFR-05 |
 
 ---
@@ -479,6 +495,12 @@ Spec 002, D1 (T101–T102):
   `PUT …/assignee` also unassigns with `null` (AS-2.4). In the dashboard, Take sits behind a
   `Modal` confirmation. After it, the agent rebuilds the surface, because the controls changed
   and that's what closes the Modal.
+- **Summarize (D1b):** moved ahead of D2 because it's read-only (D-4's exception), on ADK for
+  learning (D-14). ADK and LiteLLM do pass "thinking off" to Ollama (`reasoning_effort: none`,
+  verified with a logging proxy). ADK's `output_schema` isn't used: it makes Ollama force JSON,
+  which local Gemma's MLX runner refuses with a 501. The instruction tells the model the funder
+  decides, so it explains without advising. NFR-02 relaxed to 15 s by the owner; observed 0.7–2.1
+  s warm, 8.9 s cold.
 - **Overview fields (T103):** `expiresAt` is `submittedAt` + `funding.workflow.expire-after`, the
   workflow's own deadline, computed from the DB so a worklist can use it too. `inProgress` and
   `workflowStep` come from the workflow query. `payment.state` is NOT_STARTED, IN_FLIGHT, PAID,
@@ -572,5 +594,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`. AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, role enforcement (D2), the assistant's suggest and draft stip (D8). A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |
