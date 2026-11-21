@@ -4,7 +4,7 @@ import {useEffect, useState, type FormEvent} from 'react';
 import {MessageProcessor} from '@a2ui/web_core/v1_0';
 import {basicCatalog} from '@a2ui/web_core/catalogs/basic/v1';
 import {A2uiSurface} from '@a2ui/react';
-import {sendToAgent} from './a2a';
+import {sendToAgent, streamToAgent} from './a2a';
 import {CALLBACK_PATH, completeSignIn, signIn, signOut, userId} from './auth';
 import {funderCatalog} from './catalog/funderCatalog';
 
@@ -55,14 +55,14 @@ export default function App() {
   const [error, setError] = useState<string>();
   const [processor] = useState(() => {
     const p: MessageProcessor = new MessageProcessor([basicCatalog, funderCatalog] as never, (action: unknown) => {
-      // A click: forward it to the agent as an A2UI v1.0 renderer_to_agent "action", apply its reply.
+      // A click: forward it to the agent as an A2UI v1.0 renderer_to_agent "action" over
+      // message/stream, and apply each reply as it arrives (the assistant's panel says
+      // "Summarizing…" before its answer; other actions reply once).
       setEvents((e) => [...e, JSON.stringify(action)]);
-      sendToAgent({version: '1.0', action: action as Message})
-        .then((reply) => {
-          const created = apply(p, reply);
-          if (created.length) setVisible((v) => [...new Set([...v, ...created])]);   // e.g. a refusal notice
-        })
-        .catch((err) => setError(String(err)));
+      streamToAgent({version: '1.0', action: action as Message}, (reply) => {
+        const created = apply(p, reply);
+        if (created.length) setVisible((v) => [...new Set([...v, ...created])]);   // e.g. a notice, the assistant panel
+      }).catch((err) => setError(String(err)));
     });
     return p;
   });

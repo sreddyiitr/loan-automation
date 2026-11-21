@@ -300,7 +300,18 @@ Other catalogs exist in the repo: `catalogs/vegachart/v1` (charts), `catalogs/mc
   against it.
 - **Request shape (Ollama native API):** `POST http://localhost:11434/api/chat` with `{model,
   messages, stream: false, think: false, options: {temperature: 0}}`. From ADK it's LiteLLM
-  `ollama_chat/gemma4:e4b`. It's still unverified whether LiteLLM passes `think: false` through.
+  `ollama_chat/gemma4:e4b`.
+- **Verified through ADK (2026-11-21, `google-adk` 2.15.0, `litellm` 1.110.2), with a logging
+  proxy between them and Ollama:**
+  - `LiteLlm("ollama_chat/gemma4:e4b", reasoning_effort="none")` sends `think: false`
+    (LA-1012: 2.8 s, against 6.1 s with no setting, where the field is absent and the model
+    thinks). `think=False` and `extra_body={"think": False}` send it too, but they're
+    Ollama-only; `reasoning_effort` is LiteLLM's portable setting, so the plan uses it.
+  - `LlmAgent(output_schema=…)` makes LiteLLM send `format: <schema>`: **HTTP 501** from the MLX
+    runner. So: JSON in the prompt, strip the fence (Gemma added one every time), validate in code.
+  - On real seeded deals (overview, stips and results; ~2,000 prompt tokens) every summary was
+    valid JSON and factually right, in 3.7–4.2 s warm with thinking off. It explains well but
+    advises badly (it said LA-1006's documents must be corrected; a funder can waive 1¢).
 
 ## 12c. Owner decision: no paid LLM (2026-11-21)
 
@@ -379,6 +390,9 @@ The types are declared against v0.9 models, so a few `as never` casts are needed
 assistant.
 
 **Pitfalls:**
+- **A second `createSurface` of the same id is an integrity error** (strict `a2ui-core`), even
+  when it's the same surface. To resend a surface, rebuild it: `deleteSurface` first, which is
+  accepted even for a surface the client hasn't got (T154).
 - **Strict validation, and one bad prop blanks the page.** For example, `Text.variant` allows
   only `caption | body` (no `h2`). Validate on the agent before sending (NFR-05), and give the web
   app an error boundary.

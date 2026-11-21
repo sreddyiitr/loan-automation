@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1001",
+  "status": "FUNDED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:40+00:00",
+  "seconds": 0.73,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1001\", \"version\": 1, \"status\": \"FUNDED\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": null, \"expiry\": \"\\u2014\", \"payment\": \"Paid: DSB-2CDD4A58, $28,450.00\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"INCOME\", \"PRICE\", \"TILA\", \"VIN\"], \"checksNotPassed\": [], \"openStips\": [], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "{\"summary\": \"This auto loan application, LA-1001, has been FUNDED. The stated annual income for the applicant was $96,000.00. The payment was completed with DSB-2CDD4A58 for $28,450.00.\"}"
+  ],
+  "summary": "This auto loan application, LA-1001, has been FUNDED. The stated annual income for the applicant was $96,000.00. The payment was completed with DSB-2CDD4A58 for $28,450.00."
+}

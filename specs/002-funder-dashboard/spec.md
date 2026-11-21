@@ -135,7 +135,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-7.2** Changes made by the system (`system:<workflowId>`) are labelled as automatic.
 
 ### US-8 Assistant (P3)
-- **AS-8.1** On a deal, **"Summarize"** shows a short plain-language explanation of why the deal isn't funded, based only on the deal's data.
+- **AS-8.1** On a deal, **"Summarize"** shows a short plain-language explanation of why the deal isn't funded, based only on the deal's data. On a finished deal (FUNDED, REJECTED, EXPIRED) it says how the deal ended. The summary is read-only: it offers no actions.
 - **AS-8.2** **"Suggest next step"** shows at most two suggestions, each with a reason and drawn only from the deal's allowed actions. A suggestion that isn't allowed is dropped by code. Choosing a suggestion **opens the normal action with its confirmation**; the assistant never performs an action.
 - **AS-8.3** **"Draft stip text"** proposes a description for a manual stip. The funder edits it before adding the stip.
 - **AS-8.4** When no model is available, the assistant shows "assistant unavailable" and everything else works. An answer that fails validation after one retry shows "couldn't produce an answer"; nothing invalid is shown.
@@ -210,7 +210,7 @@ the expected result, for reference:
 | ID | Requirement |
 |---|---|
 | NFR-01 | Locally, a deal's overview renders in under 1 s after opening (fixed surfaces, no LLM). |
-| NFR-02 | The assistant's summary answers in under 5 s at p95 on the default local model (thinking off). Fixed surfaces never wait for the assistant. |
+| NFR-02 | The assistant's summary answers within **15 s** on the default local model (thinking off), including a cold start; it shows "Summarizing…" meanwhile. Fixed surfaces never wait for the assistant. Speed isn't tuned further (owner, 2026-11-21: was 5 s at p95). |
 | NFR-03 | **$0 by default:** the default configuration uses only the local model; no paid service is needed to build, test or use the dashboard. |
 | NFR-04 | Accessibility: every interactive component has an `@accessibility` label; status and confidence are never shown by color alone. |
 | NFR-05 | Every fixed surface is checked against the A2UI v1.0 JSON schemas and our catalog in automated tests. |
@@ -231,7 +231,7 @@ the expected result, for reference:
 | D-1 | Fixed screens are built by code; the LLM is only an assistant. Writes go through the funder API after a click. |
 | D-2 | Agent in **Python** with ADK and `a2ui-adk` (the ADK integration is Python-only); the Java backend stays. |
 | D-3 | **React** renderer, unless the spike finds its v1.0 support incomplete (then Lit or Angular). Transport: A2A, as `a2ui-adk` supports. |
-| D-4 | Plain dashboard first; the assistant (US-8) and generated view (US-9) come last. |
+| D-4 | Plain dashboard first; the assistant (US-8) and generated view (US-9) come last. **Exception:** "Summarize" (AS-8.1, with AS-8.4 and AS-8.5) comes right after the walking skeleton, as slice D1b, to prove the model path early. It's read-only, so it needs no permissions (owner, 2026-11-21). |
 | D-5 | Field views first; the PDF page viewer waits for a document-storage decision. |
 | D-6 | Local OIDC first (a mock provider in Docker); real single sign-on later, as configuration (FR-09). Replaces the earlier HMAC dev-token design (owner, 2026-11-21). |
 | D-7 | **No paid LLM.** Local Gemma (`gemma4:e4b`) through Ollama is the default, and **the model stays swappable through configuration** (FR-07). |
@@ -241,5 +241,6 @@ the expected result, for reference:
 | D-11 | **Income work is done by income specialists or supervisors, never funders.** Supervisors can do everything (owner, 2026-11-21). |
 | D-12 | "Expiring soon" means 5 days or fewer to expiry (configurable). |
 | D-13 | The identity provider says **who** the user is (`sub`); the funder API decides **what they may do** (role from its user directory, permissions from AS-11.2). The local mock provider sends no role claim, so roles never depend on provider config. `X-Funder-Id` is removed, with no compatibility rule (owner, 2026-11-21). |
+| D-14 | The assistant runs as an **ADK `LlmAgent`** through LiteLLM, chosen for learning (owner, 2026-11-21). Our own `AgentExecutor` still routes; ADK runs only for assistant requests. Answers are checked by our code, not by ADK's `output_schema` (local Gemma refuses forced JSON, a2ui-notes §12b). |
 
 **Open (owner):** none.

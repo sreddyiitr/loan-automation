@@ -1,0 +1,16 @@
+{
+  "feature": "summary",
+  "loanApplicationId": "LA-1007",
+  "status": "STIPULATED",
+  "model": "ollama_chat/gemma4:e4b",
+  "thinking": false,
+  "recordedAt": "2026-11-21T23:07:35+00:00",
+  "seconds": 2.07,
+  "sent": [
+    "Reply with only a JSON object, nothing else: {\"summary\": \"<your 2-3 sentences>\"}\n\nDEAL DATA (JSON):\n{\"deal\": {\"loanApplicationId\": \"LA-1007\", \"version\": 1, \"status\": \"STIPULATED\", \"dealer\": \"Lone Star Motors\", \"statedAnnualIncome\": \"$96,000.00\", \"assignedFunder\": null, \"expiry\": \"29 days left (2026-12-21)\", \"payment\": \"Not started\", \"checksOrPaymentRunning\": false}, \"checksPassed\": [\"GAP\", \"INCOME\", \"PRICE\", \"TILA\"], \"checksNotPassed\": [{\"check\": \"VIN\", \"outcome\": \"FAIL\", \"attempt\": 1, \"failing\": [{\"name\": \"vin (RISC vs GAP_AGREEMENT)\", \"expected\": \"4T1C11AK7RU100101\", \"actual\": \"4T1C11AK7RU100102\"}]}], \"openStips\": [{\"code\": \"STIP_VIN_MISMATCH\", \"check\": \"VIN\", \"description\": \"VIN/vehicle mismatch: vin (RISC vs GAP_AGREEMENT) (expected 4T1C11AK7RU100101, actual 4T1C11AK7RU100102). Values: RISC=4T1C11AK7RU100101 2024 Toyota Camry; BUYERS_ORDER=4T1C11AK7RU100101 2024 Toyota Camry; GAP_AGREEMENT=4T1C11AK7RU100102 2024 Toyota Camry; application=4T1C11AK7RU100101\", \"status\": \"PENDING\"}], \"resolvedStips\": []}"
+  ],
+  "replies": [
+    "```json\n{\n  \"summary\": \"This deal, LA-1007, is in STIPULATED status with 29 days left until expiry. The VIN check failed because the RISC and GAP_AGREEMENT values did not match (expected 4T1C11AK7RU100101, actual 4T1C11AK7RU100102). The outstanding item is STIP_VIN_MISMATCH.\"\n}\n```"
+  ],
+  "summary": "This deal, LA-1007, is in STIPULATED status with 29 days left until expiry. The VIN check failed because the RISC and GAP_AGREEMENT values did not match (expected 4T1C11AK7RU100101, actual 4T1C11AK7RU100102). The outstanding item is STIP_VIN_MISMATCH."
+}

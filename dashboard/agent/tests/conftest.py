@@ -49,6 +49,8 @@ class FakeFunderApi:
     def __init__(self, overview: dict[str, Any] | None = None, refuse: tuple[int, str] | None = None):
         self.overview = dict(overview or OVERVIEW)
         self.refuse = refuse
+        self.stips: list[dict[str, Any]] = []
+        self.results: list[dict[str, Any]] = []
         self.requests: list[httpx.Request] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -61,6 +63,10 @@ class FakeFunderApi:
             return httpx.Response(200, json=self.overview)
         if request.method == "GET" and path.endswith("/versions"):
             return httpx.Response(200, json=VERSIONS)
+        if request.method == "GET" and path.endswith("/stipulations"):
+            return httpx.Response(200, json=self.stips)
+        if request.method == "GET" and path.endswith("/validation-results"):
+            return httpx.Response(200, json=self.results)
         if request.method == "POST" and path.endswith("/take"):
             me = json.loads(base64.urlsafe_b64decode(request.headers["Authorization"].split(".")[1] + "=="))["sub"]
             if self.overview["assignedFunder"] not in (None, me):

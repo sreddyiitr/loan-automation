@@ -177,6 +177,116 @@ verified user. Roles are only looked up here; D2 enforces them.
       the next run. T304 needs a way to start from STIPULATED again (a resubmit makes a new
       version) or its own deal.
 
+## D1b: Summarize this deal (the model path, read-only)
+
+**Proves:** browser → agent → ADK `LlmAgent` → local Gemma → JSON checked by code → a panel drawn
+by code, with no model needed for the tests. Moved up from D8 by D-4's exception; read-only, so it
+doesn't wait for D2.
+**Exit:** AS-8.1, AS-8.4, AS-8.5; FR-07, FR-08; NFR-02 for the summary; AS-10.4 and AS-10.5 for it.
+
+- [x] **T151** Spec first: AS-8.1 (finished deals, read-only), D-4's exception, D-14 (ADK), plan
+  §7, a2ui-notes §12b (`reasoning_effort="none"` verified; `output_schema` gets a 501).
+- [x] **T152** `models.yaml` and the model registry (FR-07; was T801): a `LiteLlm` per feature,
+  with `thinking` as a `reasoning_effort` level. Unit test: switching the model, or one feature's
+  model, is a YAML edit with no code change.
+  **Notes (done 2026-11-21):**
+  - `dashboard/agent/models.yaml` (or `ASSISTANT_MODELS`) and `funder_agent/assistant/models.py`.
+    `Registry.load().for_feature("summary").llm()` is the ADK `LiteLlm`, at temperature 0 so
+    recorded answers replay.
+  - **Pitfall:** the plan's `thinking: {off: none, on: medium}` loads as `{False: …, True: …}`
+    (YAML 1.1 booleans). The keys are `thinking_off` / `thinking_on`; a test pins it.
+  - Each model also names a `health` URL, so the AS-8.4 check stays out of code.
+  - A broken file is refused with the entry named (7 cases). A test fails if a provider or model
+    name appears in `funder_agent/**/*.py`.
+  - `google-adk` 2.15.0 and `litellm` 1.110.2 added (pinned in `uv.lock`). Tests: 16 new, 62 agent
+    tests in all.
+- [x] **T153** The summary (was part of T802), in `funder_agent/assistant/`:
+  - the prompt gets the overview, the open stips and the checks that didn't pass, as data;
+  - an ADK `LlmAgent` on a throwaway session, thinking off;
+  - strip the fence, validate `{summary}` (a non-empty string, a length cap), one retry that
+    passes back the error (FR-08).
+  **Notes (done 2026-11-21):**
+  - `funder_agent/assistant/summary.py`: `summary_input` (what the model sees), `parse` (the
+    check), `summarize` (one retry in the same conversation, so the data isn't sent twice) and
+    `AdkConversation` (an ADK `LlmAgent` and `InMemoryRunner`, one session per request).
+  - **The input is trimmed:** the deal's facts (income, expiry and payment formatted as the
+    overview shows them), the names of the checks that passed, and only the failing comparisons
+    of the current checks that didn't. Open and resolved stips are included. Names, VINs, ids and
+    document ids are left out. Prompts dropped from ~2,000 tokens to **120–220**.
+  - **Live, against local Gemma** (5 seeded deals, thinking off): all valid on the first try, in
+    **0.8–1.4 s warm** (2.9 s cold). The summaries are factual, and no longer recommend actions:
+    the instruction says the funder decides, which fixes the "documents must be corrected" advice
+    (a2ui-notes §12b).
+  - The instruction has no braces, because ADK reads `{name}` in an instruction as session state;
+    the JSON format goes in the message instead. Hidden thinking parts aren't part of the reply.
+  - Any model error (connection refused, 5xx, the 501) becomes "unavailable", with no retry.
+  - The client gains `stipulations()` and `validation_results()`. LiteLLM's per-call "Provider
+    List" banner is silenced.
+  - Tests: 23 new (85 agent tests), 4 of them through a real ADK runner with a scripted model.
+- [x] **T154** The `deal_<versionId>_assistant` surface: a **Summarize** button on the overview,
+  and a panel drawn by code. It shows "Summarizing…", then the summary, "assistant unavailable"
+  (Ollama's `/api/tags` fails, AS-8.4) or "couldn't produce an answer" (invalid twice). The
+  overview never waits for it (NFR-02).
+  **Notes (done 2026-11-21):**
+  - **Streaming.** A2UI v1.0 has no local "set this text" action, so "Summarizing…" comes from
+    the agent: `deal.summarize` replies over A2A `message/stream` as task status updates.
+    "Summarizing…" goes out at once as a `working` update, and the panel with the answer completes
+    the task. The agent card now says `streaming: true`, and the browser sends every action over
+    `message/stream` (`streamToAgent`, applying each update as it arrives). A one-reply action,
+    like Take, is one event. A plain `message/send` caller gets the final panel as the task's
+    status message.
+  - **Each update is the whole panel, rebuilt** (`deleteSurface`, then create, components and
+    data). The strict validator refused a second `createSurface` of the same id. The browser
+    skips duplicates, but a stricter renderer wouldn't, so the agent was fixed. Deleting a
+    surface the browser hasn't got is accepted.
+  - **The model's text is only data** in a fixed Card of Texts, shown as plain text. A test
+    feeds it text shaped like a component with an action and checks it never reaches the layout
+    (D-1). A disclosure under the answer says it was written by the assistant from this deal's
+    data only.
+  - `SummaryService` checks the model's `health` URL (1.5 s timeout) before calling it, so no
+    model means "unavailable" quickly, with no model call. A funder API refusal mid-way removes
+    the panel and shows the notice. `models.yaml` is read on first use, so screens never need it.
+  - **Live in the browser** (LA-1012, LA-1006, LA-1001): "Summarizing…" within 30 ms; the answer
+    in **1.3–1.8 s warm**, but **8.9 s cold**. Ollama unloads the model after 5 idle minutes. Within
+    NFR-02's 15 s (T157).
+  - Tests: 11 new (96 agent tests), 3 of them through the real A2A app over HTTP, including
+    `message/stream` order; 10 Playwright still pass with actions on the stream.
+- [x] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
+  seeded deals once (`make record-assistant`), and replay them in pytest and, through
+  `ASSISTANT_REPLAY`, in Playwright. Tests: valid, invalid once then valid, invalid twice,
+  unavailable, and AS-8.5 (the prompt holds only this deal's data: no other loan id, no SSN).
+  **Notes (done 2026-11-21):**
+  - `make record-assistant` (`funder_agent/assistant/record.py`) records 7 deals, one per kind of
+    story: LA-1006 price, LA-1007 VIN, LA-1012 income, LA-1016 an ERROR hold, LA-1023 low
+    confidence, LA-1030 approved, LA-1001 funded. Each file in
+    `dashboard/agent/recordings/summary/` keeps the model, what was sent, the replies and the time.
+    All 7 were valid on the first try, in 0.7–2.1 s.
+  - `ASSISTANT_REPLAY=<dir>` makes the agent answer from the files, with no model. **A deal with
+    no recording behaves as if no model is running**, which is how the browser tests see
+    "assistant unavailable" (AS-8.4).
+  - **Playwright now starts its own agent (replaying, port 8092) and web app (5174)**, so it always
+    runs the current code and never uses `make dashboard`'s 8091 and 5173. It still needs the
+    funding API and the OIDC provider. Vite's `/agent` target comes from `AGENT_URL`.
+  - Tests: 25 new (121 agent tests). Every recording is valid, sent only its own deal (no names,
+    no SSN; LA-1007's VINs are its failing check), and has the shape `summary_input` sends today.
+    If that shape changes, the test says to rerun `make record-assistant`. The invalid-once,
+    invalid-twice and unavailable cases stay scripted (T153, T154): the real model never failed.
+- [x] **T156** Playwright: `AS_8_1_…` (replayed) and `AS_8_4_…` (no model: the overview still works).
+  **Notes (done 2026-11-21):**
+  - `e2e/assistant.spec.ts`, 3 tests: `AS_8_1` on LA-1006 (the recorded summary as plain text,
+    the disclosure, no buttons in the panel, the overview untouched, and a second click rebuilds
+    one panel); `AS_8_1` on a finished deal (LA-1001, FUNDED); `AS_8_4` on LA-1002, which has no
+    recording (unavailable, and the overview and opening another deal still work).
+  - The shared helpers moved to `e2e/support.ts`. 13 Playwright tests, all passing twice in a row.
+  - **Caught on the way:** my first panel locator matched nothing, so "no buttons" passed
+    trivially. The test now first asserts it found exactly one panel.
+  - "Summarizing…" before the answer is checked on the agent over `message/stream`
+    (`test_assistant_panel.py`); a replayed answer arrives too fast for the browser to show it.
+- [x] **T157** ~~Measure the summary's p95 against local Gemma (NFR-02, < 5 s).~~ **Dropped by the
+  owner (2026-11-21):** NFR-02 is now "within 15 s, including a cold start", and speed isn't tuned
+  further. Observed in T153–T155: **0.7–2.1 s warm**, **8.9 s cold** (Ollama unloads the model after
+  5 idle minutes), all within 15 s. No `keep_alive` tuning.
+
 ## D2: Roles and permissions
 
 **Proves:** the API enforces AS-11.2, and the overview offers only the actions it allows.
@@ -234,12 +344,12 @@ verified user. Roles are only looked up here; D2 enforces them.
 
 ## D8: Assistant
 
-**Exit:** AS-8.1–8.5, NFR-02.
+**Exit:** AS-8.2, AS-8.3, and AS-8.4–8.5 for them (AS-8.1 is D1b), NFR-02.
 
-- [ ] **T801** `models.yaml` and the model registry (FR-07); a unit test that switching models needs no code change.
-- [ ] **T802** Summary, suggest and draft stip: prompts, schemas, fence stripping, validate and one retry, suggestion filtering.
-- [ ] **T803** Record the reference responses from local Gemma; unit tests replay them; tests for "unavailable" and "invalid twice".
-- [ ] **T804** `make eval-assistant` (offline eval plus reference answers) and a measured p95 for NFR-02.
+- [x] **T801** Moved to D1b as T152.
+- [ ] **T802** Suggest and draft stip (the summary is D1b's T153): prompts, schemas, validate and one retry, suggestion filtering against `allowedActions`.
+- [ ] **T803** Record and replay suggest and draft stip, on D1b's recorder (T155).
+- [ ] **T804** `make eval-assistant` (offline eval plus reference answers); suggestions within NFR-02's 15 s.
 
 ## D9: Generated view (learning)
 
@@ -254,7 +364,7 @@ verified user. Roles are only looked up here; D2 enforces them.
 | Story | Slice(s) | | Story | Slice(s) |
 |---|---|---|---|---|
 | US-1 Worklist | D1, D6 | | US-7 Audit | D7 |
-| US-2 Overview | D1, D5 | | US-8 Assistant | D8 |
+| US-2 Overview | D1, D5 | | US-8 Assistant | D1b (Summarize), D8 |
 | US-3 Stipulations | D3 | | US-9 Generated view | D9 |
 | US-4 Results | D4 | | US-10 Developer setup | D1 (and every slice) |
 | US-5 Documents | D7 | | US-11 Roles | D1 (sign-in, directory), D2 (permissions), and every write |

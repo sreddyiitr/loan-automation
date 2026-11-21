@@ -64,6 +64,12 @@ class FunderApi:
     def versions(self, loan_id: str) -> list[dict[str, Any]]:
         return self._call("GET", f"/applications/{loan_id}/versions")
 
+    def stipulations(self, version_id: int) -> list[dict[str, Any]]:
+        return self._call("GET", f"/versions/{version_id}/stipulations")
+
+    def validation_results(self, version_id: int) -> list[dict[str, Any]]:
+        return self._call("GET", f"/versions/{version_id}/validation-results")
+
     # ------------------------------------------------------------------ writes
 
     def take(self, version_id: int) -> dict[str, Any]:

@@ -27,7 +27,7 @@ def surface_id(version_id: int) -> str:
     return f"deal_{version_id}_overview"
 
 
-def _money(value: Any) -> str:
+def money(value: Any) -> str:
     return "—" if value is None else f"${Decimal(str(value)):,.2f}"
 
 
@@ -56,7 +56,7 @@ def payment_text(payment: dict[str, Any]) -> str:
     """AS-2.1 payment status: not started, paid with reference and amount, failed, or outcome unknown."""
     state = payment.get("state", "NOT_STARTED")
     if state == "PAID":
-        return f"Paid: {payment.get('reference') or 'no reference'}, {_money(payment.get('amount'))}"
+        return f"Paid: {payment.get('reference') or 'no reference'}, {money(payment.get('amount'))}"
     return PAYMENT_TEXT.get(state, state)
 
 
@@ -89,7 +89,7 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         "dealershipName": overview.get("dealershipName") or "—",
         "borrowerName": overview.get("borrowerName") or "—",
         "coBorrowerName": overview.get("coBorrowerName") or "None",
-        "statedIncome": _money(overview.get("statedIncomeAnnual")),
+        "statedIncome": money(overview.get("statedIncomeAnnual")),
         "vehicleVin": overview.get("vehicleVin") or "—",
         "assignedFunder": f"{assignee} (you)" if assignee and assignee == me else assignee or "Unassigned",
         "canTake": assignee is None and overview["status"] not in TERMINAL,
@@ -153,8 +153,16 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
         {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         *facts,
-        {"id": "actions", "component": "Row", "children": [*(["take_modal"] if take else []), "temporal_button"]},
+        {"id": "actions", "component": "Row",
+         "children": [*(["take_modal"] if take else []), "summarize_button", "temporal_button"]},
         *take,
+        # AS-8.1: read-only, so it's on every deal and needs no confirmation; the panel is its own surface.
+        {"id": "summarize_label", "component": "Text", "text": "Summarize"},
+        {"id": "summarize_button", "component": "Button", "child": "summarize_label",
+         "accessibility": {"label": "Summarize"},
+         "action": {"event": {"name": "deal.summarize", "context": {
+             "loanApplicationId": {"@path": "/deal/loanApplicationId"},
+             "applicationVersionId": {"@path": "/deal/applicationVersionId"}}}}},
         {"id": "temporal_label", "component": "Text", "text": "Open the workflow in Temporal"},
         {"id": "temporal_button", "component": "Button", "variant": "borderless", "child": "temporal_label",
          "accessibility": {"label": "Open the workflow in Temporal"},

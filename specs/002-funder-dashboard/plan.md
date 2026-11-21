@@ -8,7 +8,7 @@ before changing anything here. The questions left open for spike D0 were settled
 | Part | Choice | Notes |
 |---|---|---|
 | Funder API | Java 21 / Spring Boot (spec 001), **extended** | Worklist, overview fields, allowed actions, roles (§4, §5) |
-| Agent service | **Python 3.12** (`uv`), `a2a-sdk` 0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0, httpx; `google-adk` and `a2ui-adk` from D8 (assistant) | ADK's A2UI integration is Python-only (D-2) |
+| Agent service | **Python 3.12** (`uv`), `a2a-sdk` 0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0, httpx; `google-adk` and `litellm` from D1b (Summarize), `a2ui-adk` from D9 (generated view) | ADK's A2UI integration is Python-only (D-2) |
 | Transport | **A2A JSON-RPC** (`message/send`), served by our own `a2a-sdk` 0.3.26 `AgentExecutor`; the browser posts through a Vite proxy (`/agent`) | Confirmed by D0; no `@a2a-js/sdk` needed |
 | Web client | **React 19** (Vite 8, TypeScript) with `@a2ui/react` **0.15.0** on `@a2ui/web_core` **0.15.0** | D0 confirmed that v1.0 renders, through the root exports and `web_core/v1_0` |
 | Protocol | **A2UI v1.0**, Basic Catalog v1, plus our custom catalog | Pinned (NFR-07) |
@@ -163,18 +163,38 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
 
 ## 7. Assistant (US-8, US-9)
 
-- **Model registry** (`models.yaml`):
+- **Model registry** (`dashboard/agent/models.yaml`, or `ASSISTANT_MODELS`; built in T152):
 
   ```yaml
   default: local_gemma
   models:
-    local_gemma: {model: "ollama_chat/gemma4:e4b", context: 4096, structured_output: false,
-                  thinking: {param: think, off: false, on: true}, cost_per_mtok: {in: 0, out: 0}}
-  features: {summary: local_gemma, suggest: local_gemma, draft_stip: local_gemma, generated_view: local_gemma}
+    local_gemma:
+      model: ollama_chat/gemma4:e4b
+      api_base: http://localhost:11434
+      health: http://localhost:11434/api/tags      # 2xx = usable; otherwise "assistant unavailable"
+      context: 4096
+      structured_output: false
+      reasoning_effort: {thinking_off: none, thinking_on: medium}
+      cost_per_mtok: {in: 0, out: 0}
+  features:
+    summary: {model: local_gemma, thinking: false}
+    suggest: {model: local_gemma, thinking: true}
+    # draft_stip, generated_view: likewise; a feature left out uses the default, thinking off
   ```
 
-  Swapping a model or a feature is a YAML edit (FR-07).
-- **Summary, suggest, draft:** the prompt gets the deal's API data (no SSN exists in it). The reply
+  Swapping a model or a feature is a YAML edit (FR-07). The `reasoning_effort` values are LiteLLM
+  levels (not `off:`/`on:` keys, which YAML reads as booleans), which LiteLLM turns into each provider's own setting (for Ollama,
+  `think: false` / `true`; verified through ADK, a2ui-notes §12b), so no provider key is in code.
+  The `health` URL is in the file for the same reason: the availability check (AS-8.4) is
+  provider-specific, so it's configuration. A test fails if a provider or model name appears in
+  the agent's code.
+- **ADK (D-14):** each feature is an ADK `LlmAgent` with a `LiteLlm` model built from the
+  registry, run by an `InMemoryRunner` with one throwaway session per request (no memory between
+  requests, so nothing from another deal can leak in, AS-8.5). `output_schema` is **not** used:
+  it makes LiteLLM send Ollama `format: <schema>`, which local Gemma's MLX runner refuses (501).
+- **Summary, suggest, draft:** the prompt gets the deal's API data (no SSN exists in it). For the
+  summary that's the overview, the **open** stips and the checks that **didn't pass**, which keeps
+  the prompt well inside the 4k context (the full data was ~2,000 tokens) and the answer fast. The reply
   is JSON validated against a schema. If `structured_output` is false, the code strips the fence
   and parses. One retry passes back the validation error (FR-08). Suggestions are filtered against
   `allowedActions` (AS-8.2). Summaries run with thinking off and suggestions with thinking on
