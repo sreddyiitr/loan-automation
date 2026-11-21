@@ -12,7 +12,7 @@
 | Trigger Lambda | Java 21 handler (`aws-lambda-java-core` + `aws-lambda-java-events`), SQS event source mapping, `java.net.http.HttpClient` |
 | AWS emulation | **AWS Emulator** (official AWS, released 2026-11-11), run in Docker, for **SQS**. Lambda can't be emulated for this app (V-2, V-4) and RDS isn't real Postgres; see *Local Environment* |
 | External API mocks | **WireMock 3.x** for every external API: standalone Docker container `wiremock/wiremock` locally (reuse-first, like the emulator) and in-JVM `WireMockExtension` in tests. Stubs are generated (constitution P-5). Contracts in `contracts/*.openapi.yaml`, validated with `swagger-request-validator`. |
-| API conventions | RFC 9457 problem+json, springdoc OpenAPI, actor header `X-Funder-Id` (homehub OQ-1 / D-6 patterns) |
+| API conventions | RFC 9457 problem+json, springdoc OpenAPI, actor from the OIDC bearer token's `sub` (spec 002 FR-11; replaced the `X-Funder-Id` header) |
 | Observability | SLF4J + JSON logs with MDC (`loanApplicationId`, `applicationVersionId`, `workflowId`); Temporal SDK metrics through Micrometer. OTel agent optional (homehub `otel-env.sh` can be ported later). |
 | Money | `BigDecimal`, `MathContext.DECIMAL128`, `RoundingMode.HALF_UP` |
 | Tests | JUnit 5, AssertJ, Temporal `TestWorkflowEnvironment`, Testcontainers (Postgres 18), WireMock. Functional ITs (Failsafe) run against the shared AWS Emulator container. |

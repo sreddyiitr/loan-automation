@@ -112,4 +112,6 @@ Pinned versions: `@a2ui/react` / `@a2ui/web_core` 0.15.0 and React 19 on the web
 - Uploading documents
 - Messaging the dealer
 - Bulk actions
-- Real single sign-on (a dev sign-in with a chosen role stands in at first)
+- Real single sign-on. Sign-in is standard OIDC against a local mock provider (`scripts/oidc-env.sh`):
+  you type a user id, and the funder API gives that user a role from its user directory. Single
+  sign-on later is a configuration change

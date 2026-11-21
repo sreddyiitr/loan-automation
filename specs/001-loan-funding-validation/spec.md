@@ -116,7 +116,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 - **AS-10.6** Approve, reject, or re-run errored checks. These become Temporal signals to the version's workflow.
 - **AS-10.7** Writes against a non-latest version, or a version in a terminal status (`FUNDED`, `REJECTED`, `EXPIRED`), are refused with 409.
 - **AS-10.8** A funder can create a manual stip (for example `STIP_PROOF_OF_INCOME`; the owner confirmed this is done from the UI in spec 002, through this API) with `validation_check = NULL`. This moves an `APPROVED`-but-not-yet-disbursed or `PENDING_REVIEW` version to `STIPULATED`.
-- **AS-10.9** Every write names its actor in the header `X-Funder-Id` (a stand-in until auth exists). A missing header returns 400. Errors use RFC 9457 `application/problem+json`.
+- **AS-10.9** Every funder API call is made by an authenticated user: it carries an OIDC bearer token, and the actor is the token's `sub` (spec 002 FR-09, FR-11). A missing or invalid token returns 401. This replaces the `X-Funder-Id` header, which was a stand-in until auth existed. Errors use RFC 9457 `application/problem+json`.
 
 ## 5. Functional Requirements
 

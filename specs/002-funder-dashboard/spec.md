@@ -6,7 +6,7 @@
 | **Source** | `auto_funding_tasks.md` §5 (the four tabs), [`capabilities.md`](capabilities.md), spec 001's funder API |
 | **Builds on** | Spec 001: the funder API ([`contracts/funder-api.openapi.yaml`](../../contracts/funder-api.openapi.yaml)), its status machine (spec 001 §6) and its seeded scenarios |
 | **Scope** | A funder dashboard: an A2UI v1.0 web client, a Python ADK agent service, a custom component catalog, the funder-API additions the UI needs, a local LLM assistant, and a one-command developer setup |
-| **Out of scope** | Editing extracted values, uploading documents, messaging dealers, bulk actions, real single sign-on (a dev sign-in stands in), document storage and the PDF page viewer (a later spec), AWS deployment |
+| **Out of scope** | Editing extracted values, uploading documents, messaging dealers, bulk actions, real single sign-on (a local OIDC provider stands in), document storage and the PDF page viewer (a later spec), AWS deployment |
 | **Reference** | [`a2ui-notes.md`](a2ui-notes.md) (the protocol and ADK, read 2026-11-20), [`ui_summary.md`](../../ui_summary.md) |
 
 ---
@@ -60,15 +60,15 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   - an INCOME check that is FAIL, NEEDS_REVIEW or ERROR.
 
   It routes to the income queue, which income specialists (and supervisors) work, not funders (US-11).
-- **Role:** `FUNDER`, `INCOME_SPECIALIST` or `SUPERVISOR`. It comes from sign-in and is enforced
-  by the funder API.
+- **Role:** `FUNDER`, `INCOME_SPECIALIST` or `SUPERVISOR`. The funder API looks it up from the
+  signed-in user's id in its user directory, and enforces it.
 - **Assistant answer:** small structured JSON from the LLM, `{summary, suggestions[{action,
   reason}]}`, validated and then rendered by code.
 
 ## 4. User Stories & Acceptance Scenarios
 
 ### US-1 Sign in and worklist (P1)
-- **AS-1.1** A user signs in with the dev sign-in: a user id and a role (`FUNDER`, `INCOME_SPECIALIST`, `SUPERVISOR`); no password; local only. Every write is then made under that id and role, with no `X-Funder-Id` typed by hand.
+- **AS-1.1** A user signs in through the local OIDC provider's login page by typing a user id; there's no password, and this is local only. The funder API gives that user their role (`FUNDER`, `INCOME_SPECIALIST` or `SUPERVISOR`) from its user directory. Every request is then made under that id and role, with no identity typed by hand. An id that isn't in the directory is refused with 403 `UNKNOWN_USER`.
 - **AS-1.2** **My queue** lists the latest versions assigned to the user that need a human:
   - STIPULATED;
   - PENDING_REVIEW held on an ERROR or an incomplete RISC;
@@ -187,9 +187,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 | FR-06 | Each funder API `reason` (409 and 400 problem+json) maps to a plain message in one place. A new reason without a message is shown with a generic fallback and is logged. |
 | FR-07 | The **model is configuration**: a LiteLLM model string (default `ollama_chat/gemma4:e4b`) plus declared capabilities: context window, structured-output support, thinking control, and cost per token. A feature may name its own model. No provider name appears in code. |
 | FR-08 | Every LLM output is validated in code against its schema (and, for US-9, the catalog schemas), with one retry, whatever the model's own structured-output support. |
-| FR-09 | Dev sign-in only, local profile only, behind a single switch. It is replaceable by real single sign-on later without changing the surfaces. |
+| FR-09 | **Sign-in is standard OIDC** (Authorization Code with PKCE in the browser). Locally the provider is `navikt/mock-oauth2-server` (`scripts/oidc-env.sh`), which signs tokens with its own keys (RS256). The funder API trusts only tokens from the configured issuer (`issuer-uri`) for the `funding-api` audience. Real single sign-on later changes configuration (issuer, and where roles come from), not code or surfaces. |
 | FR-10 | Fresh data: after an action, and while the in-progress indicator is set, the agent refreshes the affected surfaces (`updateDataModel`) until the deal settles. |
-| FR-11 | **Roles are enforced by the funder API** (Java), not only by the UI: every write checks the actor's role and the deal's assignment against AS-11.2. The actor's role comes from the sign-in token (in dev, from the dev sign-in), not from a header the client can set freely. |
+| FR-11 | **Roles are enforced by the funder API** (Java), not only by the UI: every write checks the actor's role and the deal's assignment against AS-11.2. Every funder API call needs a valid bearer token (401 without one). The actor is the token's `sub`; the role comes from the API's user directory for that `sub` (`funding.auth.users`), never from a header the client can set. The agent relays the user's own token and never creates one. |
 | FR-12 | The worklist endpoint (FR-05a) also filters by stip code and hold reason, and returns the hold reasons per row; hold reasons are derived by the API, not stored. |
 
 ## 6. What the funder sees per status
@@ -232,12 +232,13 @@ the expected result, for reference:
 | D-3 | **React** renderer, unless the spike finds its v1.0 support incomplete (then Lit or Angular). Transport: A2A, as `a2ui-adk` supports. |
 | D-4 | Plain dashboard first; the assistant (US-8) and generated view (US-9) come last. |
 | D-5 | Field views first; the PDF page viewer waits for a document-storage decision. |
-| D-6 | Dev sign-in first; single sign-on later. |
+| D-6 | Local OIDC first (a mock provider in Docker); real single sign-on later, as configuration (FR-09). Replaces the earlier HMAC dev-token design (owner, 2026-11-21). |
 | D-7 | **No paid LLM.** Local Gemma (`gemma4:e4b`) through Ollama is the default, and **the model stays swappable through configuration** (FR-07). |
 | D-8 | Every PR updates `ui_summary.md`, `implementation_summary.md` and `README.md`. |
 | D-9 | Worklist filters include **stip type** and **hold reason** as well as status, dealer and days to expiry. |
 | D-10 | Three roles: **funder**, **income specialist** ("speciality funder", for verifying income) and **supervisor**, enforced by the funder API, with the permissions in AS-11.2 (confirmed 2026-11-21). A funder sends income work to the income queue and can't approve while it's pending. |
 | D-11 | **Income work is done by income specialists or supervisors, never funders.** Supervisors can do everything (owner, 2026-11-21). |
 | D-12 | "Expiring soon" means 5 days or fewer to expiry (configurable). |
+| D-13 | The identity provider says **who** the user is (`sub`); the funder API decides **what they may do** (role from its user directory, permissions from AS-11.2). The local mock provider sends no role claim, so roles never depend on provider config. `X-Funder-Id` is removed, with no compatibility rule (owner, 2026-11-21). |
 
 **Open (owner):** none.

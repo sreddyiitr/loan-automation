@@ -15,7 +15,7 @@ Auto loan funding validation: Java 21, Spring Boot, Temporal (`localhost:7233`),
   - When a rule changes, inspect `target/seed-report/mock-impact.md` after `make seed-regenerate`.
   - If expected outcomes flip, add a `test/data/RULE-CHANGES.md` entry and rerun with `ACCEPT_OUTCOME_CHANGES=<RULE_ID>`. Never hand-edit stubs or `mocks.lock`.
   - A new external API needs a contract, a catalog covering every band and fault class (`minPerBand` ≥ 5), and an `apis` entry on its `RuleCatalog` rule.
-- **Local services (P-3).** Reuse the developer's running emulator, Postgres and WireMock containers (`scripts/emulator-env.sh`, `db-env.sh`, `wiremock-env.sh`), and start new ones only if none is reachable. Don't use LocalStack. Leave emulator telemetry at its default.
+- **Local services (P-3).** Reuse the developer's running emulator, Postgres, WireMock and OIDC (`mock-oauth2-server`) containers (`scripts/emulator-env.sh`, `db-env.sh`, `wiremock-env.sh`, `oidc-env.sh`), and start new ones only if none is reachable. Don't use LocalStack. Leave emulator telemetry at its default.
 
 ## Every PR updates the summaries
 

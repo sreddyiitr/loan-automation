@@ -71,15 +71,32 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 
 ## 4. Identity and roles (US-11, FR-09, FR-11)
 
-- **Dev sign-in** (local profile only): the web app asks for a user id and role. The agent gets a
-  **dev token** for them from the funder API: `POST /api/v1/dev/token`, which exists only under
-  `local`. It's an HMAC-signed JWT with `sub`, `role` and `exp`, using a per-run secret.
-- **The funder API trusts only the token.** A Spring filter verifies it and puts `actor` and
-  `role` in the request. That replaces the free-text `X-Funder-Id` header for the dashboard.
-  Single sign-on later only swaps the issuer (FR-09).
-- **Compatibility:** spec 001's tests and `curl` examples send `X-Funder-Id`. Under `local`
-  **only**, a request without a token but with `X-Funder-Id` is treated as role `SUPERVISOR`, so
-  spec 001 behaves as before. Supervisors can do everything (D-11). Outside `local` it's refused.
+- **Provider:** `navikt/mock-oauth2-server` 6.1.5 in Docker, found or started by
+  `scripts/oidc-env.sh` (reuse first, P-3), at `OIDC_ISSUER_URI=http://127.0.0.1:8090/funding`. It
+  signs RS256 tokens and publishes discovery and JWKS. Everything uses `127.0.0.1`, because the
+  provider builds `iss` from the URL it was called on.
+- **Browser sign-in:** the web app runs Authorization Code with PKCE as a public client
+  (`funder-dashboard`). On the provider's login page the user types an id, which becomes `sub`.
+  The token is kept in memory only (never `localStorage`). The web app sends it to the agent as
+  `Authorization: Bearer`, and the agent card declares that scheme.
+- **Token relay:** the agent forwards the same token to the funder API. It never creates or
+  stores tokens.
+- **The funder API is an OAuth2 Resource Server** (`spring-boot-starter-oauth2-resource-server`).
+  It uses `issuer-uri` from `OIDC_ISSUER_URI`, requires audience `funding-api`, and checks
+  signature, `iss`, `exp` and `nbf` through Spring Security, with no custom filter. Every
+  `/api/v1/applications/**`, `/versions/**`, `/stip-codes` and `/settings/**` call needs a token
+  (401 otherwise). The start API (`X-Trigger-Api-Key`), the `local` dev endpoints, Swagger and
+  actuator keep their current access.
+- **Roles (D-13):** a `UserDirectory` maps `sub` to a role from `funding.auth.users`. Locally that
+  is `funder-1` and `funder-2` → FUNDER, `income-1` → INCOME_SPECIALIST and `supervisor-1` →
+  SUPERVISOR; tests add their own ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
+  sign-on, the directory can read a provider claim (e.g. groups) instead; that's configuration.
+- **Tokens without a browser** (tests, `curl`): `POST $OIDC_ISSUER_URI/token` with
+  `grant_type=client_credentials`, `client_id=<user id>`, any secret and `scope=funding-api` returns
+  an RS256 token with `sub=<user id>` and `aud=funding-api` (verified against 6.1.5 on
+  2026-11-21). MockMvc tests skip the provider and use Spring Security Test's `jwt()`.
+- **No compatibility rule:** `X-Funder-Id` and `MISSING_FUNDER_ID` are removed. Spec 001's tests
+  move to tokens (T106) and keep their assertions; README `curl` examples get a token first.
 - **Permissions** are a pure, table-driven `Permissions` class in `funding-domain`:
   `allowed(role, action, deal) -> Allowed | Refused(reason)`. It covers:
   - assignment (`NOT_ASSIGNED_TO_YOU`);
@@ -104,7 +121,7 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 | Comparison attribution | `documents: {left, right}` and `fields` on each comparison | Optional fields, so `rules.lock` stays unaffected. **Check:** does the result-details JSON change the conformance gate? Expected: no |
 | Confidence cut-off | `GET /api/v1/settings/ui` → `{confidenceFlagBelow, expiringSoonDays}` | `expiringSoonDays` defaults to 5 (D-12) |
 | Send to income queue | `POST /api/v1/versions/{vid}/income-queue` | Flags the deal for income work without changing the assignee (AS-11.5); audited |
-| Dev token | `POST /api/v1/dev/token` (local only) | §4 |
+| Bearer auth | Every endpoint above, and spec 001's funder endpoints: `Authorization: Bearer <OIDC token>` | §4; 401 without a valid token, 403 `UNKNOWN_USER` for an id not in the directory |
 
 The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` keeps it in sync.
 
@@ -189,5 +206,6 @@ Test names follow `AS_x_y_…` (constitution P-1).
 |---|---|
 | The React renderer's v1.0 support is partial (types are v0.9; no per-component `@catalogId`) | Settled by D0: v1.0 renders; one extended catalog per surface; re-check when `@a2ui/react` 0.16 ships |
 | One invalid component blanks the page | Validate every surface on the agent before sending (NFR-05); a React error boundary around each surface |
-| The roles change breaks spec 001 tests | Under `local`, `X-Funder-Id` means SUPERVISOR; the spec 001 suites must stay green in every slice |
+| The roles change breaks spec 001 tests | T106 moves them to tokens (`jwt()` in MockMvc, `client_credentials` tokens in functional tests) without changing any assertion; the spec 001 suites must stay green in every slice |
+| The browser code flow's `aud` differs from `funding-api` | T103 checks the claims the mock provider sets for the code flow and configures the client or scope so both flows carry `funding-api` |
 | Gemma's 4K context can't hold the generated-view prompt | `express` format or a small catalog subset; raise `num_ctx` if memory allows |

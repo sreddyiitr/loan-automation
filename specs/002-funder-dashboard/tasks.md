@@ -44,14 +44,14 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 ## D1: Roles and identity (backend first)
 
 **Proves:** writes carry a verified user and role, and the API enforces AS-11.2.
-**Exit:** AS-11.1–11.6 and AS-1.1 (backend part).
+**Exit:** AS-11.1–11.6, AS-10.9 (spec 001, now bearer tokens) and AS-1.1 (backend part).
 
 - [ ] **T101** Test: `PermissionsTest` covers every cell of the AS-11.2 table, plus `NOT_ASSIGNED_TO_YOU`, `INCOME_WORK_NEEDS_SPECIALIST` and `ROLE_NOT_ALLOWED`.
 - [ ] **T102** `Permissions` in `funding-domain`; income work derived from stips and results.
-- [ ] **T103** Dev token: `POST /api/v1/dev/token` (local only), a Spring filter that verifies it, and the `X-Funder-Id` → SUPERVISOR compatibility rule, local only.
+- [ ] **T103** OIDC: the funder API as an OAuth2 Resource Server (`issuer-uri` from `OIDC_ISSUER_URI`, audience `funding-api`), `UserDirectory` from `funding.auth.users` (401 / 403 `UNKNOWN_USER`), and `scripts/oidc-env.sh` sourced by `make run` and `make test-functional`. `X-Funder-Id` is removed from the controllers and the contract. Check the `aud` of a code-flow token from the mock provider (plan §10).
 - [ ] **T104** `FunderService` checks `Permissions` before the existing guards and returns 403 problem+json with a reason. The role goes into the audit `after_state` (AS-11.4).
 - [ ] **T105** `POST /versions/{vid}/income-queue` (AS-11.5), with tests.
-- [ ] **T106** Test: `FunderApiTest` additions, `AS_11_3_…`, `AS_11_6_…`. The spec 001 suites stay green unchanged, through the compatibility rule.
+- [ ] **T106** Test: `FunderApiTest` additions, `AS_11_3_…`, `AS_11_6_…`, `AS_10_9_…` (401 without a token, 403 `UNKNOWN_USER`). Spec 001's suites move to tokens (`jwt()` in MockMvc; a `client_credentials` token helper for `FunderActionsE2EIT`, `VersioningE2EIT` and `WorkerRestartIT`) with no assertion changed. README `curl` examples get a token first.
 
 ## D2: Walking skeleton (open a deal, overview tab)
 
@@ -60,7 +60,7 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 
 - [ ] **T201** Overview additions: `expiresAt`, `inProgress`, `payment`, `allowedActions` (from `Permissions`), with Java tests.
 - [ ] **T202** Agent: the API client (token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
-- [ ] **T203** Web: dev sign-in (id and role), open by loan id, the overview tab; `StatusBadge`.
+- [ ] **T203** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
 - [ ] **T204** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh.
 - [ ] **T205** `make dashboard`, the preflight script and the README section.
 - [ ] **T206** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
