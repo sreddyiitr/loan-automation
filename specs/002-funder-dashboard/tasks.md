@@ -177,6 +177,35 @@ verified user. Roles are only looked up here; D2 enforces them.
       the next run. T304 needs a way to start from STIPULATED again (a resubmit makes a new
       version) or its own deal.
 
+## D1b: Summarize this deal (the model path, read-only)
+
+**Proves:** browser → agent → ADK `LlmAgent` → local Gemma → JSON checked by code → a panel drawn
+by code, with no model needed for the tests. Moved up from D8 by D-4's exception; read-only, so it
+doesn't wait for D2.
+**Exit:** AS-8.1, AS-8.4, AS-8.5; FR-07, FR-08; NFR-02 for the summary; AS-10.4 and AS-10.5 for it.
+
+- [x] **T151** Spec first: AS-8.1 (finished deals, read-only), D-4's exception, D-14 (ADK), plan
+  §7, a2ui-notes §12b (`reasoning_effort="none"` verified; `output_schema` gets a 501).
+- [ ] **T152** `models.yaml` and the model registry (FR-07; was T801): a `LiteLlm` per feature,
+  with `thinking` as a `reasoning_effort` level. Unit test: switching the model, or one feature's
+  model, is a YAML edit with no code change.
+- [ ] **T153** The summary (was part of T802), in `funder_agent/assistant/`:
+  - the prompt gets the overview, the open stips and the checks that didn't pass, as data;
+  - an ADK `LlmAgent` on a throwaway session, thinking off;
+  - strip the fence, validate `{summary}` (a non-empty string, a length cap), one retry that
+    passes back the error (FR-08).
+- [ ] **T154** The `deal_<versionId>_assistant` surface: a **Summarize** button on the overview,
+  and a panel drawn by code. It shows "Summarizing…", then the summary, "assistant unavailable"
+  (Ollama's `/api/tags` fails, AS-8.4) or "couldn't produce an answer" (invalid twice). The
+  overview never waits for it (NFR-02).
+- [ ] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
+  seeded deals once (`make record-assistant`), and replay them in pytest and, through
+  `ASSISTANT_REPLAY`, in Playwright. Tests: valid, invalid once then valid, invalid twice,
+  unavailable, and AS-8.5 (the prompt holds only this deal's data: no other loan id, no SSN).
+- [ ] **T156** Playwright: `AS_8_1_…` (replayed) and `AS_8_4_…` (no model: the overview still works).
+- [ ] **T157** Measure the summary's p95 on the seeded deals against local Gemma (NFR-02, < 5 s),
+  and write it in a2ui-notes §12b.
+
 ## D2: Roles and permissions
 
 **Proves:** the API enforces AS-11.2, and the overview offers only the actions it allows.
@@ -234,11 +263,11 @@ verified user. Roles are only looked up here; D2 enforces them.
 
 ## D8: Assistant
 
-**Exit:** AS-8.1–8.5, NFR-02.
+**Exit:** AS-8.2, AS-8.3, and AS-8.4–8.5 for them (AS-8.1 is D1b), NFR-02.
 
-- [ ] **T801** `models.yaml` and the model registry (FR-07); a unit test that switching models needs no code change.
-- [ ] **T802** Summary, suggest and draft stip: prompts, schemas, fence stripping, validate and one retry, suggestion filtering.
-- [ ] **T803** Record the reference responses from local Gemma; unit tests replay them; tests for "unavailable" and "invalid twice".
+- [x] **T801** Moved to D1b as T152.
+- [ ] **T802** Suggest and draft stip (the summary is D1b's T153): prompts, schemas, validate and one retry, suggestion filtering against `allowedActions`.
+- [ ] **T803** Record and replay suggest and draft stip, on D1b's recorder (T155).
 - [ ] **T804** `make eval-assistant` (offline eval plus reference answers) and a measured p95 for NFR-02.
 
 ## D9: Generated view (learning)
@@ -254,7 +283,7 @@ verified user. Roles are only looked up here; D2 enforces them.
 | Story | Slice(s) | | Story | Slice(s) |
 |---|---|---|---|---|
 | US-1 Worklist | D1, D6 | | US-7 Audit | D7 |
-| US-2 Overview | D1, D5 | | US-8 Assistant | D8 |
+| US-2 Overview | D1, D5 | | US-8 Assistant | D1b (Summarize), D8 |
 | US-3 Stipulations | D3 | | US-9 Generated view | D9 |
 | US-4 Results | D4 | | US-10 Developer setup | D1 (and every slice) |
 | US-5 Documents | D7 | | US-11 Roles | D1 (sign-in, directory), D2 (permissions), and every write |
