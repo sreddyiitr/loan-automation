@@ -275,6 +275,33 @@ Other catalogs exist in the repo: `catalogs/vegachart/v1` (charts), `catalogs/mc
 - **For us:** the same harness can compare a free local model, Gemini's free tier and Claude Haiku
   on *our* catalog before we choose.
 
+## 12b. Local model: Gemma via Ollama (measured 2026-11-21 on the owner's Mac)
+
+- **Setup:** Ollama 0.40.16 with `gemma4:e4b` (**9.5 GB**, not the "few GB" first assumed). It
+  runs 100% on the GPU through the **MLX** runner with a 4096-token context. With Docker Desktop's
+  7.7 GB limit, that's about 17 of 24 GB: it works, but it's snug.
+- **No forced JSON:** the MLX runner returns **HTTP 501 `structured output is unavailable`** for
+  `format: <schema>` and also for `format: "json"`. Plain prompting works: ask for "only a JSON
+  object matching this schema", then **strip the ```` ```json ```` fence it adds**, parse, check
+  against the schema in code, and retry once on failure. The same pattern applies when it writes
+  A2UI.
+- **The probe:** synthetic LA-1006 data (a waivable 1¢ price mismatch) in, `{summary,
+  suggestions[{action, reason}]}` out, with `action` limited to the deal's allowed actions.
+  ~400 prompt tokens.
+
+  | Mode | Time per answer | Output tokens | Valid JSON | Quality |
+  |---|---|---|---|---|
+  | Thinking on (default) | ~8 s | ~900 (mostly hidden reasoning) | 2/2 | Good: waive, or satisfy |
+  | `"think": false` | **~1–2 s** | ~110 | 2/2 | Weaker: also suggested "re-run might resolve" the mismatch, which is wrong because a re-run reads the same documents |
+
+- **Rules:** `think: false` for summaries; thinking on (or a stronger model) for next-step
+  suggestions. Never trust a suggestion's correctness. The backend should send *why* each action
+  is allowed (e.g. re-run helps only for ERROR), and code should filter the model's suggestions
+  against it.
+- **Request shape (Ollama native API):** `POST http://localhost:11434/api/chat` with `{model,
+  messages, stream: false, think: false, options: {temperature: 0}}`. From ADK it's LiteLLM
+  `ollama_chat/gemma4:e4b`. It's still unverified whether LiteLLM passes `think: false` through.
+
 ## 13. ADK integration (`pip install a2ui-adk`, `"a2ui-adk[a2a]"` for A2A)
 
 - **`SendA2uiToClientToolset`:** an ADK toolset that lets the LLM send A2UI through a **tool
