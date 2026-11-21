@@ -7,7 +7,7 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (tasks T001–T006). Its code is kept as the skeleton in `dashboard/`, and D2
+**Spike D0 is done** (tasks T001–T006). Its code is kept as the skeleton in `dashboard/`, and D1 (the walking skeleton)
 reorganises it into the plan's layout. What works end to end today:
 
 1. The browser asks the agent over A2A.

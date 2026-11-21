@@ -22,7 +22,7 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 ### D0 notes (done 2026-11-21)
 
 - **Kept, not thrown away.** The spike's code is small and became the skeleton under
-  `dashboard/agent` and `dashboard/web`, with a Playwright test of the whole round trip. D2
+  `dashboard/agent` and `dashboard/web`, with a Playwright test of the whole round trip. D1
   restructures it into the plan's layout.
 - **Verified end to end:**
   1. A2A request.
@@ -41,29 +41,32 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 - **Found in passing:** README step 6 named the stip id `stip_id`, but the API returns camelCase
   (`stipId`). Fixed.
 
-## D1: Roles and identity (backend first)
+## D1: Walking skeleton (sign in, open a deal, overview tab)
 
-**Proves:** writes carry a verified user and role, and the API enforces AS-11.2.
-**Exit:** AS-11.1–11.6, AS-10.9 (spec 001, now bearer tokens) and AS-1.1 (backend part).
+**Proves:** OIDC sign-in → agent → deal → overview → one write, through the real stack, made by a
+verified user. Roles are only looked up here; D2 enforces them.
+**Exit:** AS-1.1, AS-1.5, AS-2.1, AS-2.3, AS-2.5, AS-10.1–10.3, AS-10.9 (spec 001, now bearer tokens).
 
-- [ ] **T101** Test: `PermissionsTest` covers every cell of the AS-11.2 table, plus `NOT_ASSIGNED_TO_YOU`, `INCOME_WORK_NEEDS_SPECIALIST` and `ROLE_NOT_ALLOWED`.
-- [ ] **T102** `Permissions` in `funding-domain`; income work derived from stips and results.
-- [ ] **T103** OIDC: the funder API as an OAuth2 Resource Server (`issuer-uri` from `OIDC_ISSUER_URI`, audience `funding-api`), `UserDirectory` from `funding.auth.users` (401 / 403 `UNKNOWN_USER`), and `scripts/oidc-env.sh` sourced by `make run` and `make test-functional`. `X-Funder-Id` is removed from the controllers and the contract. Check the `aud` of a code-flow token from the mock provider (plan §10).
-- [ ] **T104** `FunderService` checks `Permissions` before the existing guards and returns 403 problem+json with a reason. The role goes into the audit `after_state` (AS-11.4).
-- [ ] **T105** `POST /versions/{vid}/income-queue` (AS-11.5), with tests.
-- [ ] **T106** Test: `FunderApiTest` additions, `AS_11_3_…`, `AS_11_6_…`, `AS_10_9_…` (401 without a token, 403 `UNKNOWN_USER`). Spec 001's suites move to tokens (`jwt()` in MockMvc; a `client_credentials` token helper for `FunderActionsE2EIT`, `VersioningE2EIT` and `WorkerRestartIT`) with no assertion changed. README `curl` examples get a token first.
+- [ ] **T101** OIDC: the funder API as an OAuth2 Resource Server (`issuer-uri` from `OIDC_ISSUER_URI`, audience `funding-api`), `UserDirectory` from `funding.auth.users` (401 / 403 `UNKNOWN_USER`), and `scripts/oidc-env.sh` sourced by `make run` and `make test-functional`. `X-Funder-Id` is removed from the controllers and the contract. Check the `aud` of a code-flow token from the mock provider (plan §10).
+- [ ] **T102** Spec 001 moves to tokens, in the same change as T101: `jwt()` in MockMvc; a `client_credentials` token helper for `FunderActionsE2EIT`, `VersioningE2EIT` and `WorkerRestartIT`; no assertion changed. `AS_10_9_…` covers 401 without a token and 403 `UNKNOWN_USER`. README `curl` examples get a token first.
+- [ ] **T103** Overview additions: `expiresAt`, `inProgress`, `payment`, with Java tests. (`allowedActions` comes in D2, from `Permissions`.)
+- [ ] **T104** Agent: the API client (relays the user's token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
+- [ ] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
+- [ ] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
+- [ ] **T107** `make dashboard`, the preflight script and the README section.
+- [ ] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
 
-## D2: Walking skeleton (open a deal, overview tab)
+## D2: Roles and permissions
 
-**Proves:** sign-in → deal → overview → one write, through the real stack.
-**Exit:** AS-1.1, AS-1.5, AS-2.1, AS-2.3, AS-2.5, AS-10.1–10.3.
+**Proves:** the API enforces AS-11.2, and the overview offers only the actions it allows.
+**Exit:** AS-11.1–11.6.
 
-- [ ] **T201** Overview additions: `expiresAt`, `inProgress`, `payment`, `allowedActions` (from `Permissions`), with Java tests.
-- [ ] **T202** Agent: the API client (token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
-- [ ] **T203** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
-- [ ] **T204** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh.
-- [ ] **T205** `make dashboard`, the preflight script and the README section.
-- [ ] **T206** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
+- [ ] **T201** Test: `PermissionsTest` covers every cell of the AS-11.2 table, plus `NOT_ASSIGNED_TO_YOU`, `INCOME_WORK_NEEDS_SPECIALIST` and `ROLE_NOT_ALLOWED`.
+- [ ] **T202** `Permissions` in `funding-domain`; income work derived from stips and results.
+- [ ] **T203** `FunderService` checks `Permissions` before the existing guards (including Take from T106) and returns 403 problem+json with a reason. The role goes into the audit `after_state` (AS-11.4).
+- [ ] **T204** `POST /versions/{vid}/income-queue` (AS-11.5), with tests.
+- [ ] **T205** `allowedActions` on the overview, from `Permissions` (FR-05b); the overview surface shows only allowed actions.
+- [ ] **T206** Test: `FunderApiTest` additions, `AS_11_3_…`, `AS_11_6_…`.
 
 ## D3: Stipulations tab
 
@@ -129,9 +132,9 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 
 | Story | Slice(s) | | Story | Slice(s) |
 |---|---|---|---|---|
-| US-1 Worklist | D2, D6 | | US-7 Audit | D7 |
-| US-2 Overview | D2, D5 | | US-8 Assistant | D8 |
+| US-1 Worklist | D1, D6 | | US-7 Audit | D7 |
+| US-2 Overview | D1, D5 | | US-8 Assistant | D8 |
 | US-3 Stipulations | D3 | | US-9 Generated view | D9 |
-| US-4 Results | D4 | | US-10 Developer setup | D2 (and every slice) |
-| US-5 Documents | D7 | | US-11 Roles | D1 (and every write) |
+| US-4 Results | D4 | | US-10 Developer setup | D1 (and every slice) |
+| US-5 Documents | D7 | | US-11 Roles | D1 (sign-in, directory), D2 (permissions), and every write |
 | US-6 Decisions | D5 | | | |

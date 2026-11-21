@@ -96,7 +96,7 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
   an RS256 token with `sub=<user id>` and `aud=funding-api` (verified against 6.1.5 on
   2026-11-21). MockMvc tests skip the provider and use Spring Security Test's `jwt()`.
 - **No compatibility rule:** `X-Funder-Id` and `MISSING_FUNDER_ID` are removed. Spec 001's tests
-  move to tokens (T106) and keep their assertions; README `curl` examples get a token first.
+  move to tokens (T102) and keep their assertions; README `curl` examples get a token first.
 - **Permissions** are a pure, table-driven `Permissions` class in `funding-domain`:
   `allowed(role, action, deal) -> Allowed | Refused(reason)`. It covers:
   - assignment (`NOT_ASSIGNED_TO_YOU`);
@@ -145,7 +145,7 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
 - **The published `web_core` 0.15.0 rejects a per-component `@catalogId`**, so a surface uses one
   catalog. **Our catalog extends the Basic Catalog**: all its components and functions, plus ours.
   Every surface uses our `catalogId`. The agent-side catalog JSON (for validation, NFR-05) is the
-  basic catalog plus our component schemas (D2).
+  basic catalog plus our component schemas (D1).
 
 ## 7. Assistant (US-8, US-9)
 
@@ -206,6 +206,6 @@ Test names follow `AS_x_y_…` (constitution P-1).
 |---|---|
 | The React renderer's v1.0 support is partial (types are v0.9; no per-component `@catalogId`) | Settled by D0: v1.0 renders; one extended catalog per surface; re-check when `@a2ui/react` 0.16 ships |
 | One invalid component blanks the page | Validate every surface on the agent before sending (NFR-05); a React error boundary around each surface |
-| The roles change breaks spec 001 tests | T106 moves them to tokens (`jwt()` in MockMvc, `client_credentials` tokens in functional tests) without changing any assertion; the spec 001 suites must stay green in every slice |
-| The browser code flow's `aud` differs from `funding-api` | T103 checks the claims the mock provider sets for the code flow and configures the client or scope so both flows carry `funding-api` |
+| The roles change breaks spec 001 tests | T102 moves them to tokens (`jwt()` in MockMvc, `client_credentials` tokens in functional tests) without changing any assertion; the spec 001 suites must stay green in every slice |
+| The browser code flow's `aud` differs from `funding-api` | T101 checks the claims the mock provider sets for the code flow and configures the client or scope so both flows carry `funding-api` |
 | Gemma's 4K context can't hold the generated-view prompt | `express` format or a small catalog subset; raise `num_ctx` if memory allows |
