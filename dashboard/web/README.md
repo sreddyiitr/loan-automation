@@ -1,32 +1,14 @@
-# React + TypeScript + Vite
+# Funder dashboard web app (spec 002, spike D0)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite + `@a2ui/react` 0.15.0. It renders the A2UI v1.0 surfaces that the agent
+(`../agent`, port 8091) sends, using our catalog (`src/catalog`), which extends the Basic Catalog
+with `DataTable`. `/agent` is proxied to the agent (`vite.config.ts`).
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev            # http://localhost:5173
+npx playwright test    # e2e/spike.spec.ts; needs the agent and `make run` with LA-1006 submitted
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+See [`ui_summary.md`](../../ui_summary.md) and
+[`a2ui-notes.md`](../../specs/002-funder-dashboard/a2ui-notes.md) §12d.

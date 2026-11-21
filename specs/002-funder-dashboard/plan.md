@@ -1,7 +1,7 @@
 # Plan 002: Funder Dashboard (ADK + A2UI)
 
 How [`spec.md`](spec.md) is built. A2UI facts come from [`a2ui-notes.md`](a2ui-notes.md); read it
-before changing anything here. Items that were marked **(spike)** were settled by D0 on 2026-11-21 (`a2ui-notes.md` §12d).
+before changing anything here. The questions left open for spike D0 were settled on 2026-11-21 (`a2ui-notes.md` §12d).
 
 ## 1. Stack
 

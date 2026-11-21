@@ -114,6 +114,9 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
+Spec 002's funder dashboard is only a spike so far. It adds **1 Playwright test** (the A2UI
+round trip; see "Try the funder dashboard spike" below), which isn't counted in the 396.
+
 <sub>Last full run: 2026-11-20, macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
@@ -344,7 +347,7 @@ Clear LA-1006's price stip and watch it fund:
 
 ```bash
 VID=$(curl -s localhost:8080/api/v1/applications/LA-1006 | python3 -c "import json,sys; print(json.load(sys.stdin)['applicationVersionId'])")
-curl -s localhost:8080/api/v1/versions/$VID/stipulations          # note the stip_id of STIP_PRICE_MISMATCH
+curl -s localhost:8080/api/v1/versions/$VID/stipulations          # note the stipId of STIP_PRICE_MISMATCH
 curl -s -X PATCH localhost:8080/api/v1/versions/$VID/stipulations/<stipId> \
   -H 'X-Funder-Id: funder-1' -H 'Content-Type: application/json' \
   -d '{"status":"WAIVED","reason":"1 cent, dealer confirmed"}'
@@ -454,6 +457,22 @@ change makes a scenario's real outcome differ from its declared `expect`, `seed-
 refuses to write anything. The fix is to update the scenario intent, never to weaken the check.
 Put the tolerance back when you're done (and run `make seed-regenerate` again).
 
+### Try the funder dashboard spike (spec 002, optional)
+
+Spike D0 shows one funder screen: LA-1006's overview with its stips. An agent builds it in code
+(A2UI v1.0, no LLM) and React draws it. **Take this deal** writes through the funder API. You
+need Python 3.12 with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer,
+plus the app from steps 2 and 4 with LA-1006 submitted (step 5).
+
+```bash
+cd dashboard/agent && uv run python main.py      # the agent, port 8091 (its own terminal)
+cd dashboard/web && npm install && npm run dev   # http://localhost:5173 (its own terminal)
+cd dashboard/web && npx playwright install chromium && npx playwright test   # 1 test, starts its own dev server
+```
+
+Clicking **Take this deal** assigns LA-1006 to `spike-funder`. Check it with
+`curl -s localhost:8080/api/v1/versions/$VID/audit`. More in [`ui_summary.md`](ui_summary.md).
+
 ### Step 12: Stop everything
 
 - Press `Ctrl+C` in the `make run` terminal and in the `temporal server start-dev` terminal.
@@ -512,8 +531,9 @@ Put the tolerance back when you're done (and run `make seed-regenerate` again).
 This project:
 
 - [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
-- [`ui_summary.md`](ui_summary.md): the planned funder dashboard (spec 002, ADK + A2UI) at a glance:
-  what it will do, what's built by code and what by the LLM, roles, and the local model.
+- [`ui_summary.md`](ui_summary.md): the funder dashboard (spec 002, ADK + A2UI) at a glance:
+  what it will do, what's built by code and what by the LLM, roles, the local model, and how to
+  run spike D0.
 - [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
   screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
