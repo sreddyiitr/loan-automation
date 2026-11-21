@@ -28,7 +28,7 @@ temporal="${TEMPORAL_ADDRESS:-localhost:7233}"
 if nc -z "${temporal%:*}" "${temporal##*:}" >/dev/null 2>&1; then
   ok "Temporal at $temporal"
 else
-  miss "Temporal at $temporal (you start it; the scripts never do)" "brew install temporal, then in its own terminal: temporal server start-dev"
+  miss "Temporal at $temporal (you start it; the scripts never do)" "brew install temporal, then in its own terminal: make temporal"
 fi
 if command -v python3 >/dev/null 2>&1; then
   ok "python3 (example commands, oidc-env.sh)"

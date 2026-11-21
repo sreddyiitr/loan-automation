@@ -93,7 +93,7 @@ Funding API (Java, spec 001): the only thing that writes
 Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is needed.
 `make dashboard-preflight` names anything missing, with its install command (AS-10.2).
 
-1. Start Temporal (`temporal server start-dev`), then run `make dashboard` (T107, AS-10.1). It
+1. Start Temporal (`make temporal`, which keeps runs in `~/.temporal/funding.db`), then run `make dashboard` (T107, AS-10.1). It
    runs the preflight, then reuses or starts each part:
    - the funding API, as `make run` does (reusing Postgres, the emulator, WireMock and the OIDC
      provider), then submits every seeded scenario still in DRAFT (AS-10.3);

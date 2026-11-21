@@ -147,7 +147,7 @@ build yourself; the other three download on first use.
 
 | Service | Who starts it | Address | Notes |
 |---|---|---|---|
-| **Temporal** | **you**: `temporal server start-dev` (step 2) | gRPC `localhost:7233`, UI http://localhost:8233 | **Required** for `make run` and `make test-functional`; the scripts never start it for you. `make test-unit` doesn't need it, because it uses Temporal's in-memory test server. Another address goes in `TEMPORAL_ADDRESS=host:port`. |
+| **Temporal** | **you**: `make temporal` (step 2) | gRPC `localhost:7233`, UI http://localhost:8233 | **Required** for `make run` and `make test-functional`; the scripts never start it for you. `make test-unit` doesn't need it, because it uses Temporal's in-memory test server. Another address goes in `TEMPORAL_ADDRESS=host:port`. |
 | AWS Emulator (SQS) | the scripts, or you (step 3) | `https://127.0.0.1:9297` | The scripts reuse a running `aws-emulator:latest` container, otherwise they start `funding-emulator`. |
 | PostgreSQL 18 | the scripts | `127.0.0.1:55432` | The scripts reuse a running `postgres:18` container that publishes a port, otherwise they start `funding-postgres` (volume `funding-pgdata`). |
 | WireMock | the scripts | `http://127.0.0.1:8089` | The scripts reuse a running `wiremock/wiremock` container that publishes a port, otherwise they start `funding-wiremock`. |
@@ -188,7 +188,7 @@ Paste this to confirm everything is in place before step 4:
 docker ps >/dev/null && echo "docker: ok"
 java -version 2>&1 | grep -q '"21' && echo "java 21: ok"
 mvn -v >/dev/null && echo "maven: ok"
-nc -z localhost 7233 2>/dev/null && echo "temporal: ok (running)" || echo "temporal: NOT running -> temporal server start-dev"
+nc -z localhost 7233 2>/dev/null && echo "temporal: ok (running)" || echo "temporal: NOT running -> make temporal"
 docker image inspect aws-emulator:latest >/dev/null 2>&1 && echo "aws-emulator image: ok" || echo "aws-emulator image: MISSING -> step 1"
 ```
 
@@ -222,14 +222,17 @@ docker build -t aws-emulator .
 ### Step 2: Start Temporal (required, in its own terminal)
 
 ```bash
-temporal server start-dev        # gRPC on localhost:7233, web UI on http://localhost:8233
+make temporal        # gRPC on localhost:7233, web UI on http://localhost:8233
 ```
 
 Leave it running for as long as you use the app or run `make test-functional`. If it isn't
 running, `make run` stops with `run-local: Temporal is not reachable at localhost:7233`.
 
-- `start-dev` keeps workflows **in memory**: stopping it forgets every run. To keep them across
-  restarts, use `temporal server start-dev --db-filename ~/.temporal/funding.db`.
+- `make temporal` runs `temporal server start-dev --db-filename ~/.temporal/funding.db`, so
+  workflow runs **survive a restart** (another file: `make temporal TEMPORAL_DB=/path/file.db`).
+  Plain `temporal server start-dev` keeps them only in memory: stopping it forgets every run,
+  while Postgres still holds the deals, so their workflow links in the dashboard 404 and their
+  workflows can't be signalled. If that happens, reseed (see Troubleshooting).
 - If a Temporal server is already running on `localhost:7233` (for example for another project),
   just use it. This app's workflow IDs and task queues are prefixed with `FUNDING_ENV`, so they
   don't collide with anything else.
@@ -502,7 +505,7 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
 ### Step 12: Stop everything
 
 - Press `Ctrl+C` in the `make run` (or `make dashboard`) terminal and in the
-  `temporal server start-dev` terminal.
+  `make temporal` terminal. Runs stay in `~/.temporal/funding.db`; delete that file to forget them.
 - `make down` stops and removes **every project container**: those the scripts started (label
   `funding.managed=true`, including the forwarder) and any container named `funding-*`, even one
   you started yourself (e.g. `funding-oidc`). The env scripts start them again on the next run;
@@ -539,7 +542,8 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
 | `several emulator containers are running; choose one` | `EMULATOR_CONTAINER=<name> make run` |
 | `… is running but not reachable (health, CA or credentials)` | Restart that emulator, or set `EMULATOR_CONTAINER` to another one |
 | `image aws-emulator:latest not found` | Do step 1, or set `EMULATOR_IMAGE=<name:tag>` |
-| `run-local: Temporal is not reachable at localhost:7233` | Start it: `temporal server start-dev` (step 2) |
+| `run-local: Temporal is not reachable at localhost:7233` | Start it: `make temporal` (step 2) |
+| The dashboard's "Open the workflow in Temporal" shows 404, or decisions on old deals never complete | Temporal ran in memory and was restarted, so the runs are gone while Postgres still has the deals. Use `make temporal` from now on, and reseed once: stop `make dashboard`, then `source scripts/db-env.sh && docker exec "$DB_CONTAINER" psql -U "$FUNDING_DB_USER" -d postgres -c 'DROP DATABASE funding WITH (FORCE)' -c 'CREATE DATABASE funding'`, then `make dashboard` (it submits every seeded scenario) |
 | `profile 'local' requires AWS_ENDPOINT_URL` | Start with `make run`, which sources the env scripts, not `mvn spring-boot:run` directly |
 | `refusing to seed: seed gates failed` | Someone changed a rule or a scenario. Read the gate output, fix the intent, then run `make seed-regenerate` |
 | `make seed-check` fails with `lock … changed` | Expected after a rule or config change: run `make seed-regenerate` and review the `rules.lock` diff |

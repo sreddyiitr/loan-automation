@@ -339,6 +339,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 - **`Makefile` targets:** `run`, `down` (stops and removes every project container: labeled `funding.managed=true` or named `funding-*`; volumes kept),
   `seed-check`, `seed-regenerate`, `seed-submit-all`, `test-unit`, `test-functional`; spec 002
   adds `dashboard`, `dashboard-preflight`, `test-dashboard` and `test-dashboard-e2e`.
+- **`make temporal`** starts the Temporal dev server on a file DB (`~/.temporal/funding.db`,
+  override with `TEMPORAL_DB`), so runs survive a restart. Plain `start-dev` is in memory: a
+  restart left Postgres deals pointing at runs that no longer existed (dashboard links 404'd).
+  The scripts still never start Temporal themselves.
 - **`scripts/dashboard-preflight.sh`** (spec 002, AS-10.2) names each missing prerequisite with
   its install command and exits 1. Ollama with `gemma4:e4b` is only a warning (AS-10.4).
 - **`scripts/dashboard-run.sh`** (`make dashboard`, AS-10.1/10.3): preflight, then reuse or start

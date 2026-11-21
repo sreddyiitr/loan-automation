@@ -6,8 +6,12 @@ DB    := source scripts/db-env.sh
 WM    := source scripts/wiremock-env.sh
 OIDC  := source scripts/oidc-env.sh
 MVN   := mvn -q -B
+TEMPORAL_DB ?= $(HOME)/.temporal/funding.db
 
-.PHONY: run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e
+.PHONY: temporal run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e
+
+temporal:                 ## Temporal dev server on a file DB ($(TEMPORAL_DB)), so runs survive a restart; in its own terminal
+	@mkdir -p "$(dir $(TEMPORAL_DB))" && temporal server start-dev --db-filename "$(TEMPORAL_DB)"
 
 run:                      ## emulator + postgres + wiremock + OIDC provider + app (local profile: bootstrap, seed, stubs)
 	./run-local.sh
