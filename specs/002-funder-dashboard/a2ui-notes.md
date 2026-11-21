@@ -302,6 +302,22 @@ Other catalogs exist in the repo: `catalogs/vegachart/v1` (charts), `catalogs/mc
   messages, stream: false, think: false, options: {temperature: 0}}`. From ADK it's LiteLLM
   `ollama_chat/gemma4:e4b`. It's still unverified whether LiteLLM passes `think: false` through.
 
+## 12c. Owner decision: no paid LLM (2026-11-21)
+
+Only the local model (Gemma via Ollama) is used, for building, testing and later use. What
+follows from that:
+- **Context window.** Ollama loads `gemma4:e4b` with a **4096-token context** by default. The A2UI
+  system prompt that `a2ui-adk` adds (catalog plus examples, ~10K tokens for the basic catalog)
+  **doesn't fit**. Any feature where the model writes A2UI needs a larger `num_ctx` (more memory),
+  or the compact `express` format, or `skill_mode`, or a small custom catalog. Routine assistant
+  answers stay structured JSON that code renders (~400-token prompts).
+- **Evals:** the A2UI harness runs `--profile offline` (`--no-judge`), so it checks structure
+  only, since the judge needs Gemini. Quality checks are our own deterministic assertions plus
+  recorded reference answers.
+- **Tests** replay recorded model responses. Nothing in CI needs a model.
+- **Speed budget:** ~1–2 s with thinking off, ~8 s with it on (§12b). The UI shows the assistant
+  panel as "thinking…", and the fixed screens never wait for it.
+
 ## 13. ADK integration (`pip install a2ui-adk`, `"a2ui-adk[a2a]"` for A2A)
 
 - **`SendA2uiToClientToolset`:** an ADK toolset that lets the LLM send A2UI through a **tool
