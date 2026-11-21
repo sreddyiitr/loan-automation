@@ -223,10 +223,34 @@ doesn't wait for D2.
   - The client gains `stipulations()` and `validation_results()`. LiteLLM's per-call "Provider
     List" banner is silenced.
   - Tests: 23 new (85 agent tests), 4 of them through a real ADK runner with a scripted model.
-- [ ] **T154** The `deal_<versionId>_assistant` surface: a **Summarize** button on the overview,
+- [x] **T154** The `deal_<versionId>_assistant` surface: a **Summarize** button on the overview,
   and a panel drawn by code. It shows "Summarizing…", then the summary, "assistant unavailable"
   (Ollama's `/api/tags` fails, AS-8.4) or "couldn't produce an answer" (invalid twice). The
   overview never waits for it (NFR-02).
+  **Notes (done 2026-11-21):**
+  - **Streaming.** A2UI v1.0 has no local "set this text" action, so "Summarizing…" comes from
+    the agent: `deal.summarize` replies over A2A `message/stream` as task status updates.
+    "Summarizing…" goes out at once as a `working` update, and the panel with the answer completes
+    the task. The agent card now says `streaming: true`, and the browser sends every action over
+    `message/stream` (`streamToAgent`, applying each update as it arrives). A one-reply action,
+    like Take, is one event. A plain `message/send` caller gets the final panel as the task's
+    status message.
+  - **Each update is the whole panel, rebuilt** (`deleteSurface`, then create, components and
+    data). The strict validator refused a second `createSurface` of the same id. The browser
+    skips duplicates, but a stricter renderer wouldn't, so the agent was fixed. Deleting a
+    surface the browser hasn't got is accepted.
+  - **The model's text is only data** in a fixed Card of Texts, shown as plain text. A test
+    feeds it text shaped like a component with an action and checks it never reaches the layout
+    (D-1). A disclosure under the answer says it was written by the assistant from this deal's
+    data only.
+  - `SummaryService` checks the model's `health` URL (1.5 s timeout) before calling it, so no
+    model means "unavailable" quickly, with no model call. A funder API refusal mid-way removes
+    the panel and shows the notice. `models.yaml` is read on first use, so screens never need it.
+  - **Live in the browser** (LA-1012, LA-1006, LA-1001): "Summarizing…" within 30 ms; the answer
+    in **1.3–1.8 s warm**, but **8.9 s cold**. Ollama unloads the model after 5 idle minutes. T157
+    measures both.
+  - Tests: 11 new (96 agent tests), 3 of them through the real A2A app over HTTP, including
+    `message/stream` order; 10 Playwright still pass with actions on the stream.
 - [ ] **T155** Recorded answers (AS-10.5; was part of T803): record local Gemma's summaries of the
   seeded deals once (`make record-assistant`), and replay them in pytest and, through
   `ASSISTANT_REPLAY`, in Playwright. Tests: valid, invalid once then valid, invalid twice,

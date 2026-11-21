@@ -390,6 +390,9 @@ The types are declared against v0.9 models, so a few `as never` casts are needed
 assistant.
 
 **Pitfalls:**
+- **A second `createSurface` of the same id is an integrity error** (strict `a2ui-core`), even
+  when it's the same surface. To resend a surface, rebuild it: `deleteSurface` first, which is
+  accepted even for a surface the client hasn't got (T154).
 - **Strict validation, and one bad prop blanks the page.** For example, `Text.variant` allows
   only `caption | body` (no `h2`). Validate on the agent before sending (NFR-05), and give the web
   app an error boundary.

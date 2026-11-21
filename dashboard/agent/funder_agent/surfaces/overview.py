@@ -153,8 +153,16 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
         {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         *facts,
-        {"id": "actions", "component": "Row", "children": [*(["take_modal"] if take else []), "temporal_button"]},
+        {"id": "actions", "component": "Row",
+         "children": [*(["take_modal"] if take else []), "summarize_button", "temporal_button"]},
         *take,
+        # AS-8.1: read-only, so it's on every deal and needs no confirmation; the panel is its own surface.
+        {"id": "summarize_label", "component": "Text", "text": "Summarize"},
+        {"id": "summarize_button", "component": "Button", "child": "summarize_label",
+         "accessibility": {"label": "Summarize"},
+         "action": {"event": {"name": "deal.summarize", "context": {
+             "loanApplicationId": {"@path": "/deal/loanApplicationId"},
+             "applicationVersionId": {"@path": "/deal/applicationVersionId"}}}}},
         {"id": "temporal_label", "component": "Text", "text": "Open the workflow in Temporal"},
         {"id": "temporal_button", "component": "Button", "variant": "borderless", "child": "temporal_label",
          "accessibility": {"label": "Open the workflow in Temporal"},
