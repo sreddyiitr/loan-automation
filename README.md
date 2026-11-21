@@ -534,6 +534,8 @@ This project:
 - [`ui_summary.md`](ui_summary.md): the funder dashboard (spec 002, ADK + A2UI) at a glance:
   what it will do, what's built by code and what by the LLM, roles, the local model, and how to
   run spike D0.
+- [`a2ui_overview.md`](a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
+  surfaces, catalogs, the data model, bindings and the click round trip.
 - [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
   screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
