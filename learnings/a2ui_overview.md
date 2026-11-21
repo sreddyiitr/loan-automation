@@ -4,7 +4,7 @@ An introduction to A2UI for newcomers, using the funder dashboard code in `dashb
 worked example. It started as spike D0; T104 split the agent into the `funder_agent` package, so
 the names below are where the code lives now. How the user's token travels is explained in
 [`oidc_authn_authz_summary.md`](oidc_authn_authz_summary.md). For the protocol details see
-[`a2ui-notes.md`](specs/002-funder-dashboard/a2ui-notes.md). For what the spike found see §12d of
+[`a2ui-notes.md`](../specs/002-funder-dashboard/a2ui-notes.md). For what the spike found see §12d of
 that file, and for what the dashboard will do see [`ui_summary.md`](ui_summary.md).
 
 ## The idea behind A2UI
@@ -185,7 +185,7 @@ How to run them is in [`ui_summary.md`](ui_summary.md) under "Run the spike".
 3. **`dashboard/web/src/App.tsx`:** processor, surface and action callback.
 4. **`dashboard/web/src/a2a.ts`:** only the envelope, so skim it.
 5. **`dashboard/web/src/catalog/funderCatalog.tsx`:** the custom widget.
-6. **[`a2ui-notes.md`](specs/002-funder-dashboard/a2ui-notes.md):** start with §12d (what the
+6. **[`a2ui-notes.md`](../specs/002-funder-dashboard/a2ui-notes.md):** start with §12d (what the
    spike learned), then the earlier sections on the protocol.
 
 ## A first experiment

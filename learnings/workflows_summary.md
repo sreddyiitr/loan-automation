@@ -148,7 +148,7 @@ children and a new `ApplyOutcome`, until the deal is funded, rejected or expires
 
 ## Try it yourself
 
-1. `make temporal`, then `make run` (see the [README](README.md)).
+1. `make temporal`, then `make run` (see the [README](../README.md)).
 2. `make seed-submit-all`.
 3. Open http://localhost:8233, choose the `default` namespace, and filter by
    `WorkflowId starts with "funding-local-<versionId>"`. A clean deal (LA-1001) looks like the

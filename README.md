@@ -14,12 +14,29 @@ Retail Installment Sale Contract (RISC), a Buyer's Order and a GAP agreement, al
 OCR. The checks run as **Temporal workflows**, each failure becomes a *stipulation* (stip) the
 dealer must clear, and a clean deal is disbursed automatically.
 
+On top of it sits a **funder dashboard** (spec 002) for the deals that need a person: sign in, open
+a deal, take it, and ask a local AI model to explain where it stands. Its screens are built with
+**A2UI**, and its assistant runs on **ADK** with **Gemma** through Ollama.
+
 Everything runs on your laptop: **Temporal**, **PostgreSQL 18** in Docker, the **AWS Emulator**
-for SQS, and **WireMock** for the external APIs. You need no AWS account and pay nothing.
+for SQS, **WireMock** for the external APIs, and, optionally, **Ollama** for the dashboard's
+assistant. You need no AWS account, no paid AI service, and pay nothing.
 
 The project is **spec-driven**: read [`specs/constitution.md`](specs/constitution.md) first, then
-[`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/). What's built so far is
-in [`implementation_summary.md`](implementation_summary.md).
+[`specs/001-loan-funding-validation/`](specs/001-loan-funding-validation/) and
+[`specs/002-funder-dashboard/`](specs/002-funder-dashboard/). What's built so far is in
+[`learnings/implementation_summary.md`](learnings/implementation_summary.md), and the dashboard is summarized in
+[`learnings/ui_summary.md`](learnings/ui_summary.md).
+
+## Architecture
+
+![How funding-automation fits together today: the funder's browser (React + A2UI) talks A2A to a Python agent, which builds screens in code, runs Summarize through ADK on local Gemma, and calls the Java funding app's funder API with the user's token; the funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all on one laptop](Architecture.svg)
+
+Top to bottom: the **browser** draws A2UI screens and signs in with OIDC. The **agent** builds
+every screen in code, and only "Summarize" calls the local model, through ADK. The **funding app**
+(spec 001) is the only thing that writes, and runs each deal as a Temporal workflow. Everything
+under it runs locally. A PNG copy for slides or posts: [`Architecture.png`](Architecture.png).
+The SVG is the source; edit it, then re-render the PNG.
 
 ## What it does today
 
@@ -52,7 +69,7 @@ hardening)**. End to end:
 > application version supersedes the old one's run, which keeps its results and stips as
 > history. Once a version is approved its documents are frozen.
 
-Behind that:
+Behind that, in more detail (the spec 001 trigger path):
 
 ```
  dev submit ──▶ Postgres 18 ──trigger──▶ outbox ──relay──▶ AWS Emulator SQS ──▶ LocalLambdaRunner
@@ -93,6 +110,23 @@ Behind that:
 - Activity and relay log lines carry the loan, version and workflow IDs, and Temporal's metrics
   appear at `/actuator/metrics`.
 
+**The funder dashboard (spec 002), so far** (slices D0, D1 and D1b):
+- **Sign in** on the local OIDC provider's login page. The funder API knows who you are from your
+  token, and records you as the actor of every change.
+- **Open a deal** by its loan id: status, facts, days to expiry, payment, version history, and a
+  link to its workflow in the Temporal UI.
+- **Take this deal**: assign an unassigned deal to yourself, after a confirmation. If someone else
+  took it first, you're told who.
+- **Summarize**: a local AI model explains in two or three sentences why the deal isn't funded,
+  or how it ended. It's read-only, sees only this deal, and its words are shown as plain text.
+  With no model running, everything else still works.
+- **One command** (`make dashboard`) starts the funding API, the agent and the web app, and
+  submits the seeded scenarios.
+
+Code builds every screen and makes every write; the AI only explains. Next: roles and
+permissions (D2), then the worklist and the other tabs. See
+[Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
+
 ---
 
 ## How we know it works
@@ -114,10 +148,10 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview, Take and
-`make dashboard`. Its
-Java tests are in the 411. Its **121 agent tests** and **13 Playwright tests** are counted
-separately; see "Try the funder dashboard" below.
+Spec 002 (the funder dashboard) adds **121 agent tests** (pytest) and **13 browser tests**
+(Playwright), counted separately; its Java tests are in the 411. None of them needs an AI model:
+they replay answers recorded from it. See
+[Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
 <sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
@@ -138,7 +172,10 @@ build yourself; the other three download on first use.
 | Temporal CLI | `temporal --version` | `brew install temporal` | Provides the local Temporal server (step 2). Tested with CLI 1.10.1 / server 1.32.2. |
 | `curl`, `nc`, `python3` | `which curl nc python3` | preinstalled on macOS | `curl` for health checks, `nc` for the Temporal reachability check, `python3` in some example commands. |
 | `jq` | `jq --version` | `brew install jq` | Used by the Claude Code seed-check hook (`scripts/hooks/seed-check-hook.sh`). Optional if you don't use Claude Code. |
-| AWS CLI v2 | `aws --version` | `brew install awscli` | Optional, but recommended. `emulator-env.sh` uses it to prove it's talking to the emulator (account `000000000000`), and step 6 uses it to explore SQS. |
+| AWS CLI v2 | `aws --version` | `brew install awscli` | Optional, but recommended. `emulator-env.sh` uses it to prove it's talking to the emulator (account `000000000000`), and step 8 uses it to explore SQS. |
+| `uv` with Python 3.12 | `uv --version` | `brew install uv && uv python install 3.12` | **Dashboard only.** Runs the agent and its tests. |
+| Node 22 or newer | `node --version` | `brew install node@22` | **Dashboard only.** Runs the web app and the Playwright tests (tested with 24). |
+| Ollama with `gemma4:e4b` | `ollama list` | `brew install ollama && ollama serve && ollama pull gemma4:e4b` | **Optional, dashboard only:** the model behind **Summarize** (9.5 GB). Without it, only the assistant is unavailable. |
 
 > **You never need real AWS credentials.** The emulator creates its own keys on every start, and
 > the scripts read them for you.
@@ -177,6 +214,8 @@ docker pull alpine/socat:latest
 ### 4. Free ports
 
 `8080` (app), `7233` and `8233` (Temporal), `9297` (emulator), `55432` (Postgres), `8089` (WireMock), `8090` (OIDC provider).
+For the dashboard: `8091` (agent), `5173` (web app), `8092` and `5174` (the browser tests' own
+agent and web app), and `11434` (Ollama).
 Check with `lsof -nP -iTCP:8080 -sTCP:LISTEN`. Already used by a container the scripts can reuse?
 That's fine. Already used by something else? See [Troubleshooting](#troubleshooting).
 
@@ -503,11 +542,21 @@ about 1–2 s, or up to ~10 s when the model has to load first. The model is set
 `dashboard/agent/models.yaml`, not in code. The tests never need it: they replay answers recorded
 from it.
 
-Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
-`supervisor-1`), click **Sign-in**, then open `LA-1006`. If it's unassigned, **Take this deal**
-asks for confirmation, then assigns it to you;
-check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More in
-[`ui_summary.md`](ui_summary.md).
+Then, at http://localhost:5173:
+
+1. Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
+   `supervisor-1`), leave the claims box empty, and click **Sign-in**. There's no password.
+2. Type a loan id, say `LA-1007`, and click **Open**.
+3. **Take this deal** asks for confirmation, then assigns it to you. The browser tests leave
+   LA-1006 assigned to `funder-2`, so try Take on another STIPULATED deal. Check the audit with
+   `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit` (step 6).
+4. Click **Summarize**. The panel says "Summarizing…", then shows the explanation. Good ones to
+   try: `LA-1006` (price 1¢ off), `LA-1012` (income over by 33%), `LA-1016` (income API down),
+   `LA-1030` (payment outcome unknown) and `LA-1001` (funded).
+
+The browser tests start their own agent (replaying recorded answers) and web app, so they always
+test the current code; they need `make dashboard`'s funding API and sign-in. More, including how
+the assistant works, in [`learnings/ui_summary.md`](learnings/ui_summary.md).
 
 ### Step 12: Stop everything
 
@@ -521,6 +570,8 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
   name) may be shared, so `make down` leaves it running and lists it.
 - Postgres data survives in the `funding-pgdata` volume. Emulator data (queues, messages) lives
   only in memory and is recreated on the next `make run`.
+- Ollama isn't ours: it keeps running until you quit it. It unloads the model after 5 idle
+  minutes.
 
 ---
 
@@ -539,6 +590,11 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
 | **Every write re-checks "is this still the latest version?" in its own transaction** | A resubmission can't be overwritten by an older version's late result (AS-9.3). |
 | **Test data is derived, not typed** | Scenarios say "offset the total by +10.00", and the generator computes 33802.60 with the same `Amortization` code the rule uses. |
 | **Shared services need namespacing** | `FUNDING_ENV` scopes queue names, workflow IDs, task queues, the database and stub metadata, so tests and your local run can share one emulator, Postgres, WireMock and Temporal. |
+| **Temporal's dev server forgets on restart** unless it has a file | `make temporal` keeps runs in `~/.temporal/funding.db`. Without it, a restart left the database pointing at runs that no longer existed. |
+| **Code draws the screens, the LLM only explains** (spec 002) | The agent sends A2UI v1.0 JSON that it builds in code, and React renders it. The model's answer is checked in code and shown as plain text in a fixed panel, so it can never add a button. |
+| **A2UI is strict, and that helps** | The official validator runs in the tests. It caught a real bug: sending `createSurface` twice for the same panel. The fix is to rebuild it (`deleteSurface` first). |
+| **Small local models need small prompts** | Sending Gemma only what explains the deal (≈200 tokens, not ≈2,000) and turning thinking off (`reasoning_effort: none`) cut answers from ~4 s to ~1 s. ADK's `output_schema` asks Ollama to force JSON, which this model refuses, so the JSON is checked in code. |
+| **Tests shouldn't need the model** | `make record-assistant` records the model's answers once, and the tests replay them. A test says when the recordings no longer match what the code sends. |
 
 ---
 
@@ -569,20 +625,27 @@ check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`. More 
 | `FUNDING_DB_URL is not set: run functional tests with make test-functional` | Run functional tests with `make test-functional`, not plain `mvn verify` |
 | HTTP 403 from the emulator | Stale keys: `source scripts/emulator-env.sh` again |
 | Port 8080 already in use | `lsof -ti tcp:8080 \| xargs kill`, or `SERVER_PORT=8081 make run` |
+| Summarize says "the assistant is unavailable" | Ollama isn't running, or the model isn't pulled: `ollama serve`, then `ollama pull gemma4:e4b`. Everything else works without it |
+| Summarize is slow the first time | Ollama loads the model after 5 idle minutes (up to ~10 s). Later answers take 1–2 s. The target is 15 s |
+| `make test-dashboard-e2e` can't start: port 8092 or 5174 in use | A leftover test agent or web app: `lsof -ti tcp:8092 \| xargs kill` (or 5174) |
+| `AS_10_3` fails, naming a deal | That deal no longer has its seeded status (for example LA-1006 waived by hand). Reseed as in the Temporal row above |
+| An agent test says "rerun make record-assistant" | The prompt's shape changed since the answers were recorded. Run `make record-assistant` with `make dashboard` and Ollama running, and commit the new recordings |
 
 ## References
 
 This project:
 
-- [`implementation_summary.md`](implementation_summary.md): what's built, by module, and what's next.
-- [`ui_summary.md`](ui_summary.md): the funder dashboard (spec 002, ADK + A2UI) at a glance:
-  what it will do, what's built by code and what by the LLM, roles, the local model, and how to
-  run spike D0.
-- [`oidc_authn_authz_summary.md`](oidc_authn_authz_summary.md): sign-in and permissions explained
+- [`learnings/implementation_summary.md`](learnings/implementation_summary.md): what's built, by module, and what's next.
+- [`learnings/ui_summary.md`](learnings/ui_summary.md): the funder dashboard (spec 002, A2UI + ADK) at a glance:
+  what's built and what's next, what's built by code and what by the LLM, roles, the local model,
+  how to run it and its tests.
+- [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/): `spec.md`, `plan.md`, `tasks.md`
+  (with notes on every task), and `a2ui-notes.md` (what we learned about A2UI, ADK and local Gemma).
+- [`learnings/oidc_authn_authz_summary.md`](learnings/oidc_authn_authz_summary.md): sign-in and permissions explained
   simply: how the funder API knows who is calling (OIDC bearer tokens) and what they may do.
-- [`a2ui_overview.md`](a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
+- [`learnings/a2ui_overview.md`](learnings/a2ui_overview.md): A2UI for newcomers, explained through the spike's code:
   surfaces, catalogs, the data model, bindings and the click round trip.
-- [`workflows_summary.md`](workflows_summary.md): one loan followed through the Temporal UI, with
+- [`learnings/workflows_summary.md`](learnings/workflows_summary.md): one loan followed through the Temporal UI, with
   screenshots of the timeline, each check's inputs and outputs, and what that gives an auditor.
 - [`specs/constitution.md`](specs/constitution.md): the non-negotiable principles (spec first,
   rule-derived seed data and mocks, local-first, determinism).
@@ -598,7 +661,8 @@ AWS Emulator User Guide:
 - [Telemetry in AWS Emulator][telemetry]
 
 Others: [Temporal Java SDK](https://docs.temporal.io/develop/java) ·
-[WireMock](https://wiremock.org/docs/) · [Testcontainers](https://java.testcontainers.org/)
+[WireMock](https://wiremock.org/docs/) · [Testcontainers](https://java.testcontainers.org/) ·
+[A2UI](https://a2ui.org) · [ADK](https://google.github.io/adk-docs/) · [Ollama](https://ollama.com)
 
 [docker]: https://docs.aws.amazon.com/emulator/latest/userguide/getting-started-docker.html
 [sdk]: https://docs.aws.amazon.com/emulator/latest/userguide/point-sdk-to-emulator.html

@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1030" viewBox="0 0 1400 1030" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" fill="#1A202C">
+  <title>funding-automation: current architecture</title>
+  <desc>Funder's browser (React + A2UI) talks A2A to a Python agent. The agent builds screens in code, runs Summarize through ADK on local Gemma via Ollama, and calls the Java funding app's funder API with the user's token. The funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all local.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4A5568"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6B46C1"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="1030" fill="#FFFFFF"/>
+
+  <!-- title -->
+  <text x="40" y="44" font-size="22" font-weight="700">funding-automation: how it fits together today</text>
+  <text x="40" y="66" fill="#4A5568">Spec 001 (durable validation and funding on Temporal) + spec 002 so far (the funder dashboard: sign in, overview, Take, Summarize)</text>
+
+  <!-- ============ browser ============ -->
+  <rect x="40" y="90" width="900" height="120" rx="10" fill="#E8F1FD" stroke="#2B6CB0" stroke-width="1.5"/>
+  <text x="60" y="118" font-size="16" font-weight="700">Funder's browser: web app (React 19 + Vite, :5173)</text>
+  <text x="60" y="144">A2UI v1.0 renderer: @a2ui/react 0.15 + our catalog (DataTable, StatusBadge)</text>
+  <text x="60" y="166">Sign-in: oidc-client-ts, Authorization Code + PKCE; the token stays in memory</text>
+  <text x="60" y="188">Draws what the agent sends; clicks go back as A2UI actions; streamed updates applied as they arrive</text>
+
+  <rect x="1000" y="90" width="360" height="120" rx="10" fill="#F2F2F2" stroke="#718096" stroke-width="1.5"/>
+  <text x="1020" y="118" font-size="16" font-weight="700">OIDC provider (:8090)</text>
+  <text x="1020" y="144">mock-oauth2-server 6.1.5 (Docker)</text>
+  <text x="1020" y="166">login page · signs bearer tokens</text>
+  <text x="1020" y="188" fill="#4A5568">real single sign-on later = config only</text>
+
+  <line x1="942" y1="150" x2="998" y2="150" stroke="#4A5568" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text x="949" y="140" font-size="11" fill="#4A5568">PKCE</text>
+
+  <!-- browser <-> agent -->
+  <line x1="180" y1="278" x2="180" y2="212" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="190" y="248" font-size="12" fill="#2D3748">A2UI v1.0 JSON: screens + data</text>
+  <line x1="470" y1="212" x2="470" y2="278" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="480" y="240" font-size="12" fill="#2D3748">requests and clicks over A2A JSON-RPC</text>
+  <text x="480" y="256" font-size="12" fill="#2D3748">(message/send, message/stream SSE) + the user's bearer token</text>
+
+  <!-- ============ agent ============ -->
+  <rect x="40" y="280" width="900" height="250" rx="10" fill="#F7FAFC" stroke="#4A5568" stroke-width="1.5"/>
+  <text x="60" y="308" font-size="16" font-weight="700">Agent service (Python 3.12, a2a-sdk, :8091)</text>
+
+  <rect x="60" y="324" width="250" height="186" rx="8" fill="#FFFFFF" stroke="#2F855A" stroke-width="1.5"/>
+  <text x="76" y="350" font-weight="700" fill="#22543D">Router (our AgentExecutor)</text>
+  <text x="76" y="374">routes in code:</text>
+  <text x="76" y="396">· text → open a deal</text>
+  <text x="76" y="418">· action → its handler</text>
+  <text x="76" y="440">· deal.summarize → streamed</text>
+  <text x="76" y="474" fill="#4A5568" font-size="12">no LLM decides anything here</text>
+
+  <rect x="330" y="324" width="270" height="186" rx="8" fill="#FFFFFF" stroke="#2F855A" stroke-width="1.5"/>
+  <text x="346" y="350" font-weight="700" fill="#22543D">Screens and actions (code)</text>
+  <text x="346" y="374">surfaces/: overview, notice,</text>
+  <text x="346" y="396">the assistant's panel</text>
+  <text x="346" y="418">actions/: Take, after a confirm</text>
+  <text x="346" y="440">every screen strict-validated</text>
+  <text x="346" y="474" fill="#4A5568" font-size="12">built by code, never by the LLM</text>
+
+  <rect x="620" y="324" width="300" height="186" rx="8" fill="#F1E8FD" stroke="#6B46C1" stroke-width="1.5"/>
+  <text x="636" y="350" font-weight="700" fill="#44337A">Assistant: Summarize (ADK)</text>
+  <text x="636" y="374">ADK LlmAgent + InMemoryRunner</text>
+  <text x="636" y="396">LiteLLM model from models.yaml</text>
+  <text x="636" y="418">sees this deal only (~200 tokens)</text>
+  <text x="636" y="440">JSON checked in code, 1 retry</text>
+  <text x="636" y="462">shown as plain text: no buttons</text>
+  <text x="636" y="494" fill="#4A5568" font-size="12">tests replay recorded answers</text>
+
+  <rect x="1000" y="350" width="360" height="140" rx="10" fill="#F1E8FD" stroke="#6B46C1" stroke-width="1.5"/>
+  <text x="1020" y="378" font-size="16" font-weight="700">Ollama (:11434)</text>
+  <text x="1020" y="404">Gemma gemma4:e4b, on the laptop</text>
+  <text x="1020" y="426">$0 · nothing leaves the machine</text>
+  <text x="1020" y="448">thinking off · ~1–2 s warm</text>
+  <text x="1020" y="472" fill="#4A5568" font-size="12">optional: without it, only Summarize is off</text>
+
+  <line x1="922" y1="420" x2="998" y2="420" stroke="#6B46C1" stroke-width="1.5" marker-end="url(#arrow-purple)"/>
+  <text x="950" y="410" font-size="11" fill="#44337A">prompt</text>
+
+  <!-- agent -> funding app -->
+  <line x1="470" y1="532" x2="470" y2="598" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="480" y="562" font-size="12" fill="#2D3748">REST /api/v1 with the user's own token</text>
+  <text x="480" y="578" font-size="12" fill="#2D3748">(the agent never creates one)</text>
+
+  <!-- ============ funding app ============ -->
+  <rect x="40" y="600" width="900" height="170" rx="10" fill="#FDF0E3" stroke="#C05621" stroke-width="1.5"/>
+  <text x="60" y="628" font-size="16" font-weight="700">Funding app (Java 21, Spring Boot, :8080): spec 001</text>
+
+  <rect x="60" y="642" width="270" height="112" rx="8" fill="#FFFFFF" stroke="#C05621" stroke-width="1.5"/>
+  <text x="76" y="666" font-weight="700" fill="#7B341E">Funder API (/api/v1)</text>
+  <text x="76" y="688">OIDC resource server</text>
+  <text x="76" y="708">role from its user directory</text>
+  <text x="76" y="728">the only writer: guarded,</text>
+  <text x="76" y="746">audited, then a workflow signal</text>
+
+  <rect x="345" y="642" width="270" height="112" rx="8" fill="#FFFFFF" stroke="#C05621" stroke-width="1.5"/>
+  <text x="361" y="666" font-weight="700" fill="#7B341E">Trigger path</text>
+  <text x="361" y="688">dev submit (stands in for OCR)</text>
+  <text x="361" y="708">DB trigger → outbox → SQS</text>
+  <text x="361" y="728">→ Lambda handler → Start API</text>
+  <text x="361" y="746">→ starts the workflow</text>
+
+  <rect x="630" y="642" width="290" height="112" rx="8" fill="#FFFFFF" stroke="#C05621" stroke-width="1.5"/>
+  <text x="646" y="666" font-weight="700" fill="#7B341E">Temporal workers</text>
+  <text x="646" y="688">FundingWorkflow: 5 checks at once</text>
+  <text x="646" y="708">TILA ‖ PRICE ‖ VIN ‖ GAP ‖ INCOME</text>
+  <text x="646" y="728">waits for funders, pays the dealer,</text>
+  <text x="646" y="746">expires after 30 days</text>
+
+  <!-- OIDC verifies tokens for the funder API -->
+  <polyline points="1362,170 1382,170 1382,690 942,690" fill="none" stroke="#718096" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/>
+  <text x="1000" y="682" font-size="12" fill="#4A5568">checks every token's signature (JWKS)</text>
+
+  <!-- funding app -> infra -->
+  <line x1="165" y1="772" x2="165" y2="838" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="175" y="810" font-size="12" fill="#2D3748">SQL</text>
+  <line x1="435" y1="772" x2="435" y2="838" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="445" y="810" font-size="12" fill="#2D3748">workflows, signals</text>
+  <line x1="705" y1="772" x2="705" y2="838" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="715" y="810" font-size="12" fill="#2D3748">outbox events</text>
+  <line x1="920" y1="772" x2="920" y2="838" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="930" y="810" font-size="12" fill="#2D3748">HTTP (retries, timeouts)</text>
+
+  <!-- ============ local infrastructure ============ -->
+  <rect x="40" y="840" width="250" height="120" rx="10" fill="#F2F2F2" stroke="#718096" stroke-width="1.5"/>
+  <text x="56" y="866" font-weight="700">PostgreSQL 18 (:55432)</text>
+  <text x="56" y="890">system of record: deals,</text>
+  <text x="56" y="910">stips, results, audit, outbox</text>
+  <text x="56" y="940" fill="#4A5568" font-size="12">Docker, volume funding-pgdata</text>
+
+  <rect x="310" y="840" width="250" height="120" rx="10" fill="#F2F2F2" stroke="#718096" stroke-width="1.5"/>
+  <text x="326" y="866" font-weight="700">Temporal (:7233, UI :8233)</text>
+  <text x="326" y="890">durable workflow history</text>
+  <text x="326" y="910">kept in a file by make temporal</text>
+  <text x="326" y="940" fill="#4A5568" font-size="12">~/.temporal/funding.db</text>
+
+  <rect x="580" y="840" width="250" height="120" rx="10" fill="#F2F2F2" stroke="#718096" stroke-width="1.5"/>
+  <text x="596" y="866" font-weight="700">AWS Emulator (:9297)</text>
+  <text x="596" y="890">SQS queue + dead-letter queue</text>
+  <text x="596" y="910">the real Java 21 Lambda handler</text>
+  <text x="596" y="940" fill="#4A5568" font-size="12">run locally by LocalLambdaRunner</text>
+
+  <rect x="850" y="840" width="250" height="120" rx="10" fill="#F2F2F2" stroke="#718096" stroke-width="1.5"/>
+  <text x="866" y="866" font-weight="700">WireMock (:8089)</text>
+  <text x="866" y="890">Income Verification API</text>
+  <text x="866" y="910">Disbursement API</text>
+  <text x="866" y="940" fill="#4A5568" font-size="12">stubs generated from the rules</text>
+
+  <!-- legend -->
+  <rect x="1120" y="760" width="240" height="200" rx="10" fill="#FFFFFF" stroke="#CBD5E0" stroke-width="1"/>
+  <text x="1136" y="786" font-weight="700">Legend</text>
+  <rect x="1136" y="798" width="16" height="12" fill="#E8F1FD" stroke="#2B6CB0"/><text x="1160" y="809">browser</text>
+  <rect x="1136" y="820" width="16" height="12" fill="#FFFFFF" stroke="#2F855A"/><text x="1160" y="831">code, no LLM</text>
+  <rect x="1136" y="842" width="16" height="12" fill="#F1E8FD" stroke="#6B46C1"/><text x="1160" y="853">the LLM path</text>
+  <rect x="1136" y="864" width="16" height="12" fill="#FDF0E3" stroke="#C05621"/><text x="1160" y="875">Java app (spec 001)</text>
+  <rect x="1136" y="886" width="16" height="12" fill="#F2F2F2" stroke="#718096"/><text x="1160" y="897">local service (Docker, CLI)</text>
+  <line x1="1136" y1="919" x2="1166" y2="919" stroke="#4A5568" stroke-width="1.5" marker-end="url(#arrow)"/><text x="1174" y="923">request</text>
+  <line x1="1136" y1="943" x2="1166" y2="943" stroke="#718096" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrow)"/><text x="1174" y="947">token check</text>
+
+  <!-- footer -->
+  <text x="40" y="996" font-size="14" font-weight="700">The rule: code builds every screen and makes every write; the LLM only explains.</text>
+  <text x="40" y="1016" fill="#4A5568">Everything runs on one laptop: Docker, the Temporal CLI and (optionally) Ollama. No cloud account, no paid AI, $0.</text>
+</svg>

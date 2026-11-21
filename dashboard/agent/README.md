@@ -18,5 +18,5 @@ uv run pytest           # unit tests, no services needed
 | `funder_agent/config.py` | `FUNDER_API_URL`, `TEMPORAL_UI_URL`, `TEMPORAL_NAMESPACE` and `AGENT_PORT`, each overridable by environment variable |
 | `tests/` | Every surface is run through `a2ui-core`'s strict `MessageProcessor` with our catalog (NFR-05). The rest run against a fake funder API. |
 
-See [`ui_summary.md`](../../ui_summary.md) for running the whole dashboard, and
-[`a2ui_overview.md`](../../a2ui_overview.md) for how the code works.
+See [`learnings/ui_summary.md`](../../learnings/ui_summary.md) for running the whole dashboard, and
+[`learnings/a2ui_overview.md`](../../learnings/a2ui_overview.md) for how the code works.
