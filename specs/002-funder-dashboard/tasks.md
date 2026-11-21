@@ -186,9 +186,20 @@ doesn't wait for D2.
 
 - [x] **T151** Spec first: AS-8.1 (finished deals, read-only), D-4's exception, D-14 (ADK), plan
   §7, a2ui-notes §12b (`reasoning_effort="none"` verified; `output_schema` gets a 501).
-- [ ] **T152** `models.yaml` and the model registry (FR-07; was T801): a `LiteLlm` per feature,
+- [x] **T152** `models.yaml` and the model registry (FR-07; was T801): a `LiteLlm` per feature,
   with `thinking` as a `reasoning_effort` level. Unit test: switching the model, or one feature's
   model, is a YAML edit with no code change.
+  **Notes (done 2026-11-21):**
+  - `dashboard/agent/models.yaml` (or `ASSISTANT_MODELS`) and `funder_agent/assistant/models.py`.
+    `Registry.load().for_feature("summary").llm()` is the ADK `LiteLlm`, at temperature 0 so
+    recorded answers replay.
+  - **Pitfall:** the plan's `thinking: {off: none, on: medium}` loads as `{False: …, True: …}`
+    (YAML 1.1 booleans). The keys are `thinking_off` / `thinking_on`; a test pins it.
+  - Each model also names a `health` URL, so the AS-8.4 check stays out of code.
+  - A broken file is refused with the entry named (7 cases). A test fails if a provider or model
+    name appears in `funder_agent/**/*.py`.
+  - `google-adk` 2.15.0 and `litellm` 1.110.2 added (pinned in `uv.lock`). Tests: 16 new, 62 agent
+    tests in all.
 - [ ] **T153** The summary (was part of T802), in `funder_agent/assistant/`:
   - the prompt gets the overview, the open stips and the checks that didn't pass, as data;
   - an ADK `LlmAgent` on a throwaway session, thinking off;

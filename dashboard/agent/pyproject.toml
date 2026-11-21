@@ -8,7 +8,9 @@ dependencies = [
     "a2a-sdk[http-server]>=0.3.26",
     "a2ui-a2a>=0.4.0",
     "a2ui-agent-sdk>=0.12.0",
+    "google-adk>=2.15.0",
     "httpx>=0.28.1",
+    "litellm>=1.110.2",
     "pyyaml>=6.0.4",
     "uvicorn>=0.54.0",
 ]

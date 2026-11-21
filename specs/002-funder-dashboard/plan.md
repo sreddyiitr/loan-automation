@@ -163,19 +163,31 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
 
 ## 7. Assistant (US-8, US-9)
 
-- **Model registry** (`models.yaml`):
+- **Model registry** (`dashboard/agent/models.yaml`, or `ASSISTANT_MODELS`; built in T152):
 
   ```yaml
   default: local_gemma
   models:
-    local_gemma: {model: "ollama_chat/gemma4:e4b", context: 4096, structured_output: false,
-                  thinking: {off: none, on: medium}, cost_per_mtok: {in: 0, out: 0}}
-  features: {summary: local_gemma, suggest: local_gemma, draft_stip: local_gemma, generated_view: local_gemma}
+    local_gemma:
+      model: ollama_chat/gemma4:e4b
+      api_base: http://localhost:11434
+      health: http://localhost:11434/api/tags      # 2xx = usable; otherwise "assistant unavailable"
+      context: 4096
+      structured_output: false
+      reasoning_effort: {thinking_off: none, thinking_on: medium}
+      cost_per_mtok: {in: 0, out: 0}
+  features:
+    summary: {model: local_gemma, thinking: false}
+    suggest: {model: local_gemma, thinking: true}
+    # draft_stip, generated_view: likewise; a feature left out uses the default, thinking off
   ```
 
-  Swapping a model or a feature is a YAML edit (FR-07). `thinking` values are LiteLLM
-  `reasoning_effort` levels, which LiteLLM turns into each provider's own setting (for Ollama,
+  Swapping a model or a feature is a YAML edit (FR-07). The `reasoning_effort` values are LiteLLM
+  levels (not `off:`/`on:` keys, which YAML reads as booleans), which LiteLLM turns into each provider's own setting (for Ollama,
   `think: false` / `true`; verified through ADK, a2ui-notes §12b), so no provider key is in code.
+  The `health` URL is in the file for the same reason: the availability check (AS-8.4) is
+  provider-specific, so it's configuration. A test fails if a provider or model name appears in
+  the agent's code.
 - **ADK (D-14):** each feature is an ADK `LlmAgent` with a `LiteLlm` model built from the
   registry, run by an `InMemoryRunner` with one throwaway session per request (no memory between
   requests, so nothing from another deal can leak in, AS-8.5). `output_schema` is **not** used:

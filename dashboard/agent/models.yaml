@@ -1,0 +1,30 @@
+# The assistant's models (spec 002 FR-07, plan §7). Swapping a model, or one feature's model, is an
+# edit here: the code names features, never a provider. Another file: ASSISTANT_MODELS=/path.yaml.
+#
+# models.<name>:
+#   model             LiteLLM model string
+#   api_base          where the model is served (optional; LiteLLM's default otherwise)
+#   health            a URL that answers 2xx when the model can be used ("assistant unavailable" otherwise, AS-8.4)
+#   context           context window, in tokens
+#   structured_output whether the server can force JSON; local Gemma's MLX runner can't (a2ui-notes §12b)
+#   reasoning_effort  the LiteLLM level for thinking off and on; LiteLLM maps it to the provider's own
+#                     setting (for Ollama, think: false / true). Not `off:` / `on:` keys: YAML reads those as booleans.
+#   cost_per_mtok     USD per million tokens, in and out (D-7: the default costs nothing)
+# features.<feature>: the model it uses, and whether it thinks (summaries don't: ~3 s instead of ~6 s).
+default: local_gemma
+
+models:
+  local_gemma:
+    model: ollama_chat/gemma4:e4b
+    api_base: http://localhost:11434
+    health: http://localhost:11434/api/tags
+    context: 4096
+    structured_output: false
+    reasoning_effort: {thinking_off: none, thinking_on: medium}
+    cost_per_mtok: {in: 0, out: 0}
+
+features:
+  summary:        {model: local_gemma, thinking: false}
+  suggest:        {model: local_gemma, thinking: true}
+  draft_stip:     {model: local_gemma, thinking: false}
+  generated_view: {model: local_gemma, thinking: false}
