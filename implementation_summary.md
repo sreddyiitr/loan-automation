@@ -343,15 +343,21 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 
 ---
 
-### Spec 002: funder dashboard, spike D0 (`dashboard/`)
+### Spec 002: funder dashboard (`dashboard/`)
 
-- **`dashboard/agent`** (Python 3.12, `uv`): an A2A server (`a2a-sdk` 0.3.26) whose own
-  `AgentExecutor` routes in code, with no LLM and no ADK. A text request (`open LA-1006`) returns
-  an A2UI v1.0 overview surface built from `GET /applications/{id}` and its stips. The `deal.take`
-  action calls `PUT /versions/{id}/assignee` and returns a data-model update from a re-read.
+- **`dashboard/agent`** (Python 3.12, `uv`; the `funder_agent` package since T104): an A2A
+  server (`a2a-sdk` 0.3.26) whose own `AgentExecutor` routes in code, with no LLM and no ADK.
+  - It relays the browser's bearer token to the funder API and never creates one (FR-11).
+  - A text request (`open LA-1006`) returns the `deal_<versionId>_overview` surface: deal facts,
+    days to expiry, payment status, an in-progress note, a Temporal UI link, and the version
+    history.
+  - `deal.take` assigns the deal to the token's user and returns a data-model update from a re-read.
+  - With no token, or when the funder API refuses, it returns a `notice` surface with a plain
+    message from `messages.yaml` (FR-06).
 - **`dashboard/web`** (React 19, Vite, `@a2ui/react` 0.15.0): renders v1.0 surfaces with our
   catalog, which extends the Basic Catalog with a custom `DataTable`. It talks plain A2A JSON-RPC
-  through a Vite proxy (`/agent` → port 8091) and shows the actions it sent, for the test.
+  through a Vite proxy (`/agent` → port 8091), sends the user's token (held in memory by
+  `src/auth.ts`), and shows the actions it sent, for the test.
 - **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
   catalog per surface; versions pinned. Recorded in `specs/002-funder-dashboard/plan.md`, with the
   details and pitfalls in `a2ui-notes.md` §12d.
@@ -370,9 +376,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 spike** `dashboard/web/e2e/spike.spec.ts` (Playwright) | the agent, the running app (`make run`, LA-1006 submitted), Chromium | 1 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 32 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright): overview and Take as the token's user; the signed-out page | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider, Chromium | 2 | ✅ |
 
-**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) and 1 Playwright test. Test names trace to the
+**Total: 406 tests** (337 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 10 of them (5 `FunderAuthTest`, 4 overview tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 32 agent tests and 2 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -543,4 +550,4 @@ Spec 001's slices are all done. What is still open:
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
 | Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: spike D0 (one overview screen, one action) and the API half of sign-in (bearer tokens, user directory). Not yet: browser sign-in, worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
-| Spike shortcuts | The agent's funder API URL and funder ID are constants in `main.py`, and it fetches its own token for `funder-1` until T104 relays the signed-in user's; `httpx` is used directly but only arrives through `a2a-sdk`; the web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). All for D1/D2. |
+| Dashboard stand-ins | Until T105, the page gets its token from the Playwright test, or in the dev server from `#access_token=` in the URL; there is no sign-in screen yet. It opens only LA-1006. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

@@ -469,21 +469,26 @@ change makes a scenario's real outcome differ from its declared `expect`, `seed-
 refuses to write anything. The fix is to update the scenario intent, never to weaken the check.
 Put the tolerance back when you're done (and run `make seed-regenerate` again).
 
-### Try the funder dashboard spike (spec 002, optional)
+### Try the funder dashboard (spec 002, optional)
 
-Spike D0 shows one funder screen: LA-1006's overview with its stips. An agent builds it in code
-(A2UI v1.0, no LLM) and React draws it. **Take this deal** writes through the funder API. You
+The dashboard has one screen so far: LA-1006's overview, with its days to expiry, payment status,
+version history and a link to the workflow in the Temporal UI. An agent builds it in code (A2UI
+v1.0, no LLM) and React draws it. The agent calls the funder API with your own token. **Take this deal** writes through the funder API. You
 need Python 3.12 with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer,
 plus the app from steps 2 and 4 with LA-1006 submitted (step 5).
 
 ```bash
 cd dashboard/agent && uv run python main.py      # the agent, port 8091 (its own terminal)
-cd dashboard/web && npm install && npm run dev   # http://localhost:5173 (its own terminal)
-cd dashboard/web && npx playwright install chromium && npx playwright test   # 1 test, starts its own dev server
+cd dashboard/web && npm install && npm run dev   # its own terminal; then open the page with a token, below
+cd dashboard/agent && uv run pytest              # 32 agent tests, no services needed
+cd dashboard/web && npx playwright install chromium && npx playwright test   # 2 browser tests, start their own dev server
 ```
 
-Clicking **Take this deal** assigns LA-1006 to `funder-1`. The spike agent fetches a token for that user from the OIDC provider until T104. Check it with
-`curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit` (with `$AUTH` from step 6). More in [`ui_summary.md`](ui_summary.md).
+Until T105 adds a sign-in screen, hand the page a token: open
+`http://localhost:5173/#access_token=<token>`, with a token from step 6 (`$TOKEN`). The page keeps
+it in memory and clears it from the address bar. Clicking **Take this deal** assigns LA-1006 to
+whoever the token names. Check with `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit`.
+More in [`ui_summary.md`](ui_summary.md).
 
 ### Step 12: Stop everything
 

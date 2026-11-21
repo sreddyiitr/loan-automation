@@ -7,20 +7,26 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (tasks T001–T006). Its code is kept as the skeleton in `dashboard/`, and D1 (the walking skeleton)
-reorganises it into the plan's layout. What works end to end today:
+**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T104
+done). What works end to end today:
 
-1. The browser asks the agent over A2A.
+1. The browser asks the agent over A2A, with the user's OIDC bearer token.
 2. The agent replies with A2UI v1.0, built by code with no LLM.
 3. React renders it with `@a2ui/react` 0.15.0, including our custom `DataTable`.
 4. Clicking **Take this deal** sends a v1.0 `action` back to the agent.
-5. Agent code calls the funder API (`PUT /assignee`), then re-reads the deal.
+5. Agent code calls the funder API (`PUT /assignee`) with that same token, then re-reads the deal.
 6. The screen updates, and the write appears in the audit trail.
 
-It's one screen, the LA-1006 overview with its stips, used by one hard-coded funder
-(`funder-1`, with a token the agent fetches for it until T104 relays the signed-in user's). There are no worklist, tabs, roles, sign-in or assistant yet (D1 onwards).
-The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI? [`a2ui_overview.md`](a2ui_overview.md)
-walks through how the spike code works.
+It's one screen: the LA-1006 overview. It shows the deal facts, days to expiry, payment status, a
+"running" note while the workflow is busy, a link to the run in the Temporal UI, and the version
+history. The actor in every write is whoever the token names. Not yet built:
+- the browser sign-in screen (T105; until then a token is handed to the page, see below);
+- opening any loan id;
+- the worklist, the other tabs, role enforcement (D2) and the assistant.
+
+The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
+[`a2ui_overview.md`](a2ui_overview.md) walks through how the code works, and
+[`oidc_authn_authz_summary.md`](oidc_authn_authz_summary.md) explains sign-in.
 
 ## What A2UI is, in one paragraph
 
@@ -36,10 +42,11 @@ Browser (React + A2UI renderer + our custom components)
    │                   ▼
 Agent service (Python: a2a-sdk AgentExecutor; ADK + a2ui-adk only behind the assistant)
    ├─ Routing: our own AgentExecutor, plain A2A JSON-RPC (through a Vite proxy in dev)
-   ├─ Screen builders: code, no LLM
-   ├─ Action handlers: code, no LLM
+   ├─ Screen builders (funder_agent/surfaces): code, no LLM
+   ├─ Action handlers (funder_agent/actions): code, no LLM
+   ├─ API client (funder_agent/api): relays the user's bearer token, maps refusals to messages
    └─ Assistant: LLM (local Gemma by default)
-   │ REST + the funder's identity
+   │ REST + the user's own OIDC token
    ▼
 Funding API (Java, spec 001): the only thing that writes
 ```
@@ -87,15 +94,32 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
 
 1. Start Temporal (`temporal server start-dev`) and the app (`make run`), then submit LA-1006
    (`make seed-submit-all`).
-2. Start the agent: `cd dashboard/agent && uv run python main.py` (port 8091; it calls the funder
-   API on `localhost:8080`).
-3. Open the web app: `cd dashboard/web && npm install && npm run dev`, then go to
-   http://localhost:5173. The dev server proxies `/agent` to the agent.
-4. Run the browser test: `cd dashboard/web && npx playwright test` (it starts its own dev server;
-   install the browser once with `npx playwright install chromium`). 1 test: the round trip above.
+2. Start the agent: `cd dashboard/agent && uv run python main.py` (port 8091). It calls the funder
+   API on `localhost:8080`; override that with `FUNDER_API_URL`, and the Temporal UI link with
+   `TEMPORAL_UI_URL`.
+3. Start the web app: `cd dashboard/web && npm install && npm run dev`. The dev server proxies
+   `/agent` to the agent.
+4. **Sign in, for now by handing the page a token** (T105 adds a real sign-in screen). Get a token
+   for one of the directory's users and open the page with it in the URL fragment. The page keeps
+   it in memory and clears it from the address bar; the fragment never reaches a server, and this
+   works in the dev server only.
+   ```bash
+   TOKEN=$(curl -s -X POST http://127.0.0.1:8090/funding/token -d grant_type=client_credentials \
+     -d client_id=funder-1 -d client_secret=any -d scope=funding-api \
+     | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+   open "http://localhost:5173/#access_token=$TOKEN"
+   ```
+   Without a token the page says "Sign in to use the funder dashboard."
+5. Tests:
+   - Agent: `cd dashboard/agent && uv run pytest`. 32 tests, no services needed. Every surface
+     passes A2UI v1.0 strict validation against our catalog (NFR-05).
+   - Browser: `cd dashboard/web && npx playwright test`. 2 tests against the running stack: the
+     overview and Take, and the signed-out page. It starts its own dev server; install the
+     browser once with `npx playwright install chromium`.
 
 Pinned versions: `@a2ui/react` / `@a2ui/web_core` 0.15.0 and React 19 on the web side; `a2a-sdk`
-0.3.26, `a2ui-a2a` 0.4.0 and `a2ui-agent-sdk` 0.12.0 on the agent side (`package-lock.json`, `uv.lock`).
+0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0 (its `a2ui-core` 0.7.0 does the validation),
+`httpx` and `pyyaml` on the agent side, plus `pytest` for development (`package-lock.json`, `uv.lock`).
 
 ## Developer setup (planned)
 

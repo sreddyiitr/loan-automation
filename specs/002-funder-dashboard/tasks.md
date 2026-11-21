@@ -74,7 +74,27 @@ verified user. Roles are only looked up here; D2 enforces them.
     restart, `workflowStep` is `null` and `inProgress` is `false`.
   - The funder contract describes these responses as plain maps, so `FunderOpenApiTest` doesn't
     see the new fields.
-- [ ] **T104** Agent: the API client (relays the user's token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
+- [x] **T104** Agent: the API client (relays the user's token, reason → message), the `deal_<id>_overview` builder and version history; schema-validated unit tests.
+  **Notes (done 2026-11-21):**
+  - The agent is now the `funder_agent` package, in the plan §2 layout: `api/`, `surfaces/`,
+    `actions/`, `catalog.py`, `server.py`. `main.py` only starts it.
+  - It reads `Authorization: Bearer` from the A2A request and relays it, so the spike's own token
+    is gone. Missing token → a `notice` surface ("Sign in…"). Refusal → the reason's message from
+    `messages.yaml`, or a logged fallback. The other reasons come in T303.
+  - **NFR-05 validation** uses `a2ui-core` 0.7.0's strict `MessageProcessor` with our catalog (the
+    Basic Catalog plus `DataTable`), not vendored JSON schemas. It makes the renderer's own checks
+    (it rejects `Text.variant: h2` with the same message), and a test proves it really rejects.
+  - **Deviation:** the agent-side catalog is defined in `catalog.py`, not yet as
+    `dashboard/catalog/funder_catalog.json`.
+  - The overview's texts are formatted in code (`deal_model`), so they're unit-tested: days to
+    expiry, the five payment states, "superseded by vN", the Temporal URL. The stips table left
+    the overview; stips are D3's tab.
+  - Web: `a2a.ts` sends the token from `src/auth.ts`, which holds it in memory only. Until T105,
+    the token comes from Playwright, or from `#access_token=` in the dev server, cleared from the
+    address bar at once.
+  - Tests: 32 agent tests (`uv run pytest`) and 2 Playwright tests. The Playwright overview test
+    first assigns LA-1006 to `funder-2`, so Take visibly changes it.
+  - `httpx` and `pyyaml` are declared explicitly now, and `pytest` is a dev dependency.
 - [ ] **T105** Web: OIDC sign-in (Authorization Code with PKCE against the mock provider; token in memory, sent to the agent as a bearer), open by loan id, the overview tab; `StatusBadge`.
 - [ ] **T106** Take an unassigned deal (assign to self) as the first write, with confirmation and refresh. Any user in the directory may take one here; D2 adds the role rule (AS-11.2).
 - [ ] **T107** `make dashboard`, the preflight script and the README section.

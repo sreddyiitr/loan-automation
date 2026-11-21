@@ -1,5 +1,7 @@
 // Spike D0 / T001-T002: the browser talks A2A JSON-RPC (message/send) to the agent, as the
 // A2UI v1.0 A2A extension describes. Vite proxies /agent to the agent service (vite.config.ts).
+import {accessToken} from './auth';
+
 const EXTENSION = 'https://a2ui.org/a2a-extension/a2ui/v1.0';
 const MIME = 'application/a2ui+json';
 export const BASIC_CATALOG = 'https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json';
@@ -22,9 +24,12 @@ export async function sendToAgent(payload: string | Record<string, unknown>): Pr
       },
     },
   };
+  const token = accessToken();
   const res = await fetch('/agent/', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json', 'X-A2A-Extensions': EXTENSION},
+    // FR-11: the user's own token goes to the agent, which relays it to the funder API.
+    headers: {'Content-Type': 'application/json', 'X-A2A-Extensions': EXTENSION,
+      ...(token ? {Authorization: `Bearer ${token}`} : {})},
     body: JSON.stringify(body),
   });
   const json = await res.json();
