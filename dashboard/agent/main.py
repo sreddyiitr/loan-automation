@@ -5,7 +5,10 @@
 This mirrors the official A2UI sample's own AgentExecutor; ADK will sit behind it only for the assistant.
 """
 import logging
+import re
 from typing import Any
+
+import httpx
 
 import uvicorn
 from a2a.server.agent_execution import AgentExecutor, RequestContext
@@ -25,6 +28,26 @@ VERSION = "1.0"
 BASIC_CATALOG = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
 FUNDER_CATALOG = "https://funding.local/a2ui/catalogs/funder/v1/catalog.json"
 PORT = 8091
+FUNDER_API = "http://localhost:8080/api/v1"   # spec 001's funder API (T005: real data)
+SPIKE_FUNDER = "spike-funder"                   # D1 replaces this with the signed-in user's token
+
+
+def load_deal(loan_id: str) -> dict[str, Any]:
+    """Reads the deal from the funder API and shapes the surface's data model."""
+    with httpx.Client(base_url=FUNDER_API, timeout=10) as api:
+        o = api.get(f"/applications/{loan_id}").raise_for_status().json()
+        stips = api.get(f"/versions/{o['applicationVersionId']}/stipulations").raise_for_status().json()
+    return {"loanApplicationId": o["loanApplicationId"], "applicationVersionId": o["applicationVersionId"],
+            "status": o["status"], "dealershipName": o["dealershipName"],
+            "assignedFunder": o["assignedFunder"] or "nobody",
+            "stips": [{"code": st["stipCode"], "status": st["status"]} for st in stips]}
+
+
+def take_deal(version_id: int) -> None:
+    """A write, done by code after the funder's click (FR-03): assign the deal to the funder."""
+    with httpx.Client(base_url=FUNDER_API, timeout=10) as api:
+        api.put(f"/versions/{version_id}/assignee", json={"funderId": SPIKE_FUNDER},
+                headers={"X-Funder-Id": SPIKE_FUNDER}).raise_for_status()
 
 
 def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
@@ -45,15 +68,12 @@ def overview_surface(deal: dict[str, Any]) -> list[dict[str, Any]]:
              "rows": {"@path": "/deal/stips"}, "emptyText": "No stips"},
             {"id": "take_label", "component": "Text", "text": "Take this deal"},
             {"id": "take_button", "component": "Button", "variant": "primary", "child": "take_label",
-             "action": {"event": {"name": "deal.take", "context": {"loanApplicationId": {"@path": "/deal/loanApplicationId"}}}}},
+             "action": {"event": {"name": "deal.take", "context": {
+                 "loanApplicationId": {"@path": "/deal/loanApplicationId"},
+                 "applicationVersionId": {"@path": "/deal/applicationVersionId"}}}}},
         ]}},
         {"version": VERSION, "updateDataModel": {"surfaceId": sid, "path": "/deal", "value": deal}},
     ]
-
-
-SPIKE_DEAL = {"loanApplicationId": "LA-1006", "status": "STIPULATED", "dealershipName": "Lone Star Motors",
-              "assignedFunder": "nobody",
-              "stips": [{"code": "STIP_PRICE_MISMATCH", "status": "PENDING"}]}
 
 
 class FunderAgentExecutor(AgentExecutor):
@@ -68,12 +88,17 @@ class FunderAgentExecutor(AgentExecutor):
         if actions:
             replies = []
             for a in actions:
-                if a.get("name") == "deal.take":  # a write, handled by code: later this calls the funder API
-                    replies.append({"version": VERSION, "updateDataModel": {
-                        "surfaceId": a["surfaceId"], "path": "/deal/assignedFunder", "value": "you (spike)"}})
+                if a.get("name") == "deal.take":
+                    ctx = a.get("context", {})
+                    take_deal(int(ctx["applicationVersionId"]))          # write through the funder API
+                    replies.append({"version": VERSION, "updateDataModel": {  # then refresh from the API
+                        "surfaceId": a["surfaceId"], "path": "/deal",
+                        "value": load_deal(ctx["loanApplicationId"])}})
             messages = replies
         else:
-            messages = overview_surface(SPIKE_DEAL)
+            text = " ".join(p.root.text for p in context.message.parts if isinstance(p.root, TextPart))
+            loan = re.search(r"LA-[0-9A-Z-]+", text)
+            messages = overview_surface(load_deal(loan.group(0) if loan else "LA-1006"))
         await event_queue.enqueue_event(new_agent_parts_message(create_a2ui_parts(messages, version=VERSION)))
 
     async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
