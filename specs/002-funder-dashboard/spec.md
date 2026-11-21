@@ -30,7 +30,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 
 | Actor | Role |
 |---|---|
-| **Funder** | Signs in, works their queue, reviews deals, resolves stips, decides. |
+| **Funder** | Signs in, works their queue, reviews deals, resolves stips, decides (US-11 sets what each role may do). |
+| **Income specialist** | A funder specialised in verifying income. Works the income queue and is the one who resolves income stips and income-check problems. |
+| **Supervisor** | Oversees every queue, assigns and reassigns work, and can do anything a funder or income specialist can. |
 | **Dashboard client** | A browser app that renders A2UI v1.0 surfaces with the React renderer plus our custom catalog, and sends the funder's clicks back as A2UI `action` events. |
 | **Agent service** | Python with ADK and `a2ui-adk`. It builds surfaces from funder API data (code, no LLM), handles actions by calling the funder API, and hosts the assistant. |
 | **Funder API** | Spec 001's Java API, extended in §5. The only component that writes. |
@@ -46,23 +48,45 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   validated before the client sees it.
 - **Allowed action:** an action the version's status and stips permit, with a reason. It comes
   from the funder API (FR-05), not from logic in the UI.
+- **Hold reason:** why a deal needs a human, derived by the API from its status, stips, results and
+  payment. One deal can have several:
+  - `STIPS_PENDING`
+  - `CHECK_ERROR`
+  - `RISC_INCOMPLETE`
+  - `PAYMENT_FAILED`
+  - `PAYMENT_UNKNOWN`
+- **Income work:** anything about verifying income:
+  - the income stips `STIP_INCOME_VARIANCE_EXCEEDED` and `STIP_PROOF_OF_INCOME`;
+  - an INCOME check that is FAIL, NEEDS_REVIEW or ERROR.
+
+  It routes to an income specialist (US-11).
+- **Role:** `FUNDER`, `INCOME_SPECIALIST` or `SUPERVISOR`. It comes from sign-in and is enforced
+  by the funder API.
 - **Assistant answer:** small structured JSON from the LLM, `{summary, suggestions[{action,
   reason}]}`, validated and then rendered by code.
 
 ## 4. User Stories & Acceptance Scenarios
 
 ### US-1 Sign in and worklist (P1)
-- **AS-1.1** A funder signs in with the dev sign-in (a funder id; no password; local only). Every write is then made under that id, with no `X-Funder-Id` typed by hand.
-- **AS-1.2** **My queue** lists the latest versions assigned to the funder that need a human:
+- **AS-1.1** A user signs in with the dev sign-in: a user id and a role (`FUNDER`, `INCOME_SPECIALIST`, `SUPERVISOR`); no password; local only. Every write is then made under that id and role, with no `X-Funder-Id` typed by hand.
+- **AS-1.2** **My queue** lists the latest versions assigned to the user that need a human:
   - STIPULATED;
   - PENDING_REVIEW held on an ERROR or an incomplete RISC;
-  - APPROVED with a failed payment.
+  - APPROVED with a failed or unknown payment.
 
-  Each row shows the loan id, dealer, status, open stip count, days to expiry and whether something is in progress.
+  Each row shows the loan id, dealer, status, **hold reasons**, the open stip codes, days to expiry and whether something is in progress.
 - **AS-1.3** **Unassigned** lists the same kinds of deals with no funder. **Expiring soon** lists deals with 5 days or fewer to expiry (the threshold is configurable).
-- **AS-1.4** The queue can be filtered by status, dealer and days to expiry, and sorted by days to expiry (the default) or age.
+- **AS-1.4** The queue can be filtered by:
+  - status;
+  - **stip type** (one or more stip codes, e.g. `STIP_PRICE_MISMATCH`);
+  - **hold reason** (e.g. `CHECK_ERROR`, `PAYMENT_FAILED`);
+  - dealer;
+  - days to expiry.
+
+  It can be sorted by days to expiry (the default) or age. The filters combine: e.g. "STIPULATED with a pending `STIP_PROOF_OF_INCOME`, expiring within 5 days".
 - **AS-1.5** Opening a row opens that deal. Opening a loan id that doesn't exist shows "not found", not an error page.
 - **AS-1.6** Terminal deals (FUNDED, REJECTED, EXPIRED) and superseded versions never appear in a queue, but can be opened by id.
+- **AS-1.7** The **income queue** lists every deal with pending income work. It's the income specialist's main view; supervisors see it too.
 
 ### US-2 Deal overview (P1) (source Tab 1)
 - **AS-2.1** The overview shows:
@@ -128,6 +152,28 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-10.4** Without Ollama, everything except the assistant and the generated view works (AS-8.4).
 - **AS-10.5** The tests need no running model. LLM responses are recorded and replayed.
 
+### US-11 Roles and permissions (P1)
+- **AS-11.1** Every user can open and read any deal. Roles limit only **writes** and **queues**.
+- **AS-11.2** What each role may do (the API enforces it, the UI only reflects it):
+
+  | Action | Funder | Income specialist | Supervisor |
+  |---|---|---|---|
+  | Queues | My queue, unassigned | Income queue, my queue | All queues, any user's queue |
+  | Satisfy or waive a stip that isn't income work, on a deal assigned to them | ✅ | ✅ | ✅ (any deal) |
+  | Satisfy or waive an **income stip** | ❌ (hand it to the income queue) | ✅ | ✅ |
+  | Re-run the **INCOME** check | ❌ | ✅ | ✅ |
+  | Re-run any other check | ✅ (assigned) | ✅ (assigned) | ✅ |
+  | Add a stip (including `STIP_PROOF_OF_INCOME`) | ✅ (assigned) | ✅ (assigned) | ✅ |
+  | Approve | ✅ (assigned), but not while income work is pending | ✅ (assigned) | ✅ |
+  | Reject; retry payment | ✅ (assigned) | ✅ (assigned) | ✅ |
+  | Take an unassigned deal (assign to self) | ✅ | ✅ (income work only) | ✅ |
+  | **Send to the income queue** (hand a deal with income work to income specialists) | ✅ | n/a | ✅ |
+  | Reassign a deal to another user | ❌ | ❌ | ✅ |
+
+- **AS-11.3** A write the role doesn't allow is refused by the API with **403** and a reason (`ROLE_NOT_ALLOWED`, `INCOME_WORK_NEEDS_SPECIALIST`, `NOT_ASSIGNED_TO_YOU`). The UI never offers it (AS-6.1), and shows the reason if it's attempted anyway, e.g. from a stale screen.
+- **AS-11.4** The audit trail records the actor's **role** with each change.
+- **AS-11.5** A deal sent to the income queue keeps its assigned funder. It goes back to that funder's queue once no income work is pending.
+
 ## 5. Functional Requirements
 
 | ID | Requirement |
@@ -136,12 +182,14 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 | FR-02 | **Fixed surfaces** (worklist; deal overview, stips, results, documents, audit) are built by agent code from funder API data, never by the LLM. |
 | FR-03 | **Every write** (satisfy, waive, add stip, reassign, approve, reject, re-run, retry payment) is a funder click that goes to agent code, which calls the funder API with the signed-in funder's id. The LLM can't trigger a write. |
 | FR-04 | The **custom catalog** has its own `catalogId` and the components the basic catalog lacks: `DataTable`, `StatusBadge` and `ConfidenceTag`. They're implemented in the React renderer. |
-| FR-05 | **Funder API additions** (Java, spec 001's style, added to `contracts/funder-api.openapi.yaml`): a. A worklist endpoint, `GET /api/v1/applications`, filtered by status, assignee (`me`, `none`, an id), dealer and days to expiry, and sortable. b. On the overview: `expiresAt`, an in-progress indicator, payment status, and `allowedActions` (each with an allowed flag and a reason code). c. A stip-code list with descriptions. d. Structured document attribution on each comparison (which document each side came from). e. The confidence cut-off. |
+| FR-05 | **Funder API additions** (Java, spec 001's style, added to `contracts/funder-api.openapi.yaml`): a. A worklist endpoint, `GET /api/v1/applications`, filtered by status, assignee (`me`, `none`, an id), queue (`income`), stip code, hold reason, dealer and days to expiry (FR-12), and sortable. b. On the overview: `expiresAt`, an in-progress indicator, payment status, and `allowedActions` (each with an allowed flag and a reason code). c. A stip-code list with descriptions. d. Structured document attribution on each comparison (which document each side came from). e. The confidence cut-off. |
 | FR-06 | Each funder API `reason` (409 and 400 problem+json) maps to a plain message in one place. A new reason without a message is shown with a generic fallback and is logged. |
 | FR-07 | The **model is configuration**: a LiteLLM model string (default `ollama_chat/gemma4:e4b`) plus declared capabilities: context window, structured-output support, thinking control, and cost per token. A feature may name its own model. No provider name appears in code. |
 | FR-08 | Every LLM output is validated in code against its schema (and, for US-9, the catalog schemas), with one retry, whatever the model's own structured-output support. |
 | FR-09 | Dev sign-in only, local profile only, behind a single switch. It is replaceable by real single sign-on later without changing the surfaces. |
 | FR-10 | Fresh data: after an action, and while the in-progress indicator is set, the agent refreshes the affected surfaces (`updateDataModel`) until the deal settles. |
+| FR-11 | **Roles are enforced by the funder API** (Java), not only by the UI: every write checks the actor's role and the deal's assignment against AS-11.2. The actor's role comes from the sign-in token (in dev, from the dev sign-in), not from a header the client can set freely. |
+| FR-12 | The worklist endpoint (FR-05a) also filters by stip code and hold reason, and returns the hold reasons per row; hold reasons are derived by the API, not stored. |
 
 ## 6. What the funder sees per status
 
@@ -186,5 +234,9 @@ the expected result, for reference:
 | D-6 | Dev sign-in first; single sign-on later. |
 | D-7 | **No paid LLM.** Local Gemma (`gemma4:e4b`) through Ollama is the default, and **the model stays swappable through configuration** (FR-07). |
 | D-8 | Every PR updates `ui_summary.md`, `implementation_summary.md` and `README.md`. |
+| D-9 | Worklist filters include **stip type** and **hold reason** as well as status, dealer and days to expiry. |
+| D-10 | Three roles: **funder**, **income specialist** ("speciality funder", for verifying income) and **supervisor**, enforced by the funder API. |
 
-**Open (owner):** confirm the worklist filters and the "expiring soon" threshold (AS-1.3/1.4: status, dealer, days to expiry; 5 days); whether any action needs a role beyond "funder" (e.g. only a supervisor may reassign).
+**Open (owner):**
+- Confirm the permissions table in AS-11.2, which is my proposal from D-10. In particular: does a funder hand income work to the income queue (as proposed) rather than resolve it, and may a funder approve while income work is pending (proposed: no)?
+- Confirm the "expiring soon" threshold of 5 days (AS-1.3).

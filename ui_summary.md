@@ -30,7 +30,8 @@ Funding API (Java, spec 001): the only thing that writes
 
 | Area | What the funder can do |
 |---|---|
-| **Worklist** | My queue, unassigned, expiring soon; filter by status, dealer, days to expiry |
+| **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
+| **Roles** | **Funder**, **income specialist** (verifies income; resolves income stips) and **supervisor** (all queues, reassigns). Enforced by the API, not just the UI |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
 | **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |
@@ -75,4 +76,4 @@ Funding API (Java, spec 001): the only thing that writes
 - Uploading documents
 - Messaging the dealer
 - Bulk actions
-- Real single sign-on (a dev sign-in stands in at first)
+- Real single sign-on (a dev sign-in with a chosen role stands in at first)

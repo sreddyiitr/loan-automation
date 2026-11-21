@@ -40,7 +40,7 @@ The source starts at one application; a funder starts at *"what needs me?"*.
 |---|---|---|---|
 | 1.1 | **My queue:** applications assigned to me that need a human (STIPULATED; PENDING_REVIEW held on ERROR or an incomplete RISC; APPROVED with a failed payment) | 🆕 | No list or search endpoint exists; the API reads one application at a time. Needs `GET /api/v1/applications?status=&assignee=&…` |
 | 1.2 | **Unassigned queue:** the same, with no funder yet (C-7: assignment is manual) | 🆕 | Same endpoint, `assignee=none` |
-| 1.3 | **Sort and filter** by status, dealer, days to expiry, age, stip type, check in ERROR | 🆕 | Same endpoint, with the expiry date and stip summary in each row |
+| 1.3 | **Sort and filter** by status, stip type, hold reason (pending stips, check in ERROR, RISC incomplete, payment failed or unknown), dealer, days to expiry, age | 🆕 | Same endpoint, with the expiry date, hold reasons and stip codes in each row |
 | 1.4 | **Expiring soon:** versions near the 30-day limit (AS-8.6) | 🆕 | Needs `expiresAt` in the list (it is `submitted_at` + `funding.workflow.expire-after`) |
 | 1.5 | **Open by id:** jump to an application by loan id | ✅ | `GET /applications/{id}` (AS-10.1) |
 
@@ -113,7 +113,7 @@ shows "submitted" and refreshes the status (2.5).
 | # | Capability | Mark | Notes |
 |---|---|---|---|
 | 8.1 | **Sign-in and identity:** the funder's id comes from the login, not a header | 🆕 | Spec 001 left authN/authZ out. The owner decides the identity provider |
-| 8.2 | **Roles:** e.g. who may reassign or approve over an ERROR | 🆕 | Owner decision; today any funder can do everything |
+| 8.2 | **Roles:** funder, income specialist and supervisor (owner, 2026-11-21), enforced by the API (spec.md US-11) | 🆕 | Today any funder can do everything; needs role checks in the funder API |
 | 8.3 | **Fresh data:** statuses change asynchronously (checks, payments, expiry) | 🟡 | Polling the overview works today; push (events) is a later option |
 | 8.4 | Never show the SSN | ✅ | No funder endpoint returns it; the snapshot only knows a token exists (FR-13) |
 
