@@ -116,7 +116,7 @@ scenario through the full trigger path.
 
 Spec 002 (the funder dashboard) is under way: OIDC sign-in, the deal overview, Take and
 `make dashboard`. Its
-Java tests are in the 411. Its **46 agent tests** and **6 Playwright tests** are counted
+Java tests are in the 411. Its **46 agent tests** and **10 Playwright tests** are counted
 separately; see "Try the funder dashboard" below.
 
 <sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
@@ -485,7 +485,7 @@ make dashboard-preflight   # names each missing tool with its install command (m
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
 make test-dashboard        # 46 agent tests, no services needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 6 browser tests, against the running make dashboard
+make test-dashboard-e2e    # 10 browser tests, against the running make dashboard
 ```
 
 `make dashboard` reuses each part that's already running (including an app from `make run`),

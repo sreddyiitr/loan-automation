@@ -157,7 +157,25 @@ verified user. Roles are only looked up here; D2 enforces them.
     listener didn't stop the Maven `spring-boot:run` wrapper. The script now lists each started
     process tree first, sends TERM, waits up to 20 s, then KILLs. Verified under a pty with a
     real `Ctrl+C`: all three ports free, no leftover processes, in under 2 s.
-- [ ] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
+- [x] **T108** Playwright: `AS_1_1_…`, `AS_1_5_…`, `AS_2_1_…`, `AS_10_3_…`.
+  **Notes (done 2026-11-21):**
+  - `e2e/spike.spec.ts` is now `e2e/walking-skeleton.spec.ts`, and every test is named
+    `AS_x_y_…` (or `FR_11_…`). 10 tests, up from 6, all passing twice in a row against
+    `make dashboard`.
+  - **`AS_1_1`:** after Take through the browser, the audit's actor is the signed-in user. The
+    unknown-user test moved under `AS_1_1` too.
+  - **`AS_2_1`:** every fact (dealer, borrower, co-borrower, stated income, VIN, assignee,
+    submitted, expiry, payment) is compared with the funder API's own overview, not hardcoded.
+  - **Also covered,** since they're in D1's exit: `AS_2_3` (version history) and `AS_2_5` (the
+    Temporal link opens the deal's workflow).
+  - **`AS_10_3`, the half D1 can show:** every seeded scenario opens with the `expect.status` read
+    from its `test/data/scenarios/*.yaml` (P-2). The other half, waiving LA-1006's price stip,
+    needs the stips tab, so it's T304's `AS_3_2`.
+    - It holds on a fresh database. A deal changed by hand (say, LA-1006 waived as in README
+      step 6) fails it, by name. That's deliberate, not weakened.
+    - **Heads-up for T304:** its waive test turns LA-1006 FUNDED, which would break this one on
+      the next run. T304 needs a way to start from STIPULATED again (a resubmit makes a new
+      version) or its own deal.
 
 ## D2: Roles and permissions
 

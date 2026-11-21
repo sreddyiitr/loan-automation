@@ -13,7 +13,7 @@ hardening)**. Tasks and their deviations are in
 | Design | [`plan.md`](specs/001-loan-funding-validation/plan.md), [`data-model.md`](specs/001-loan-funding-validation/data-model.md), [`seed-data.md`](specs/001-loan-funding-validation/seed-data.md) |
 | Task list and progress | [`tasks.md`](specs/001-loan-funding-validation/tasks.md) (S1: 32 of 32, S2: 11 of 11, S3: 14 of 14, S4: 9 of 9, S5: 8 of 8, S6: 8 of 8; each slice's notes list deviations) |
 | Branches | S1–S5 merged to `main` (PRs #2–#6, plus the Temporal walkthrough in #7); S6 on `feat/001-s6-hardening` |
-| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T107 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; and `make dashboard` starts it all with one command. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
+| Spec 002 | **Spike D0 merged (PR #10).** D1 (walking skeleton) in progress on `feat/002-d1-roles`: **T101–T108 done**: the funder API takes OIDC bearer tokens; the overview has expiry, workflow step and payment; the agent relays the user's token; the browser signs in with OIDC (PKCE) and opens deals by loan id; Take is a confirmed, race-safe write; `make dashboard` starts it all with one command; and the Playwright tests are named for their acceptance scenarios. See "Spec 002" below and [`ui_summary.md`](ui_summary.md) |
 
 ---
 
@@ -385,9 +385,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
 | **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing | nothing (a fake funder API) | 46 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/spike.spec.ts` (Playwright), each signing in on the real login page: overview; Take with confirmation; someone else took it first; unknown loan; unknown user; signed out | the agent, the running app (`make run`, LA-1006 submitted), the OIDC provider with its config, Chromium | 6 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11` | `make dashboard` (the app with the seeds submitted, the agent, the OIDC provider with its config), Chromium | 10 | ✅ |
 
-**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 46 agent tests and 6 Playwright tests. Test names trace to the
+**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 46 agent tests and 10 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -445,6 +445,7 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | US-9 Versioning | AS-9.1–9.7 |
 | FR | FR-02 to FR-17 |
 | NFR | NFR-01 (volume p95 12.2 s with healthy APIs), NFR-02 (worker restart), NFR-03, 04, 06, 07 (replay suite), 08; NFR-05 for activities and the relay |
+| **Spec 002, D1** | AS-1.1, 1.5, 2.1, 2.3, 2.5, 2.6, 10.1–10.3 (2.2 in part: the in-progress note; disabling refused actions waits for D2) (10.3 without the waive, which is T304), 10.9; FR-11; NFR-04, NFR-05 |
 
 ---
 
@@ -567,5 +568,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T107): OIDC sign-in end to end, the overview, Take, and `make dashboard`. Not yet: T108 (Playwright AS ids), worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`. AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, role enforcement (D2), assistant. Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

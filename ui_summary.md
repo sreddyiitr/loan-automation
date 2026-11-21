@@ -7,7 +7,7 @@ Details are in [`capabilities.md`](specs/002-funder-dashboard/capabilities.md) a
 
 ## Status (2026-11-21)
 
-**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T107
+**Spike D0 is done** (T001–T006), and **D1, the walking skeleton, is under way** (T101–T108
 done). What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
@@ -120,15 +120,20 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
-   - Browser: `make test-dashboard-e2e`. 6 tests against the running stack, each
-     signing in on the real login page. Each starts by unassigning LA-1006 through the API, so no
-     versions are added:
-     - open LA-1006 and see the overview;
-     - Take asks for confirmation, then the deal is yours and Take is gone;
-     - if someone else took it first, nothing changes and the screen says who has it;
-     - an unknown loan id shows "not found";
-     - a user who isn't in the directory is told so;
-     - signed out shows only the sign-in screen.
+   - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`). 10 tests against the
+     running stack, each signing in on the real login page and named for its acceptance scenario.
+     The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
+     - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
+       isn't in the directory is told so;
+     - `AS_1_5`: an unknown loan id shows "not found";
+     - `AS_2_1`: the overview shows each deal fact, expiry and payment, checked against the API;
+     - `AS_2_3`: version history, newest first, earlier ones "superseded by vN";
+     - `AS_2_5`: the link opens the deal's workflow in the Temporal UI;
+     - `AS_2_6`: Take asks for confirmation, then the deal is yours; if someone else took it
+       first, nothing changes and the screen says who has it;
+     - `AS_10_3`: every seeded scenario opens with the status its scenario file expects. This
+       holds on a fresh database; a deal changed by hand (say, LA-1006 waived) fails it, by name;
+     - `FR_11`: signed out shows only the sign-in screen.
      It reuses the web app from `make dashboard`, or starts its own dev server if 5173 is free.
      Install the browser once with `npx playwright install chromium`.
 
