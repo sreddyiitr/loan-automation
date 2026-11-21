@@ -12,12 +12,34 @@ suites (`make test-unit`, `make test-functional`) stay green in every slice, and
 - every **(spike)** item in `plan.md` confirmed or replaced;
 - a short findings note added to `a2ui-notes.md`.
 
-- [ ] **T001** Agent: an ADK app with `a2ui-adk[a2a]` serving one fixed surface (a hard-coded overview card) over A2A, with no LLM.
-- [ ] **T002** Web: React + the A2UI React renderer showing that surface; record the renderer package, its version and its v1.0 support.
-- [ ] **T003** One custom component (`DataTable`) in our catalog, rendered from the agent.
-- [ ] **T004** One action round trip: a button event goes to the agent's `before_agent_callback`, which updates the data model, and the UI changes, with the LLM never running.
-- [ ] **T005** The same overview built from the real funder API (`GET /applications/LA-1006`).
-- [ ] **T006** Findings: the transport, renderer, custom-component registration and pitfalls go into `a2ui-notes.md`; any plan change goes into `plan.md`.
+- [x] **T001** Agent: an ADK app with `a2ui-adk[a2a]` serving one fixed surface (a hard-coded overview card) over A2A, with no LLM.
+- [x] **T002** Web: React + the A2UI React renderer showing that surface; record the renderer package, its version and its v1.0 support.
+- [x] **T003** One custom component (`DataTable`) in our catalog, rendered from the agent.
+- [x] **T004** One action round trip: a button event goes to the agent's `before_agent_callback`, which updates the data model, and the UI changes, with the LLM never running.
+- [x] **T005** The same overview built from the real funder API (`GET /applications/LA-1006`).
+- [x] **T006** Findings: the transport, renderer, custom-component registration and pitfalls go into `a2ui-notes.md`; any plan change goes into `plan.md`.
+
+### D0 notes (done 2026-11-21)
+
+- **Kept, not thrown away.** The spike's code is small and became the skeleton under
+  `dashboard/agent` and `dashboard/web`, with a Playwright test of the whole round trip. D2
+  restructures it into the plan's layout.
+- **Verified end to end:**
+  1. A2A request.
+  2. A v1.0 surface built by code, rendered by `@a2ui/react` 0.15.0.
+  3. Custom `DataTable`.
+  4. A click as a v1.0 `action`.
+  5. A funder-API write (`PUT /assignee`).
+  6. A re-read; the write shows in the audit trail.
+- **Plan changes:**
+  - routing in our own `AgentExecutor`, not ADK;
+  - A2A JSON-RPC through a Vite proxy;
+  - one catalog per surface (ours extends the basic one);
+  - versions pinned.
+
+  All in `plan.md`; details and pitfalls in `a2ui-notes.md` §12d.
+- **Found in passing:** README step 6 named the stip id `stip_id`, but the API returns camelCase
+  (`stipId`). Fixed.
 
 ## D1: Roles and identity (backend first)
 

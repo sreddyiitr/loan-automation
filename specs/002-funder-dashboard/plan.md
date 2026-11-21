@@ -1,16 +1,16 @@
 # Plan 002: Funder Dashboard (ADK + A2UI)
 
 How [`spec.md`](spec.md) is built. A2UI facts come from [`a2ui-notes.md`](a2ui-notes.md); read it
-before changing anything here. Items marked **(spike)** are confirmed or replaced by task D0.
+before changing anything here. Items that were marked **(spike)** were settled by D0 on 2026-11-21 (`a2ui-notes.md` §12d).
 
 ## 1. Stack
 
 | Part | Choice | Notes |
 |---|---|---|
 | Funder API | Java 21 / Spring Boot (spec 001), **extended** | Worklist, overview fields, allowed actions, roles (§4, §5) |
-| Agent service | **Python 3.12**, `uv`, `google-adk`, `a2ui-adk[a2a]` | ADK's A2UI integration is Python-only (D-2) |
-| Transport | **A2A**, through ADK's `A2aAgentExecutor` and the `a2ui-adk` converters | **(spike)** confirm the browser-side A2A client the React renderer works with |
-| Web client | **React** (Vite, TypeScript), A2UI **React renderer** | **(spike)** confirm v1.0 support; fall back to Lit or Angular (D-3) |
+| Agent service | **Python 3.12** (`uv`), `a2a-sdk` 0.3.26, `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0, httpx; `google-adk` and `a2ui-adk` from D8 (assistant) | ADK's A2UI integration is Python-only (D-2) |
+| Transport | **A2A JSON-RPC** (`message/send`), served by our own `a2a-sdk` 0.3.26 `AgentExecutor`; the browser posts through a Vite proxy (`/agent`) | Confirmed by D0; no `@a2a-js/sdk` needed |
+| Web client | **React 19** (Vite 8, TypeScript) with `@a2ui/react` **0.15.0** on `@a2ui/web_core` **0.15.0** | D0 confirmed that v1.0 renders, through the root exports and `web_core/v1_0` |
 | Protocol | **A2UI v1.0**, Basic Catalog v1, plus our custom catalog | Pinned (NFR-07) |
 | LLM | LiteLLM model string from config; default `ollama_chat/gemma4:e4b` | No paid model (D-7); swappable (FR-07) |
 | Tests | pytest; JUnit (spec 001 style); **Playwright** for the browser | No model needed (AS-10.5) |
@@ -45,16 +45,18 @@ The Java changes stay in `funding-domain`, `funding-persistence` and `funding-ap
 
 ```
 browser ── action / navigation event (A2UI renderer_to_agent) ──▶ agent
-agent:  before_agent_callback ──▶ is it a fixed-surface request? (navigation, tab, write action)
+agent:  our A2A AgentExecutor ──▶ get_a2ui_messages(): is it an action, or a request for a screen?
           yes ──▶ code: call the funder API (with the user's token) ──▶ build A2UI messages
-                   ──▶ reply  (the LLM never runs)                       (FR-02, FR-03)
-          no  ──▶ assistant request ──▶ LlmAgent (configured model) ──▶ JSON ──▶ validate
+                   ──▶ create_a2ui_parts() reply  (the LLM never runs)   (FR-02, FR-03)
+          no  ──▶ assistant request ──▶ ADK LlmAgent (configured model) ──▶ JSON ──▶ validate
                    ──▶ code renders it as A2UI                           (US-8)
 browser ◀── createSurface / updateComponents / updateDataModel (agent_to_renderer)
 ```
 
-- Fixed requests are answered in a `before_agent_callback`, the same mechanism `a2ui_rpc_callback`
-  uses to answer without the model. **(spike)** confirm.
+- Routing is in our own `AgentExecutor`, as in the official A2UI sample (D0). ADK only runs behind
+  it, for assistant requests.
+- Before applying a reply, the web app skips a `createSurface` for a surface it already has, which
+  A2UI treats as an integrity error.
 - **Surface ids** use underscores (UAX #31): `worklist`, `deal_<versionId>_overview`,
   `deal_<versionId>_stips`, `deal_<versionId>_results`, `deal_<versionId>_documents`,
   `deal_<versionId>_audit`, `deal_<versionId>_assistant`.
@@ -121,9 +123,12 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
 - **`ConfidenceTag`:** `value` and `threshold`, showing a "low" text when below the threshold.
 - **Basic Catalog** for everything else: Tabs, Card, Row/Column, List, Text, Button, Modal,
   TextField, ChoicePicker, Divider, Icon.
-- The React implementations live in `web/src/catalog/`. The renderer advertises both catalogs in
-  `supportedCatalogIds`, and our components use `@catalogId`. **(spike)** confirm how the React
-  renderer registers custom components.
+- The React implementations live in `web/src/catalog/` (`createComponentImplementation` with a Zod
+  API built from `CommonSchemas`).
+- **The published `web_core` 0.15.0 rejects a per-component `@catalogId`**, so a surface uses one
+  catalog. **Our catalog extends the Basic Catalog**: all its components and functions, plus ours.
+  Every surface uses our `catalogId`. The agent-side catalog JSON (for validation, NFR-05) is the
+  basic catalog plus our component schemas (D2).
 
 ## 7. Assistant (US-8, US-9)
 
@@ -182,7 +187,7 @@ Test names follow `AS_x_y_…` (constitution P-1).
 
 | Risk | Mitigation |
 |---|---|
-| The React renderer's v1.0 support or custom-component registration is incomplete | The spike (D0) decides before anything else depends on it; Lit or Angular is the fallback |
-| A2A in the browser is more involved than expected | The spike measures it; the A2UI spec also lists other transports (notes §11) |
+| The React renderer's v1.0 support is partial (types are v0.9; no per-component `@catalogId`) | Settled by D0: v1.0 renders; one extended catalog per surface; re-check when `@a2ui/react` 0.16 ships |
+| One invalid component blanks the page | Validate every surface on the agent before sending (NFR-05); a React error boundary around each surface |
 | The roles change breaks spec 001 tests | Under `local`, `X-Funder-Id` means SUPERVISOR; the spec 001 suites must stay green in every slice |
 | Gemma's 4K context can't hold the generated-view prompt | `express` format or a small catalog subset; raise `num_ctx` if memory allows |

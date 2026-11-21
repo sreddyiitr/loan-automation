@@ -341,6 +341,61 @@ Local Gemma is the **default**, not a dependency. Replacing it with any other mo
 - **Per-feature override:** a feature can name its own model (e.g. summaries on local Gemma,
   generated UI on a stronger model) without code changes.
 
+## 12d. Spike D0 findings (2026-11-21, measured, with code in `dashboard/`)
+
+**What works end to end:**
+1. The browser asks the agent over A2A.
+2. The agent replies with A2UI v1.0, built by code with no LLM.
+3. React renders it, including our custom `DataTable`.
+4. A click goes back as a v1.0 `action`.
+5. Agent code writes through the funder API and re-reads the deal.
+6. The surface updates, and the write is in the audit trail.
+
+**Versions that work together** (pinned by `package-lock.json` and `uv.lock`):
+
+| Side | Packages |
+|---|---|
+| Web | `@a2ui/react` **0.15.0**, `@a2ui/web_core` **0.15.0** (the npm releases; 0.16.0 is unreleased), React 19.3.1, Vite 8.3.8, zod 3.25.76, `@playwright/test` 1.65.1 |
+| Agent | Python 3.12.13 (`uv`), `a2a-sdk` **0.3.26** (the A2UI packages need the 0.3 line, not 1.x), `a2ui-a2a` 0.4.0, `a2ui-agent-sdk` 0.12.0, `a2ui-core` 0.7.0, uvicorn 0.54.0, httpx. `google-adk` and `a2ui-adk` aren't needed until the assistant (D8). |
+
+**How to use v1.0 with the React renderer:** the README's examples are v0.9, but v1.0 works:
+- `MessageProcessor` from `@a2ui/web_core/v1_0`;
+- `basicCatalog` from `@a2ui/web_core/catalogs/basic/v1`;
+- `A2uiSurface` and `createComponentImplementation` from the `@a2ui/react` **root**;
+- `Catalog` and `CommonSchemas` from `web_core/v1_0`, with the catalog version `'1.0'`.
+
+The types are declared against v0.9 models, so a few `as never` casts are needed.
+
+**Transport, plain A2A JSON-RPC:**
+- `POST /` with `{"jsonrpc":"2.0","method":"message/send","params":{"message":{…}}}`.
+- The `X-A2A-Extensions: https://a2ui.org/a2a-extension/a2ui/v1.0` header.
+- Renderer capabilities in `message.metadata.a2uiRendererCapabilities = {"1.0": {"supportedCatalogIds": [...]}}`.
+- A2UI travels in `DataPart`s with `metadata.mimeType = "application/a2ui+json"`, a text part for requests and a data part `{version, action}` for clicks.
+- The browser uses a Vite proxy (`/agent`), so no `@a2a-js/sdk` is needed.
+
+**Routing:** our own `a2a-sdk` `AgentExecutor` (as the official sample does), not ADK's
+`before_agent_callback`. `get_a2ui_messages(context.message)` yields the incoming `action`s;
+`create_a2ui_parts(messages, version="1.0")` wraps the replies. ADK sits behind it only for the
+assistant.
+
+**Pitfalls:**
+- **Strict validation, and one bad prop blanks the page.** For example, `Text.variant` allows
+  only `caption | body` (no `h2`). Validate on the agent before sending (NFR-05), and give the web
+  app an error boundary.
+- **`@catalogId` on a component is rejected** by `web_core` 0.15.0 ("Unrecognized reserved
+  protocol directive"), despite the v1.0 spec. So **one catalog per surface**: our catalog
+  *extends* the Basic Catalog (`[...basicCatalog.components.values(), ours]`, plus its
+  functions), and surfaces use our `catalogId`.
+- **A duplicate `createSurface` is an integrity error** ("Surface … already exists"). React
+  StrictMode runs effects twice in dev, and agents may resend, so skip `createSurface` for a
+  surface that already exists (the official sample does the same).
+- **`weight` is layout (flex), not font weight.**
+- **`Text` renders through a markdown step.** Without `@a2ui/markdown-it` it warns "no markdown
+  renderer configured". `@a2ui/react` 0.15.0 pulls `@a2ui/markdown-it` 0.2.2, which declares a
+  peer of `web_core` ^0.14 (an npm warning; harmless so far).
+- **The renderer resolves `@path` bindings in an action's `context` before sending.** The agent
+  receives plain values (e.g. `"applicationVersionId": 12`).
+
 ## 13. ADK integration (`pip install a2ui-adk`, `"a2ui-adk[a2a]"` for A2A)
 
 - **`SendA2uiToClientToolset`:** an ADK toolset that lets the LLM send A2UI through a **tool
@@ -386,6 +441,8 @@ Local Gemma is the **default**, not a dependency. Replacing it with any other mo
    v1.0, because some samples are v0.9.
 
 ## 15. Not read yet (do when needed)
+
+- ~~The A2A extension spec~~: read in the spike; see §12d.
 
 - `specification/v1_0/docs/a2ui_custom_functions.md` and `evolution_guide.md`
 - The A2A extension spec (its URI and A2A part format)
