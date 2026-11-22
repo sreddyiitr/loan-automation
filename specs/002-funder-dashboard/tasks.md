@@ -381,8 +381,9 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
 - [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
-  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README and
-  `learnings/oidc_authn_authz_summary.md` move off `funder-1` and `funder-2`.
+  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README,
+  `learnings/oidc_authn_authz_summary.md` and the demo (`DEMO_USER` in `dashboard/web/demo/record.mjs`)
+  move off `funder-1` and `funder-2`.
 - [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
   `after_state` (AS-11.4).
