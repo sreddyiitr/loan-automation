@@ -87,7 +87,7 @@ public class FunderService {
 
     // ------------------------------------------------------------------ reads
 
-    public Map<String, Object> overview(String loanApplicationId) {
+    public Map<String, Object> overview(String loanApplicationId, Actor viewer) {
         VersionRow v = versions.findLatest(loanApplicationId).orElseThrow(() -> notFound("application " + loanApplicationId));
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("loanApplicationId", v.loanApplicationId());
@@ -110,6 +110,21 @@ public class FunderService {
         m.put("workflowStep", step);
         m.put("inProgress", step != null && !IDLE_STEPS.contains(step));
         m.put("payment", payment(v.applicationVersionId(), step));
+        // Spec 002 T205 (FR-05b, AS-11.2): who the deal is routed to, and what this viewer may do to it,
+        // from the same Permissions the writes use, so the screen and the API can't disagree.
+        WorkRouting.Deal deal = routingFacts(v);
+        m.put("workKinds", WorkRouting.kinds(deal).stream().map(Enum::name).toList());
+        m.put("routedTo", WorkRouting.route(deal).map(Enum::name).orElse(null));
+        m.put("viewer", Map.of("id", viewer.id(), "role", viewer.role().name()));
+        List<Map<String, Object>> allowed = new ArrayList<>();
+        Permissions.all(viewer.role(), viewer.id(), deal, v.assignedFunder()).forEach((action, d) -> {
+            Map<String, Object> a = new LinkedHashMap<>();
+            a.put("action", action.name());
+            a.put("allowed", d.allowed());
+            a.put("reason", d.reason());
+            allowed.add(a);
+        });
+        m.put("allowedActions", allowed);
         return m;
     }
 

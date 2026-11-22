@@ -138,7 +138,7 @@ permissions (D2), then the worklist and the other tabs. See
 
 ## How we know it works
 
-**557 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**559 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -150,13 +150,13 @@ scenario through the full trigger path.
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API incl. spec 002 overview fields, role enforcement, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 62 | ✅ all pass |
+| API (start API, funder API incl. spec 002 overview fields, role enforcement, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 64 | ✅ all pass |
 | **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, real OIDC tokens, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider** | 68 | ✅ all pass |
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **160 agent tests** (pytest) and **17 browser tests**
-(Playwright), counted separately; its Java tests are in the 557. None of them needs an AI model:
+Spec 002 (the funder dashboard) adds **168 agent tests** (pytest) and **19 browser tests**
+(Playwright), counted separately; its Java tests are in the 559. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
@@ -537,9 +537,9 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 160 agent tests, no services and no model needed
+make test-dashboard        # 168 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 17 browser tests: their own agent and web app, make dashboard's API and sign-in
+make test-dashboard-e2e    # 19 browser tests: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
 make demo                  # record the demo to target/demo: demo.mp4, demo.webp, demo.srt (needs ffmpeg)
 ```

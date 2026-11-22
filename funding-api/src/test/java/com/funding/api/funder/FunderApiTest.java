@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.funding.api.ProblemHandler;
+import com.funding.api.auth.Actor;
 import com.funding.api.auth.ActorArgumentResolver;
 import com.funding.api.seed.SeedDataLoader;
 import com.funding.domain.Check;
@@ -114,7 +115,7 @@ class FunderApiTest {
 
         FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults(), EXPIRE_AFTER);
         mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
-                .setCustomArgumentResolvers(new ActorArgumentResolver()).build();
+                .setCustomArgumentResolvers(new SupervisorByDefault()).build();
     }
 
     @AfterEach
@@ -123,6 +124,23 @@ class FunderApiTest {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * Reads in these tests come with no signed-in user; they read as the test's supervisor. Writes keep
+     * the real rule (no user: 401) and set their own user ({@link #write}, {@link #writeAs}).
+     * FunderAuthTest covers the real token path.
+     */
+    static final class SupervisorByDefault extends ActorArgumentResolver {
+        @Override
+        public Actor resolveArgument(org.springframework.core.MethodParameter p, org.springframework.web.method.support.ModelAndViewContainer m,
+                                     org.springframework.web.context.request.NativeWebRequest r,
+                                     org.springframework.web.bind.support.WebDataBinderFactory b) {
+            boolean read = "GET".equals(r.getNativeRequest(jakarta.servlet.http.HttpServletRequest.class).getMethod());
+            return read && SecurityContextHolder.getContext().getAuthentication() == null ? new Actor(FUNDER, Role.SUPERVISOR)
+                    : super.resolveArgument(p, m, r, b);     // a write with no user stays 401 (AS_10_9_writeWithoutUserIsRefused)
+        }
+    }
+
 
     private long latest(String scenario) {
         return jdbc.sql("SELECT application_version_id FROM application_versions WHERE loan_application_id = ? AND is_latest_version")
@@ -680,5 +698,38 @@ class FunderApiTest {
         writeAs("general-1", Role.GENERAL_FUNDER, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
         writeAs("general-1", Role.GENERAL_FUNDER, patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_DEALER_LETTER")), """
                 {"status":"SATISFIED","reason":"letter received"}""").andExpect(status().isOk());
+    }
+
+    @Test
+    void FR_05b_theOverviewSaysWhoTheDealIsRoutedToAndWhatTheViewerMayDo() throws Exception {
+        long id = settled("LA-1006");                                         // price 1 cent off: documents work
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workKinds").value(org.hamcrest.Matchers.contains("DOCUMENTS")))
+                .andExpect(jsonPath("$.routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.viewer.id").value("docs-1"))
+                .andExpect(jsonPath("$.viewer.role").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].allowed").value(org.hamcrest.Matchers.contains(true)))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'RESOLVE_STIP')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_ASSIGNED_TO_YOU")))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'REASSIGN')].reason")
+                        .value(org.hamcrest.Matchers.contains("ROLE_NOT_ALLOWED")));
+        writeAs("gap-1", Role.GAP_SPECIALIST, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(jsonPath("$.routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
+        writeAs("supervisor-1", Role.SUPERVISOR, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(jsonPath("$.allowedActions[?(@.allowed == false)]").isEmpty());   // the supervisor may do anything
+        assertThat(id).isPositive();
+    }
+
+    @Test
+    void FR_05b_aDealWithNothingToDoIsRoutedToNobody() throws Exception {
+        settled("LA-1001");                                                   // every check passes
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/applications/LA-1001"), null)
+                .andExpect(jsonPath("$.workKinds").isEmpty())
+                .andExpect(jsonPath("$.routedTo").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
     }
 }

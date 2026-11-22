@@ -449,11 +449,23 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
   - Tests (part of T206): 7 new in `FunderApiTest` through the real API: each refusal reason, the
     role in the audit, a two-kinds deal, AS-11.5's re-routing, and the catch-all's manual stip.
     488 unit tests (557 Java in all), 160 agent and 17 Playwright tests pass.
-- [ ] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
+- [x] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
   (FR-05b). The overview surface shows the kinds and who it's routed to, and only allowed
   actions; Take only when the deal is routed to you.
-- [ ] **T206** Tests: `FunderApiTest` `AS_11_3_…`, `AS_11_5_…`, `AS_11_6_…`; Playwright: a
+- [x] **T206** Tests: `FunderApiTest` `AS_11_3_…`, `AS_11_5_…`, `AS_11_6_…`; Playwright: a
   specialist can't act outside their lane and is told why, and the supervisor can.
+  **Notes (T205–T206, done 2026-11-21):**
+  - The overview takes the viewer and adds `workKinds`, `routedTo`, `viewer` and `allowedActions`
+    ({action, allowed, reason}) from the same `Permissions` the writes use.
+  - The deal page offers Take only when the API allows it and nobody has the deal, and has a
+    "Routed to" fact (e.g. "Income specialist · RISC, documents and income work"; "(you)" when it's
+    yours; "Nobody: nothing needs a specialist"). It replaces "Submitted", which the header shows.
+  - `FunderApiTest`'s reads go through a test resolver that reads as its supervisor when nobody
+    is signed in; writes keep the real rule (401), which an existing test caught when the fallback
+    first covered writes too.
+  - Tests: `FunderApiTest` 2 more (T206's API part landed with T204: 7). Agent 168 (8 new). Playwright
+    19 (2 new: the right specialist may take; another kind's specialist isn't offered Take).
+  - **D2 is done.** The README screenshot and demo are refreshed for the new fact.
 
 ## D2b: Assignment suggestions for the supervisor (US-12)
 

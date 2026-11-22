@@ -66,7 +66,7 @@ class FunderAuthTest {
                     .andExpect(content().contentTypeCompatibleWith(PROBLEM))
                     .andExpect(jsonPath("$.reason").value("UNAUTHORIZED"));
         }
-        verify(service, never()).overview(anyString());
+        verify(service, never()).overview(anyString(), any(Actor.class));
         verify(service, never()).approve(anyLong(), any(Actor.class));
     }
 
@@ -93,7 +93,7 @@ class FunderAuthTest {
         mvc.perform(approve().with(as("docs-1"))).andExpect(status().isOk());
         verify(service).approve(eq(12L), eq(new Actor("docs-1", Role.DOCUMENTS_SPECIALIST)));   // the id and role reach the service
 
-        when(service.overview("LA-1006")).thenReturn(Map.of("loanApplicationId", "LA-1006"));
+        when(service.overview(eq("LA-1006"), any(Actor.class))).thenReturn(Map.of("loanApplicationId", "LA-1006"));
         mvc.perform(get("/api/v1/applications/LA-1006").with(as("supervisor-1"))).andExpect(status().isOk())
                 .andExpect(jsonPath("$.loanApplicationId").value("LA-1006"));
     }

@@ -59,8 +59,8 @@ public class FunderController {
 
     @GetMapping("/applications/{loanApplicationId}")
     @Operation(summary = "Application overview (latest version)", description = "AS-10.1")
-    public Map<String, Object> overview(@PathVariable String loanApplicationId) {
-        return funder.overview(loanApplicationId);
+    public Map<String, Object> overview(@PathVariable String loanApplicationId, @Parameter(hidden = true) Actor actor) {
+        return funder.overview(loanApplicationId, actor);
     }
 
     @GetMapping("/applications/{loanApplicationId}/versions")

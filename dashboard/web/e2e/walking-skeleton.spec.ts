@@ -74,7 +74,7 @@ test('AS_2_1_theOverviewShowsTheDealFactsExpiryAndPayment', async ({page}) => {
     ['Stated income', money(deal.statedIncomeAnnual)],
     ['VIN', deal.vehicleVin],
     ['Assigned to', 'Unassigned'],
-    ['Submitted', deal.submittedAt.slice(0, 10)],
+    ['Routed to', 'Documents specialist · documents work (you)'],      // AS-11.2: LA-1006 is docs-1's kind of work
   ]) await expect(fact(page, label), label).toHaveText(value);
   await expect(fact(page, 'Expiry')).toHaveText(new RegExp(`^(\\d+ days? left|Expires today) \\(${deal.expiresAt.slice(0, 10)}\\)$`));
   expect(deal.payment.state).toBe('NOT_STARTED');                      // LA-1006 is STIPULATED: nothing paid yet
@@ -163,6 +163,26 @@ test("AS_2_7_checksThatDidntPassStartOpenAndSayWhy", async ({page}) => {
   await expect(page.locator('.check[data-check="Price"] .check-reason')).toHaveText('Low-confidence field: RISC cash price');
   await openDeal(page, 'LA-1016');                                       // seeded: income API down
   await expect(page.locator('.check[data-check="Income"] .check-reason')).toHaveText("Couldn't finish: income API: server error (503)");
+});
+
+test('AS_11_6_aSpecialistForAnotherKindOfWorkIsNotOfferedTakeAndSeesWhoItIsFor', async ({page}) => {
+  const errors = watchErrors(page);
+  await unassignedLa1006();                                              // a price mismatch: documents work
+  await signInAs(page, 'gap-1');
+  await openDeal(page, 'LA-1006');
+  await expect(fact(page, 'Routed to')).toHaveText('Documents specialist · documents work');
+  await expect(fact(page, 'Assigned to')).toHaveText('Unassigned');
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);     // the API says gap-1 may not
+  await expect(page.getByRole('button', {name: 'Summarize'})).toBeVisible();           // reading is for everyone
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('AS_11_2_theRightSpecialistSeesTheDealIsTheirsAndMayTakeIt', async ({page}) => {
+  await unassignedLa1006();
+  await signInAs(page, 'docs-1');
+  await openDeal(page, 'LA-1006');
+  await expect(fact(page, 'Routed to')).toHaveText('Documents specialist · documents work (you)');
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toBeVisible();
 });
 
 test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({page}) => {
