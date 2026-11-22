@@ -527,17 +527,49 @@ and nothing is assigned without the supervisor's click.
     suggestions: 1.9 s with thinking off, 7.4 s with it on, the latter with better reasons. So
     T254 is a real tool-using agent, thinking on.
   - Tests: 3 in `FunderApiTest` (70 in the API module).
-- [ ] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
+- [x] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
   eligible user with the fewest open deals. Unit tests.
-- [ ] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
+- [x] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
   `eligible`) on the `assign` model in `models.yaml`; code drops ineligible suggestions (one
   retry) and fills the rest from T253's plan; the model sees no names, amounts or documents
   (AS-12.6).
-- [ ] **T255** The supervisor's surface: **Suggest assignments** on the unassigned list, one row
+- [x] **T255** The supervisor's surface: **Suggest assignments** on the unassigned list, one row
   per suggestion with its reason and an **Assign** button behind a confirmation (the normal
   reassign, AS-12.4). Not offered to specialists.
-- [ ] **T256** Recorded answers (as T155) and tests: an ineligible suggestion is dropped, no model
+- [x] **T256** Recorded answers (as T155) and tests: an ineligible suggestion is dropped, no model
   shows code's plan, the prompt holds no names; Playwright `AS_12_1_…`, `AS_12_4_…`.
+  **Notes on T253–T256 (done 2026-11-22):**
+  - `assistant/assign.py`, all in one place:
+    - `deal_facts`: what the model sees per deal: loan id, kinds of work, routed role, eligible ids,
+      days to expiry, earlier assignees. No dealer, borrower, amounts or documents (AS-12.6).
+    - `eligible_for`: the users with the routed role, or the supervisors when the team has none.
+    - `code_plan` (T253): most urgent first, then the eligible user with the fewest open deals,
+      counting what the plan has already handed out. On a tie, someone who worked an earlier
+      version, then by id.
+    - `tools_for` (T254): three read-only tools (`unassigned_deals`, `users`, `eligible`) over data
+      the agent read with the supervisor's token. Nothing in them writes.
+    - `parse` and `keep_eligible`: JSON (fenced or not), one retry on an unusable reply; a
+      suggestion for a deal not listed, for someone not eligible, or a second one for a deal is
+      dropped (AS-12.2). Any deal left without a suggestion gets code's plan, marked as such.
+  - `AdkConversation` takes `tools`; `AssignService` gives each request a fresh agent on the
+    `assign` model (`models.yaml`, thinking on).
+  - `GET /api/v1/me` lets My work show **Suggest assignments** to the supervisor only.
+  - The panel (`surfaces/assign.py`, `SuggestionList`): a row per deal with assignee, role, days
+    left, reason and whether it came from the assistant or code's plan; **Assign** asks "Assign
+    LA-… to …?" in place (AS-12.4). Confirming is the normal audited reassign; the row then shows
+    **Assigned ✓** and My work refreshes. There's no "assign all".
+  - Reasons: the first live run gave thin reasons ("Only eligible user available"), so the
+    instruction now asks for the kind of work, the days left and the assignee's open deals, with an
+    example. Codes the model echoes (`DOCUMENTS_SPECIALIST`) are shown as words.
+  - Live, on the 18 seeded unassigned deals: 23–29 s with thinking on, all 18 from the model, none
+    dropped. Recorded as `recordings/assign/supervisor.json` (`make record-assistant`, or
+    `record --assign`).
+  - Tests: 18 agent tests in `test_assign.py` (201 in all), including one that drives the real
+    ADK runner with a scripted model that calls a tool. Playwright `assign.spec.ts`: AS_12_1,
+    AS_12_4 (Cancel leaves it unassigned; confirm assigns only that deal) and AS_12_6 (a specialist
+    isn't offered it). 24 in all.
+  - Fixed on the way: `AS_1_8_theSupervisorSees…` assumed four deals were unassigned, but
+    `make demo` takes LA-1002. The test now unassigns them first, like the others.
 
 ## D3: Stipulations tab
 

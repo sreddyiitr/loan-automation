@@ -65,12 +65,17 @@ def work_model(mine: list[dict[str, Any]], ready: list[dict[str, Any]], now: dat
     return {"mine": [work_row(r, now) for r in mine], "ready": [work_row(r, now) for r in ready]}
 
 
-def worklist_surface(model: dict[str, Any]) -> list[dict[str, Any]]:
+def worklist_surface(model: dict[str, Any], supervisor: bool = False) -> list[dict[str, Any]]:
     """The whole surface, rebuilt each time (deleteSurface first), so "My work" always shows fresh lists."""
     components = [
         # One white card over the hero band, like the deal page; the hero already says "Your work".
         {"id": "root", "component": "Card", "child": "body"},
-        {"id": "body", "component": "Column", "children": ["mine", "ready"]},
+        {"id": "body", "component": "Column", "children": ["mine", *(["suggest_row"] if supervisor else []), "ready"]},
+        *([{"id": "suggest_row", "component": "Row", "align": "center", "children": ["suggest_button"]},
+           {"id": "suggest_label", "component": "Text", "text": "✦ Suggest assignments"},
+           {"id": "suggest_button", "component": "Button", "variant": "primary", "child": "suggest_label",
+            "accessibility": {"label": "Suggest assignments"},
+            "action": {"event": {"name": "assign.suggest", "context": {}}}}] if supervisor else []),
         {"id": "mine", "component": "WorkList", "title": "Assigned to you", "items": {"@path": "/work/mine"},
          "emptyText": "Nothing assigned to you right now.", "openAction": OPEN_ACTION},
         {"id": "ready", "component": "WorkList", "title": "Ready for you to take", "items": {"@path": "/work/ready"},

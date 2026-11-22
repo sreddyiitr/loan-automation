@@ -24,7 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 from . import config
 from .actions import deal
 from .actions.assistant import STREAMED
-from .assistant.service import SummaryService
+from .assistant.service import AssignService, SummaryService
 from .api import ApiError, FunderApi, NotSignedIn, message_for
 from .catalog import BASIC_CATALOG_ID, FUNDER_CATALOG_ID, VERSION
 from .surfaces.notice import notice_surface
@@ -75,8 +75,15 @@ def route(token: str | None, text: str, actions: list[dict[str, Any]],
 
 class FunderAgentExecutor(AgentExecutor):
     def __init__(self, card: AgentCard, api_factory: Callable[[str | None], FunderApi] = FunderApi,
-                 assistant: SummaryService | None = None):
+                 assistant: SummaryService | None = None, assigner: "AssignService | None" = None):
         self.card, self.api_factory, self._assistant = card, api_factory, assistant
+        self._assigner: AssignService | None = assigner
+
+    @property
+    def assigner(self) -> "AssignService":
+        if self._assigner is None:
+            self._assigner = AssignService.from_config()
+        return self._assigner
 
     @property
     def assistant(self) -> SummaryService:
@@ -110,7 +117,8 @@ class FunderAgentExecutor(AgentExecutor):
         final: list[dict[str, Any]] = []
         try:
             with self.api_factory(bearer(context)) as api:
-                async for messages, is_final in STREAMED[action["name"]](api, action.get("context", {}), self.assistant):
+                service = self.assigner if action["name"] == "assign.suggest" else self.assistant
+                async for messages, is_final in STREAMED[action["name"]](api, action.get("context", {}), service):
                     if is_final:
                         final = messages
                         break
@@ -125,7 +133,8 @@ class FunderAgentExecutor(AgentExecutor):
         raise NotImplementedError
 
 
-def build_app(api_factory: Callable[[str | None], FunderApi] = FunderApi, assistant: SummaryService | None = None):
+def build_app(api_factory: Callable[[str | None], FunderApi] = FunderApi, assistant: SummaryService | None = None,
+              assigner: AssignService | None = None):
     """``api_factory`` and ``assistant`` let tests run the real A2A app with no funder API or model."""
     card = AgentCard(
         name="Funder dashboard agent", description="Builds the funder dashboard's A2UI surfaces.",
@@ -140,7 +149,7 @@ def build_app(api_factory: Callable[[str | None], FunderApi] = FunderApi, assist
                 AgentSkill(id="summary", name="Summarize", description="Explains where a deal stands (local model).",
                            tags=["funder", "assistant"])],
     )
-    handler = DefaultRequestHandler(agent_executor=FunderAgentExecutor(card, api_factory, assistant),
+    handler = DefaultRequestHandler(agent_executor=FunderAgentExecutor(card, api_factory, assistant, assigner),
                                     task_store=InMemoryTaskStore())
     app = A2AStarletteApplication(agent_card=card, http_handler=handler).build()
     app.add_middleware(CORSMiddleware, allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
