@@ -61,6 +61,14 @@ class FunderApi:
     def overview(self, loan_id: str) -> dict[str, Any]:
         return self._call("GET", f"/applications/{loan_id}")
 
+    def whoami(self) -> dict[str, Any]:
+        """Spec 002: the signed-in user's id and role, from the funder API."""
+        return self._call("GET", "/me")
+
+    def users(self) -> list[dict[str, Any]]:
+        """US-12 (supervisor only): every user's id, role and open deals."""
+        return self._call("GET", "/users")
+
     def worklist(self, queue: str) -> list[dict[str, Any]]:
         """Spec 002 AS-1.8: ``mine`` (assigned to me) or ``ready`` (routed to me, nobody has it)."""
         return self._call("GET", "/applications", params={"queue": queue})

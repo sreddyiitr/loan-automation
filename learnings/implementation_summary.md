@@ -391,6 +391,19 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
     rebuilds the panel (`deleteSurface` first), since a second `createSurface` is an integrity
     error. The model's text is only data in a fixed Card of Texts.
   - The web app sends every action over `message/stream` and applies each update as it arrives.
+- **Assignment suggestions** (D2b, US-12, D-16):
+  - API: `GET /api/v1/me` (id and role) and `GET /api/v1/users` (supervisor only: each user's role
+    and open-deal count), in `TeamController`; worklist rows carry `earlierAssignees`.
+  - `assistant/assign.py`: the facts the model may see (no names, dealers, amounts or documents),
+    `code_plan` (most urgent first, to the eligible person with the fewest open deals), three
+    read-only ADK tools, the JSON check with one retry, and `keep_eligible`, which drops any
+    suggestion for someone the routing doesn't allow. Gaps are filled from code's plan.
+  - `AssignService` runs a fresh tool-using `LlmAgent` per request on the `assign` model (thinking
+    on, 23–29 s live for 18 deals). `assign.suggest` streams "Asking the assistant…" then the
+    `assign_assistant` panel; `deal.assign` is the normal audited reassign after the supervisor's
+    in-place confirmation, then My work refreshed.
+  - Live result on the seeds: all 18 suggestions from the model, none dropped. Its first reasons
+    were thin, so the instruction now asks for the work, days left and workload, with an example.
 - **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
   catalog per surface; versions pinned. Recorded in `specs/002-funder-dashboard/plan.md`, with the
   details and pitfalls in `a2ui-notes.md` §12d.
@@ -409,10 +422,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 183 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 21 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers; assignment suggestions (`test_assign.py`: what the model sees, code's plan, eligibility, retry, an ADK runner whose scripted model calls a tool, the panel) | nothing (a fake funder API, scripted or recorded model answers) | 201 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4`; `e2e/my-work.spec.ts`: `AS_1_8` (twice); `e2e/assign.spec.ts`: `AS_12_1`, `AS_12_4`, `AS_12_6` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 24 | ✅ |
 
-**Total: 562 tests** (493 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 183 agent tests and 21 Playwright tests. Test names trace to the
+**Total: 565 tests** (496 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 18 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests and 3 team tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 201 agent tests and 24 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -617,5 +630,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: the rest of the worklist (filters, expiring soon, needs reassignment; D6), tabs, assignment suggestions for the supervisor (D2b), the assistant's suggest and draft stip (D8). D2 (roles) is done: five specialists, a catch-all and a supervisor, enforced by the API, with the overview showing who each deal is routed to and only the actions the viewer may take. A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). D6a: My work on sign-in. D2b: assignment suggestions for the supervisor (an ADK agent with read-only tools; 23–29 s live with thinking on for 18 deals, which has no target yet: NFR-02's 15 s is the summary's). Not yet: the rest of the worklist (filters, expiring soon, needs reassignment; D6), tabs, the assistant's suggest and draft stip (D8). D2 (roles) is done: five specialists, a catch-all and a supervisor, enforced by the API, with the overview showing who each deal is routed to and only the actions the viewer may take. A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

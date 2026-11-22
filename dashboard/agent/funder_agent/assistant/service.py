@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 import httpx
 
@@ -46,3 +46,28 @@ class SummaryService:
         log.info("summary: %s after %d attempt(s)%s", answer.kind, answer.attempts,
                  f" ({answer.error})" if answer.error else "")
         return answer
+
+
+class AssignService:
+    """Assignment suggestions (US-12): the ``assign`` model from models.yaml, a health check, and a
+    fresh ADK conversation per request with that request's read-only tools."""
+
+    def __init__(self, conversations: Callable[[list], Any] | None, health: str | None = None, timeout: float = 1.5):
+        self.conversations, self.health, self.timeout = conversations, health, timeout
+
+    @classmethod
+    def from_config(cls) -> "AssignService":
+        if config.ASSISTANT_REPLAY:
+            from .replay import ReplayConversation
+            return cls(lambda tools: ReplayConversation(config.ASSISTANT_REPLAY, feature="assign", key="supervisor"))
+        feature: FeatureModel = Registry.load().for_feature("assign")
+        from .assign import INSTRUCTION
+        from .summary import AdkConversation
+        return cls(lambda tools: AdkConversation(feature.llm(), instruction=INSTRUCTION, name="assign", tools=tools),
+                   feature.spec.health)
+
+    async def available(self) -> bool:
+        return await SummaryService(lambda: None, self.health, self.timeout).available()
+
+    def conversation(self, tools: list) -> Any:
+        return self.conversations(tools) if self.conversations else None

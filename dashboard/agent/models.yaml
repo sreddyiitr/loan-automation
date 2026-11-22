@@ -28,3 +28,4 @@ features:
   suggest:        {model: local_gemma, thinking: true}
   draft_stip:     {model: local_gemma, thinking: false}
   generated_view: {model: local_gemma, thinking: false}
+  assign:         {model: local_gemma, thinking: true}    # ranking benefits from thinking (7 s, D2b)

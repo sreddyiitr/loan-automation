@@ -111,7 +111,20 @@ WORK_LIST = ComponentApi("WorkList", {
     "required": ["id", "component", "items", "openAction"],
 })
 
-FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE, WORK_LIST]
+SUGGESTION_LIST = ComponentApi("SuggestionList", {
+    "type": "object",
+    "description": "Assignment suggestions (US-12): each row has its own Assign, confirmed in place, which sends "
+                   "assignAction with {loanApplicationId, applicationVersionId, assignee}.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"}, "component": {"const": "SuggestionList"},
+        "items": _DYNAMIC, "emptyText": _DYNAMIC, "assignAction": {"type": "string"},
+        "weight": {"type": "number"}, "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "items", "assignAction"],
+})
+
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE, WORK_LIST, SUGGESTION_LIST]
 
 
 @lru_cache(maxsize=1)

@@ -2,7 +2,8 @@
 deals, for replay in the tests (AS-10.5). Needs the funder API with the seeds submitted, the OIDC
 provider and the model running. Rerun it when the prompt or the model changes.
 
-    uv run python -m funder_agent.assistant.record [LA-1006 ...]
+    uv run python -m funder_agent.assistant.record [LA-1006 ...]     # summaries (and, with no ids, assign)
+    uv run python -m funder_agent.assistant.record --assign          # US-12 suggestions only
 """
 from __future__ import annotations
 
@@ -75,8 +76,39 @@ async def record(loans: list[str]) -> int:
     return failures
 
 
+async def record_assign() -> int:
+    """US-12: the assign model's suggestions for the seeded unassigned deals, as the supervisor sees them,
+    with its real tool calls. Saved as recordings/assign/supervisor.json."""
+    from funder_agent.assistant.assign import INSTRUCTION, deal_facts, suggest, tools_for
+    feature = Registry.load().for_feature("assign")
+    with FunderApi(token("supervisor-1")) as api:
+        users, ready = api.users(), api.worklist("ready")
+    tools = tools_for(deal_facts(ready, users, datetime.now(timezone.utc)), users)
+    convo = Recording(AdkConversation(feature.llm(), instruction=INSTRUCTION, name="assign", tools=tools))
+    started = time.monotonic()
+    result = await suggest(convo, ready, users)
+    seconds = round(time.monotonic() - started, 2)
+    if result.mode != "assistant":
+        print(f"assign: {result.mode}; not saved", file=sys.stderr)
+        return 1
+    path = recording_path(RECORDINGS, "supervisor", "assign")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "feature": "assign", "model": feature.spec.model, "thinking": feature.thinking,
+        "recordedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"), "seconds": seconds,
+        "sent": convo.sent, "replies": convo.replies, "dropped": result.dropped,
+        "fromAssistant": sum(i["source"] == "assistant" for i in result.items), "deals": len(result.items),
+    }, indent=2) + "\n")
+    print(f"assign: {path.name} ({seconds}s, {len(result.items)} deals, {len(result.dropped)} dropped)")
+    return 0
+
+
 def main() -> None:
-    sys.exit(1 if asyncio.run(record(sys.argv[1:] or DEALS)) else 0)
+    args = sys.argv[1:]
+    if args == ["--assign"]:
+        sys.exit(asyncio.run(record_assign()))
+    failures = asyncio.run(record(args or DEALS)) + (asyncio.run(record_assign()) if not args else 0)
+    sys.exit(1 if failures else 0)
 
 
 if __name__ == "__main__":

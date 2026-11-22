@@ -33,4 +33,25 @@ async def summarize_deal(api: FunderApi, context: dict[str, Any], service: Summa
     yield assistant_surface(version_id, answer.kind, answer.summary), True
 
 
-STREAMED = {"deal.summarize": summarize_deal}
+async def suggest_assignments(api: FunderApi, context: dict[str, Any], service: Any) -> AsyncIterator[Step]:
+    """``assign.suggest`` (US-12): "Asking the assistant…" at once, then the suggestions. The funder API
+    refuses a non-supervisor (``ROLE_NOT_ALLOWED``) when the team is read."""
+    from ..assistant.assign import suggest, tools_for, deal_facts
+    from ..surfaces.assign import assign_surface
+    from datetime import datetime, timezone
+    yield assign_surface("working"), False
+    try:
+        users = api.users()
+        ready = api.worklist("ready")
+    except ApiError as e:
+        yield [{"version": VERSION, "deleteSurface": {"surfaceId": "assign_assistant"}},
+               *notice_surface(message_for(e.reason))], True
+        return
+    up = await service.available()
+    tools = tools_for(deal_facts(ready, users, datetime.now(timezone.utc)), users)
+    result = await suggest(service.conversation(tools) if up else None, ready, users)
+    roles = {u["id"]: u["role"] for u in users}
+    yield assign_surface(result.mode, result.items, roles), True
+
+
+STREAMED = {"deal.summarize": summarize_deal, "assign.suggest": suggest_assignments}
