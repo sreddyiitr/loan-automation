@@ -186,12 +186,63 @@ const Timeline = createComponentImplementation(TimelineApi as never, ({props}) =
   );
 });
 
+// WorkList (AS-1.8, "My work"): deals as clickable cards. A click sends the A2UI action named by
+// openAction, with the row's loan id, through the component's context, the same path a Button takes.
+export const WorkListApi = {
+  name: 'WorkList',
+  schema: z.object({
+    title: CommonSchemas.DynamicString.optional(),
+    items: CommonSchemas.DynamicValue,
+    emptyText: CommonSchemas.DynamicString.optional(),
+    openAction: z.string(),
+  }),
+};
+
+type WorkItem = {loanApplicationId: string; versionNumber?: number; dealer: string; status: string; missing: string[];
+  routedTo: string; expiry: string};
+
+const WorkList = createComponentImplementation(WorkListApi as never, ({props, context}) => {
+  const p = props as {title?: string; items?: unknown; emptyText?: string; openAction: string};
+  const items = asList<WorkItem>(p.items);
+  const open = (loanApplicationId: string) =>
+    void (context as {dispatchAction: (a: unknown) => Promise<void>}).dispatchAction(
+      {event: {name: p.openAction, context: {loanApplicationId}}});
+  return (
+    <section className="work-list">
+      {p.title && <h3 className="section-title">{p.title} <span className="count">{items.length}</span></h3>}
+      {items.length === 0 ? <p className="work-empty">{p.emptyText ?? 'Nothing here'}</p> : (
+        <ul>
+          {items.map((w) => (
+            <li key={w.loanApplicationId}>
+              <button type="button" className="work-card" data-loan={w.loanApplicationId}
+                      aria-label={`Open ${w.loanApplicationId}`} onClick={() => open(w.loanApplicationId)}>
+                <span className="work-head">
+                  <span className="work-id">{w.loanApplicationId}{w.versionNumber ? <span className="work-version"> · v{w.versionNumber}</span> : null}</span>
+                  <span className={`work-status status-${TONE[w.status] ?? 'neutral'}`} data-status={w.status}>
+                    <span className="status-dot" aria-hidden="true" />{w.status.replaceAll('_', ' ').toLowerCase()}
+                  </span>
+                </span>
+                <span className="work-dealer">{w.dealer} · {w.expiry}</span>
+                <span className="work-missing">
+                  <span className="work-missing-label">What's missing</span>
+                  {w.missing.map((m, i) => <span key={i} className="work-chip">{m}</span>)}
+                </span>
+                <span className="work-foot">Routed to {w.routedTo}<span className="work-open" aria-hidden="true">Open →</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+});
+
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
 // catalog. Our catalog therefore EXTENDS the Basic Catalog: all 18 basic components and 15 functions,
 // plus ours. Surfaces are created with this catalog's id.
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline, WorkList] as never,
   [...basicCatalog.functions.values()] as never,
 );

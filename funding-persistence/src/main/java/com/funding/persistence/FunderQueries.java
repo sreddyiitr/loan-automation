@@ -24,6 +24,15 @@ public class FunderQueries {
                 .param(loanApplicationId).query().listOfRows();
     }
 
+    /** Spec 002 AS-1.8: the latest version of every deal that's open (not DRAFT, not finished; AS-1.6). */
+    public List<Long> openLatestVersionIds() {
+        return jdbc.sql("""
+                SELECT application_version_id FROM application_versions
+                 WHERE is_latest_version AND version_status IN ('PENDING_REVIEW', 'STIPULATED', 'APPROVED')
+                 ORDER BY application_version_id""")
+                .query(Long.class).list();
+    }
+
     /** AS-10.2: stips with their resolution. */
     public List<Map<String, Object>> stips(long versionId) {
         return jdbc.sql("""

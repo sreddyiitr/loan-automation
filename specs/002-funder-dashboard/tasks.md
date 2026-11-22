@@ -467,6 +467,42 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
     19 (2 new: the right specialist may take; another kind's specialist isn't offered Take).
   - **D2 is done.** The README screenshot and demo are refreshed for the new fact.
 
+## D6a: My work, on sign-in (AS-1.8; part of D6, moved up by the owner)
+
+**Proves:** a funder signs in and sees their work: what's assigned to them and what's ready for them
+to take, with what's missing on each, and opens a deal with a click.
+**Exit:** AS-1.2 (assigned to you), AS-1.5, AS-1.7 (ready to take), AS-1.8.
+
+- [x] **T611** Spec first: AS-1.8, plan §5 (the two queues) and §6 (`WorkList`).
+- [x] **T612** API: `GET /api/v1/applications?queue=mine|ready`: open latest versions, each with its
+  routing facts (the same `WorkRouting` as everything else), most urgent first. Java tests.
+  **Notes (done 2026-11-21):** `FunderService.worklist` walks the open latest versions
+  (`FunderQueries.openLatestVersionIds`) and reads each one's routing facts. Rows carry
+  `pendingStips` ({code, check}), `checksNotPassed` (ERROR, or INCOME needing review), `riscIncomplete`,
+  `payment`, `workKinds`, `routedTo` and `expiresAt`, sorted by expiry. `queue` is required; anything
+  else gets 400 `INVALID_QUEUE`. The contract was regenerated (`-Dwrite.contract=true`, only the new
+  path added). Tests: 3 in `FunderApiTest` (67 in the API module).
+- [x] **T613** Agent: the `worklist` surface ("my work" text request) with "what's missing" in plain
+  words; `deal.open` opens a deal. Web: `WorkList` (clickable rows), sign-in lands on My work, and a
+  My work button. Agent tests.
+- [x] **T614** Playwright: `AS_1_8_…` (a specialist sees their assigned deal and what's ready, opens one
+  with a click, comes back), and a supervisor's ready list.
+  **Notes (T613–T614, done 2026-11-21):**
+  - Agent: `surfaces/worklist.py` words what's holding each deal (each stip in a short phrase; a
+    check that couldn't finish or needs review; "RISC incomplete"; a failed or unknown payment;
+    "Nothing missing: waiting on the system"). The surface is one card with two `WorkList`s,
+    rebuilt each time (`deleteSurface` first). "my work" (or no text) shows it, and `deal.open`
+    opens a deal.
+  - Web: `WorkList` draws each deal as a card. A click dispatches `deal.open` through the
+    component's `ComponentContext.dispatchAction`, the same path a Button takes. Sign-in loads My
+    work. Opening a deal replaces the lists, and the hero's **My work** button brings them back,
+    refreshed.
+  - Tests: 15 agent (183 in all); Playwright `e2e/my-work.spec.ts` (2) on LA-1032, so it can't race
+    the files that use LA-1006 (21 in all, twice). A `unassigned(loan)` helper is in `support.ts`.
+  - Seen live: `docs-1` gets 5 deals ready to take; the supervisor 20.
+  - Not in this slice (D6): filters, sorting choices, expiring soon, needs reassignment, paging,
+    the in-progress marker per row.
+
 ## D2b: Assignment suggestions for the supervisor (US-12)
 
 **Proves:** an ADK agent with read-only tools proposes assignments, code decides who's eligible,

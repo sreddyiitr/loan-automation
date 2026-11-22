@@ -104,6 +104,12 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-1.6** Terminal deals (FUNDED, REJECTED, EXPIRED) and superseded versions never appear in a queue, but can be opened by id.
 - **AS-1.7** Each row shows the deal's **kinds of work** and who it's routed to. A specialist's **specialty queue** lists every deal routed to them, assigned or not; the supervisor sees every specialty's queue.
 
+- **AS-1.8** **Signing in lands on "My work"** (owner, 2026-11-21): two lists, no typing needed.
+  - **Assigned to you** (AS-1.2): every open deal assigned to the signed-in user.
+  - **Ready for you to take** (the specialty queue, AS-1.7): unassigned deals routed to the user's specialty. For the supervisor, every unassigned deal that needs someone.
+
+  Each row shows the loan id, dealer, status, **what's missing** in plain words (each pending stip, a check that couldn't finish or needs review, an incomplete RISC, a failed or unknown payment), who it's routed to, and days to expiry, most urgent first. Clicking a row opens the deal (AS-1.5). A **My work** button returns to the lists, refreshed.
+
 ### US-2 Deal overview (P1) (source Tab 1)
 - **AS-2.1** The overview shows:
   - the loan id and version number, status, dealer, borrower and co-borrower, stated income, VIN;
