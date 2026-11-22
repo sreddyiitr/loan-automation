@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
         org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration.class})
 @org.springframework.context.annotation.Import(com.funding.api.auth.SecurityConfig.class)
 @WebMvcTest(controllers = {FunderController.class, TeamController.class}, properties = {
-        "springdoc.paths-to-match=/api/v1/applications/**,/api/v1/versions/**,/api/v1/me,/api/v1/users",
+        "springdoc.paths-to-match=/api/v1/applications/**,/api/v1/versions/**,/api/v1/me,/api/v1/users,/api/v1/stip-codes",
         "springdoc.writer-with-order-by-keys=true"})
 class FunderOpenApiTest {
 
@@ -40,7 +40,7 @@ class FunderOpenApiTest {
         if (Boolean.getBoolean("write.contract")) {
             Files.writeString(CONTRACT, yaml);
         }
-        assertThat(yaml).contains("/api/v1/versions/{versionId}/approve", "/api/v1/versions/{versionId}/stipulations/{stipId}",
+        assertThat(yaml).contains("/api/v1/stip-codes", "/api/v1/versions/{versionId}/approve", "/api/v1/versions/{versionId}/stipulations/{stipId}",
                 "bearerAuth").doesNotContain("X-Funder-Id");
         assertThat(Files.exists(CONTRACT)).as("run once with -Dwrite.contract=true to create " + CONTRACT).isTrue();
         assertThat(yaml).as("contracts/funder-api.openapi.yaml is stale: rerun with -Dwrite.contract=true and commit it")
