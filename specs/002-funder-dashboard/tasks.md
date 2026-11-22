@@ -552,7 +552,7 @@ and nothing is assigned without the supervisor's click.
       suggestion for a deal not listed, for someone not eligible, or a second one for a deal is
       dropped (AS-12.2). Any deal left without a suggestion gets code's plan, marked as such.
   - `AdkConversation` takes `tools`; `AssignService` gives each request a fresh agent on the
-    `assign` model (`models.yaml`, thinking on).
+    `assign` model (`models.yaml`, thinking off since the owner chose it).
   - `GET /api/v1/me` lets My work show **Suggest assignments** to the supervisor only.
   - The panel (`surfaces/assign.py`, `SuggestionList`): a row per deal with assignee, role, days
     left, reason and whether it came from the assistant or code's plan; **Assign** asks "Assign
@@ -561,8 +561,9 @@ and nothing is assigned without the supervisor's click.
   - Reasons: the first live run gave thin reasons ("Only eligible user available"), so the
     instruction now asks for the kind of work, the days left and the assignee's open deals, with an
     example. Codes the model echoes (`DOCUMENTS_SPECIALIST`) are shown as words.
-  - Live, on the 18 seeded unassigned deals: 23–29 s with thinking on, all 18 from the model, none
-    dropped. Recorded as `recordings/assign/supervisor.json` (`make record-assistant`, or
+  - Live, on the 18 seeded unassigned deals: 23–29 s with thinking on, 6–13 s with it off, all 18
+    from the model and none dropped either way, with equally specific reasons. The owner chose
+    thinking off (2026-11-22). Recorded as `recordings/assign/supervisor.json` (`make record-assistant`, or
     `record --assign`).
   - Tests: 18 agent tests in `test_assign.py` (201 in all), including one that drives the real
     ADK runner with a scripted model that calls a tool. Playwright `assign.spec.ts`: AS_12_1,

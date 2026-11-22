@@ -231,8 +231,9 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
   retry.
 - **No model available:** `/api/tags` on Ollama fails, so the assistant shows "unavailable"
   (AS-8.4).
-- **Assignment suggestions (US-12, slice D2b):** the `assign` feature in `models.yaml`, thinking on
-  (it ranks). An ADK `LlmAgent` with **read-only function tools**, each calling the funder API with
+- **Assignment suggestions (US-12, slice D2b):** the `assign` feature in `models.yaml`, thinking
+  **off** (owner, 2026-11-22: measured on the 18 seeded deals, thinking on took 23–29 s and off
+  6–13 s, with the same validity and equally specific reasons). An ADK `LlmAgent` with **read-only function tools**, each calling the funder API with
   the supervisor's token: `unassigned_deals()` (loan id, kinds, routing, days to expiry, earlier
   assignees), `users()` (id, role, open deals) and `eligible(loan_id)`. It returns JSON
   `{suggestions[{loanId, assignee, reason}]}`; code drops any suggestion whose assignee isn't

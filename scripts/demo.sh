@@ -18,13 +18,13 @@ command -v uv >/dev/null 2>&1 || { echo "demo: uv is missing: brew install uv"; 
 curl -sf -m 3 "${DEMO_URL:-http://localhost:5173}/agent/.well-known/agent-card.json" >/dev/null \
   || { echo "demo: the dashboard isn't answering; start it with make dashboard"; exit 1; }
 if [ -n "$VOICE" ] && [ ! -f "$VOICE/line-1.wav" ]; then
-  echo "demo: DEMO_VOICE_DIR=$VOICE has no line-1.wav (expects line-1.wav … line-6.wav)"; exit 1
+  echo "demo: DEMO_VOICE_DIR=$VOICE has no line-1.wav (expects line-1.wav … line-9.wav)"; exit 1
 fi
 
 rm -rf "$OUT/raw"
 mkdir -p "$OUT"
 : > "$OUT/durations.txt"
-for n in 1 2 3 4 5 6; do
+for n in $(python3 -c "import json; print(' '.join(str(l['n']) for l in json.load(open('dashboard/web/demo/narration.json'))['lines']))"); do
   if [ -n "$VOICE" ] && [ -f "$VOICE/line-$n.wav" ]; then
     d="$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$VOICE/line-$n.wav")"
   else
@@ -38,7 +38,7 @@ curl -s -m 60 localhost:11434/api/generate \
   -d '{"model":"gemma4:e4b","prompt":"hi","stream":false,"think":false,"options":{"num_predict":1}}' >/dev/null 2>&1 \
   || echo "demo: Ollama isn't answering; Summarize will show the assistant as unavailable"
 
-echo "demo: recording (about 40 s)"
+echo "demo: recording (about 70 s)"
 node dashboard/web/demo/record.mjs "$OUT" >/dev/null
 echo "demo: encoding"
 uv run --quiet --with pillow python scripts/demo_assemble.py "$OUT" "$VOICE"
