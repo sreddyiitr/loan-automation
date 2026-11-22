@@ -144,7 +144,7 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
 2. By hand instead: `make run` and `make seed-submit-all`, then
    `cd dashboard/agent && uv run python main.py`, then `cd dashboard/web && npm install && npm run dev`.
 3. Go to http://localhost:5173 and click **Sign in**. On the provider's login page ("Just a mock
-   login"), type a user id: `funder-1`, `funder-2`, `income-1` or `supervisor-1`. Leave the claims
+   login"), type a user id: `docs-1`, `gap-1`, `income-1`, `risc-1`, `payment-1`, `general-1` or `supervisor-1`. Leave the claims
    box empty, then click **Sign-in**. Back on the dashboard, type a loan id (e.g. `LA-1006`) and
    click **Open**.
    - The sign-in is OIDC Authorization Code with PKCE (`src/auth.ts`, `oidc-client-ts`). The

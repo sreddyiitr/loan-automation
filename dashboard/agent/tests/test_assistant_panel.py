@@ -45,7 +45,7 @@ def panel(messages):
 
 def flow(fake, service):
     async def collect():
-        with fake.factory()(token_for("funder-1")) as api:
+        with fake.factory()(token_for("docs-1")) as api:
             steps = [step async for step in summarize_deal(api, CONTEXT, service)]
         assert [final for _, final in steps] == [False, True]          # one working step, then one final
         return [messages for messages, _ in steps]
@@ -136,7 +136,7 @@ def a2a_request(method: str, action: dict) -> dict:
 
 SUMMARIZE = {"name": "deal.summarize", "surfaceId": "deal_12_overview", "sourceComponentId": "summarize_button",
              "timestamp": "2026-11-21T00:00:00Z", "context": CONTEXT}
-HEADERS = {"Authorization": f"Bearer {token_for('funder-1')}", "X-A2A-Extensions": "https://a2ui.org/a2a-extension/a2ui/v1.0"}
+HEADERS = {"Authorization": f"Bearer {token_for('docs-1')}", "X-A2A-Extensions": "https://a2ui.org/a2a-extension/a2ui/v1.0"}
 
 
 def a2ui(message: dict | None) -> list[dict]:

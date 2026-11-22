@@ -47,16 +47,16 @@ def test_NFR_05_noReservedKeysTheWebRendererRejects(deal):
 
 @pytest.mark.parametrize("assignee, status, offered", [
     (None, "STIPULATED", True), (None, "PENDING_REVIEW", True), ("funder-9", "STIPULATED", False),
-    ("funder-1", "STIPULATED", False), (None, "FUNDED", False), (None, "EXPIRED", False),
+    ("docs-1", "STIPULATED", False), (None, "FUNDED", False), (None, "EXPIRED", False),
 ])
 def test_AS_2_6_takeIsOfferedOnlyOnAnUnassignedOpenDeal(assignee, status, offered):
-    deal = deal_model({**OVERVIEW, "assignedFunder": assignee, "status": status}, VERSIONS, NOW, me="funder-1")
+    deal = deal_model({**OVERVIEW, "assignedFunder": assignee, "status": status}, VERSIONS, NOW, me="docs-1")
     ids = {c["id"] for c in overview_surface(deal)[1]["updateComponents"]["components"]}
     assert deal["canTake"] is offered and ("take_modal" in ids) is offered
 
 
 def test_AS_2_6_yourOwnDealSaysYou():
-    assert deal_model({**OVERVIEW, "assignedFunder": "funder-1"}, VERSIONS, NOW, me="funder-1")["assignedFunder"] == "funder-1 (you)"
+    assert deal_model({**OVERVIEW, "assignedFunder": "docs-1"}, VERSIONS, NOW, me="docs-1")["assignedFunder"] == "docs-1 (you)"
 
 
 def test_NFR_05_noticeSurfaceIsValidA2ui():

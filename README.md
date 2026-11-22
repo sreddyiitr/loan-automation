@@ -138,15 +138,15 @@ permissions (D2), then the worklist and the other tabs. See
 
 ## How we know it works
 
-**411 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**550 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
-| Domain rules (incl. income, API classifier, status machine) | JUnit 5, AssertJ | nothing (pure Java) | 136 | ✅ all pass |
+| Domain rules (incl. income, API classifier, status machine; spec 002's work routing and permissions) | JUnit 5, AssertJ | nothing (pure Java) | 273 | ✅ all pass |
 | Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 38 | ✅ all pass |
-| Seed and mock gates | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 37 | ✅ all pass |
+| Seed and mock gates (incl. every seeded scenario's routing) | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 39 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
@@ -156,7 +156,7 @@ scenario through the full trigger path.
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
 Spec 002 (the funder dashboard) adds **160 agent tests** (pytest) and **17 browser tests**
-(Playwright), counted separately; its Java tests are in the 411. None of them needs an AI model:
+(Playwright), counted separately; its Java tests are in the 550. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
@@ -394,27 +394,30 @@ plus `docker volume rm funding-pgdata`.
 
 Every funder API call, reads included, needs an OIDC **bearer token**. You get one from the local
 provider in one call. The `client_id` you send becomes the user, and the app gives that user a role
-from its user directory: `funder-1` and `funder-2` (FUNDER), `income-1` (INCOME_SPECIALIST) and
-`supervisor-1` (SUPERVISOR), in `application.yml`. Any other id gets 403 `UNKNOWN_USER`, and no
+from its user directory in `application.yml`: one specialist per kind of work, `gap-1`, `income-1`,
+`risc-1`, `docs-1` (price and VIN) and `payment-1`, the catch-all `general-1`, and `supervisor-1`, who
+can do everything (spec 002 D-15, D-17). Any other id gets 403 `UNKNOWN_USER`, and no
 token gets 401. Errors are RFC 9457
 `application/problem+json` with a `reason` (`VERSION_EXPIRED`, `PENDING_STIPS`,
 `RISC_STIP_NOT_WAIVABLE`, …). The full contract is in
 [`contracts/funder-api.openapi.yaml`](contracts/funder-api.openapi.yaml) and in the Swagger UI.
 
-Clear LA-1006's price stip and watch it fund:
+Clear LA-1006's price stip and watch it fund. A price mismatch is documents work, so act as `docs-1`,
+and take the deal first: you can only work a deal that's assigned to you.
 
 ```bash
 TOKEN=$(curl -s -X POST http://127.0.0.1:8090/funding/token \
-  -d grant_type=client_credentials -d client_id=funder-1 -d client_secret=any -d scope=funding-api \
+  -d grant_type=client_credentials -d client_id=docs-1 -d client_secret=any -d scope=funding-api \
   | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
 AUTH="Authorization: Bearer $TOKEN"                               # valid for an hour
 VID=$(curl -s -H "$AUTH" localhost:8080/api/v1/applications/LA-1006 | python3 -c "import json,sys; print(json.load(sys.stdin)['applicationVersionId'])")
+curl -s -X POST -H "$AUTH" localhost:8080/api/v1/versions/$VID/take    # assigned to docs-1 (409 ALREADY_ASSIGNED if someone has it)
 curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/stipulations   # note the stipId of STIP_PRICE_MISMATCH
 curl -s -X PATCH localhost:8080/api/v1/versions/$VID/stipulations/<stipId> \
   -H "$AUTH" -H 'Content-Type: application/json' \
   -d '{"status":"WAIVED","reason":"1 cent, dealer confirmed"}'
 # {"stipId":…,"status":"WAIVED","versionStatus":"APPROVED"}   … a second later the version is FUNDED
-curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit      # who did what (actor = funder-1), before and after
+curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit      # who did what (actor = docs-1), before and after
 ```
 
 Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `{"reason":…}`,
@@ -554,11 +557,13 @@ Then, at http://localhost:5173:
 
 ![The funder dashboard: a deal's overview and the assistant's summary](learnings/screenshots/Funder%20dashboard.png)
 
-1. Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
-   `supervisor-1`), leave the claims box empty, and click **Sign-in**. There's no password.
+1. Click **Sign in**. On the provider's page, type a user id, `docs-1` for example (or `gap-1`,
+   `income-1`, `risc-1`, `payment-1`, `general-1`, `supervisor-1`), leave the claims box empty, and
+   click **Sign-in**. There's no password.
 2. Type a loan id, say `LA-1007`, and click **Open**.
 3. **Take this deal** asks for confirmation, then assigns it to you. The browser tests leave
-   LA-1006 assigned to `funder-2`, so try Take on another STIPULATED deal. Check the audit with
+   LA-1006 assigned to `supervisor-1`, so as `docs-1` try Take on LA-1007 (a VIN mismatch, also
+   documents work). Check the audit with
    `curl -s -H "$AUTH" localhost:8080/api/v1/versions/$VID/audit` (step 6).
 4. Click **Summarize**. The panel says "Summarizing…", then shows the explanation. Good ones to
    try: `LA-1006` (price 1¢ off), `LA-1012` (income over by 33%), `LA-1016` (income API down),
@@ -633,7 +638,7 @@ the assistant works, in [`learnings/ui_summary.md`](learnings/ui_summary.md).
 | `401 UNAUTHORIZED` from the funder API | Send `Authorization: Bearer <token>` (step 6). An expired token (after an hour), or one from another issuer or audience, is refused too. The issuer must be `127.0.0.1`, not `localhost` |
 | `oidc-env: … runs without scripts/oidc-config.json` | Your provider container was started without the config, so browser-login tokens would have the wrong audience. Run the two commands it prints (the image is local) |
 | The dashboard says your sign-in "has expired or isn't valid" right after signing in | The provider runs without `scripts/oidc-config.json` (source `scripts/oidc-env.sh` to check), or it restarted and the app still holds its old keys: restart the app |
-| `403 UNKNOWN_USER` from the funder API | The token's user isn't in `funding.auth.users`; use `funder-1`, `funder-2`, `income-1` or `supervisor-1` |
+| `403 UNKNOWN_USER` from the funder API | The token's user isn't in `funding.auth.users`; use `gap-1`, `income-1`, `risc-1`, `docs-1`, `payment-1`, `general-1` or `supervisor-1` |
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
 | `409 DOCUMENTS_FROZEN` from the dev documents endpoint | The version is APPROVED, FUNDED, REJECTED or EXPIRED. Resubmit as a new version instead (step 7) |

@@ -40,7 +40,7 @@ class Recording:
         return reply
 
 
-def token(user: str = "funder-1") -> str:
+def token(user: str = "supervisor-1") -> str:
     r = httpx.post(f"{ISSUER}/token", data={"grant_type": "client_credentials", "client_id": user,
                                             "client_secret": "unused", "scope": "funding-api"})
     r.raise_for_status()

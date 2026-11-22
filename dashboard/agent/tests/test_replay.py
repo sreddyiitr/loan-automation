@@ -34,7 +34,7 @@ def panel_after(loan: str, overview: dict) -> dict:
     fake.stips, fake.results = STIPS, RESULTS
 
     async def run():
-        with fake.factory()(token_for("funder-1")) as api:
+        with fake.factory()(token_for("docs-1")) as api:
             steps = [s async for s in summarize_deal(api, {"loanApplicationId": loan, "applicationVersionId": 12},
                                                     ReplayService(RECORDINGS))]
         return steps[-1][0]

@@ -410,10 +410,25 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
   - The deprecated `FUNDER` role may only read.
   - `PermissionsTest`: 101 cases, one per cell of AS-11.2 for every specialist and the supervisor,
     plus the AS-11.5 and AS-11.6 examples.
-- [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
+- [x] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
   `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README,
   `learnings/oidc_authn_authz_summary.md` and the demo (`DEMO_USER` in `dashboard/web/demo/record.mjs`)
   move off `funder-1` and `funder-2`.
+  **Notes (done 2026-11-21):**
+  - `application.yml`'s `funding.auth.users` now lists `gap-1`, `income-1`, `risc-1`, `docs-1`,
+    `payment-1`, `general-1` and `supervisor-1`. `Role.FUNDER` is gone; `funder-1` now gets 403
+    `UNKNOWN_USER` (checked live).
+  - Tests move to roles that will still pass once T204 enforces them: `funder-1` → `docs-1`
+    (LA-1006 is documents work) and `funder-2` → `supervisor-1` (the only other user who may take
+    a documents deal). The functional tests already act as their own supervisor (`funder-it`).
+  - The demo signs in as `risc-1` (LA-1002 is RISC work); the answer recorder as `supervisor-1`.
+  - README step 6 now takes LA-1006 before waiving it, since the waive needs it assigned to you.
+    The walkthrough, troubleshooting, `ui_summary` and the OIDC explainer list the new users; the
+    explainer's "what each role may do" now describes routing.
+  - The recorded answers still mention `funder-2` as data sent at recording time; they're records,
+    not current users.
+  - Tests: 481 unit (domain 273, seed 39), 160 agent and 17 Playwright tests, Playwright passing
+    twice against the new directory. The Java total is 550.
 - [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
   `after_state` (AS-11.4).

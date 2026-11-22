@@ -35,7 +35,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
  * The functional tests cover real tokens from the mock provider.
  */
 @WebMvcTest(controllers = FunderController.class, properties = {
-        "funding.auth.users.funder-1=FUNDER", "funding.auth.users.supervisor-1=SUPERVISOR"})
+        "funding.auth.users.docs-1=DOCUMENTS_SPECIALIST", "funding.auth.users.supervisor-1=SUPERVISOR"})
 @Import({SecurityConfig.class, ProblemHandler.class})
 class FunderAuthTest {
 
@@ -68,7 +68,7 @@ class FunderAuthTest {
 
     @Test
     void AS_10_9_oldFunderHeaderIsNotIdentity() throws Exception {
-        mvc.perform(approve().header("X-Funder-Id", "funder-1")).andExpect(status().isUnauthorized())
+        mvc.perform(approve().header("X-Funder-Id", "docs-1")).andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.reason").value("UNAUTHORIZED"));
         verify(service, never()).approve(anyLong(), anyString());
     }
@@ -85,9 +85,9 @@ class FunderAuthTest {
 
     @Test
     void AS_10_9_actorIsTheTokenSubject() throws Exception {
-        when(service.approve(12, "funder-1")).thenReturn(Map.of("status", "APPROVED"));
-        mvc.perform(approve().with(as("funder-1"))).andExpect(status().isOk());
-        verify(service).approve(eq(12L), eq("funder-1"));
+        when(service.approve(12, "docs-1")).thenReturn(Map.of("status", "APPROVED"));
+        mvc.perform(approve().with(as("docs-1"))).andExpect(status().isOk());
+        verify(service).approve(eq(12L), eq("docs-1"));
 
         when(service.overview("LA-1006")).thenReturn(Map.of("loanApplicationId", "LA-1006"));
         mvc.perform(get("/api/v1/applications/LA-1006").with(as("supervisor-1"))).andExpect(status().isOk())

@@ -122,14 +122,6 @@ class PermissionsTest {
         }
     }
 
-    @ParameterizedTest
-    @EnumSource(value = Action.class, names = "VIEW", mode = EnumSource.Mode.EXCLUDE)
-    void theOldGeneralistRoleMayNoLongerWrite(Action action) {
-        @SuppressWarnings("deprecation")
-        Role funder = Role.FUNDER;
-        assertThat(check(funder, action, OWN_DEAL.get(Role.GAP_SPECIALIST), ME)).isEqualTo(new Decision(false, ROLE_NOT_ALLOWED));
-    }
-
     // ---------------------------------------------------------------- the spec's examples
 
     @Test

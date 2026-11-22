@@ -13,7 +13,7 @@ const durations = Object.fromEntries(readFileSync(`${OUT}/durations.txt`, 'utf8'
 const NARRATION = JSON.parse(readFileSync(new URL('./narration.json', import.meta.url), 'utf8')).lines;
 const CAPTIONS = Object.fromEntries(NARRATION.map((l) => [l.n, l.caption]));
 const BASE = process.env.DEMO_URL ?? 'http://localhost:5173';
-const USER = process.env.DEMO_USER ?? 'funder-1';
+const USER = process.env.DEMO_USER ?? 'risc-1';   // LA-1002, the demo's main deal, is RISC work
 
 // A visible cursor, a click ripple and a caption bar, on every page (the app and the login page).
 const overlay = () => {

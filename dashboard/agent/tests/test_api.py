@@ -10,7 +10,7 @@ from funder_agent.api.messages import messages
 
 
 def test_FR_11_relaysTheUsersOwnToken(fake):
-    token = token_for("funder-1")
+    token = token_for("docs-1")
     with fake.factory()(token) as api:
         api.overview("LA-1006")
     assert fake.requests[0].headers["Authorization"] == f"Bearer {token}"
@@ -29,13 +29,13 @@ def test_userIdIsTheTokensSub():
 
 def test_refusalBecomesApiErrorWithItsReason():
     fake = FakeFunderApi(refuse=(409, "VERSION_EXPIRED"))
-    with fake.factory()(token_for("funder-1")) as api, pytest.raises(ApiError) as e:
-        api.assign(12, "funder-1")
+    with fake.factory()(token_for("docs-1")) as api, pytest.raises(ApiError) as e:
+        api.assign(12, "docs-1")
     assert (e.value.status, e.value.reason) == (409, "VERSION_EXPIRED")
 
 
 def test_nonJsonErrorStillHasAReason():
-    api = FunderApi(token_for("funder-1"), base_url="http://funder.test",
+    api = FunderApi(token_for("docs-1"), base_url="http://funder.test",
                     transport=httpx.MockTransport(lambda r: httpx.Response(502, text="bad gateway")))
     with pytest.raises(ApiError) as e:
         api.overview("LA-1006")

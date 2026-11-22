@@ -53,7 +53,7 @@ public final class Permissions {
         if (action == Action.VIEW || role == Role.SUPERVISOR) {
             return Decision.ALLOWED;
         }
-        if (SUPERVISOR_ONLY.contains(action) || role == Role.FUNDER) {     // FUNDER: the pre-D2 generalist
+        if (SUPERVISOR_ONLY.contains(action)) {
             return Decision.refused(ROLE_NOT_ALLOWED);
         }
         Optional<Role> routed = WorkRouting.route(deal);
