@@ -12,7 +12,7 @@ Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
-A 38-second walkthrough is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
+A 70-second walkthrough (My work, a deal, Summarize, and the supervisor's suggestions) is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
 again after UI changes.
 
 **The look (D1c, D-18):** clean fintech, light, with dark mode following the OS: a navy top bar and

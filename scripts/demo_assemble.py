@@ -1,7 +1,7 @@
 """make demo, step 2 (scripts/demo.sh): turns the recording into the demo files.
 
   demo.mp4   1280x720 at 15 fps, H.264; with the voice clips laid at each scene's start (AAC mono)
-  demo.webp  a silent loop for the README, 1000 px wide at 8 fps
+  demo.webp  a silent loop for the README, 1000 px wide at 8 fps, quality 50 (under 1 MB for the 70 s demo)
   demo.srt   the spoken words, timed to the scenes (LinkedIn's caption upload)
 
 Usage: python3 scripts/demo_assemble.py <outDir> [voiceDir]   (Pillow is needed for the WebP;
@@ -54,7 +54,7 @@ def webp(out: Path, video: str) -> None:
         ffmpeg("-i", video, "-vf", "fps=8,scale=1000:-2:flags=lanczos", f"{frames_dir}/f%04d.png")
         frames = [Image.open(f).convert("RGB") for f in sorted(glob.glob(f"{frames_dir}/*.png"))]
         frames[0].save(out / "demo.webp", save_all=True, append_images=frames[1:], duration=125, loop=0,
-                       quality=60, method=6, minimize_size=True, allow_mixed=True)
+                       quality=50, method=6, minimize_size=True, allow_mixed=True)
     finally:
         shutil.rmtree(frames_dir, ignore_errors=True)
 

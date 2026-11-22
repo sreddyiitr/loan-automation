@@ -30,7 +30,7 @@ The project is **spec-driven**: read [`specs/constitution.md`](specs/constitutio
 
 ## See it in action
 
-![The funder dashboard in 38 seconds: sign in, open a deal, see every check and why it passed or failed, open a passed check's evidence, ask the local AI assistant for a summary, and open a funded deal](learnings/demo.webp)
+![The funder dashboard in 70 seconds: sign in and land on My work, open a deal with a click, see every check and why it passed or failed, open a passed check's evidence, ask the local AI assistant for a summary, then the supervisor asks the assistant for assignment suggestions and confirms one](learnings/demo.webp)
 
 A deal that needs a funder, from sign-in to the assistant's summary (local Gemma, live), then a
 funded deal. Re-record it with `make demo` (see [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional)).
@@ -582,7 +582,7 @@ Then, at http://localhost:5173:
 
 **The demo (`make demo`)** records the dashboard with Playwright: six scenes, each with an on-screen
 caption and a visible pointer, then ffmpeg writes `target/demo/demo.mp4` (about 0.8 MB),
-`demo.webp` (a silent loop, about 0.6 MB; the README's copy is `learnings/demo.webp`) and `demo.srt`.
+`demo.webp` (a silent loop, about 0.8 MB; the README's copy is `learnings/demo.webp`) and `demo.srt`.
 For a voice-over, point `DEMO_VOICE_DIR` at a folder of `line-1.wav` … `line-6.wav`: each scene then
 lasts as long as its line, and the voice is laid at each scene's start. The narration is in
 `dashboard/web/demo/narration.json`. The MP4 and the voice clips stay local (`target/` is ignored);
