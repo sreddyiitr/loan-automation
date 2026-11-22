@@ -287,6 +287,23 @@ doesn't wait for D2.
   further. Observed in T153–T155: **0.7–2.1 s warm**, **8.9 s cold** (Ollama unloads the model after
   5 idle minutes), all within 15 s. No `keep_alive` tuning.
 
+## D1c: Look and feel (D-18)
+
+**Proves:** the dashboard looks like a real product, with no protocol or API change: the theme
+lives in the web app, and the overview's layout is still built by agent code.
+**Exit:** AS-2.1, AS-2.3, AS-2.5, AS-2.6 and AS-8.1 still pass on the new layout; NFR-04, NFR-05.
+
+- [ ] **T161** Theme: design tokens on `:root` (light, with a dark mode that follows the OS), the
+  renderer's `--a2ui-*` variables set from them, and styles for the shell, `DataTable` and
+  `StatusBadge`. Replaces Vite's starter stylesheet.
+- [ ] **T162** Two catalog components, on both sides (web and agent validation): `Heading` and
+  `FactList` (plan §6).
+- [ ] **T163** The overview's new layout: a header (title, dealer and submitted date, status
+  badge), the facts as a `FactList`, an action bar, and the version history with its own
+  heading. The assistant's panel gets a heading too, and sits beside the overview on wide screens.
+- [ ] **T164** Tests follow the layout: agent surface tests, and Playwright reads facts by label.
+  A screenshot of the new look goes into `learnings/screenshots/`.
+
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 
 **Proves:** each deal's kinds of work route it to one specialist (or the income specialist when it
