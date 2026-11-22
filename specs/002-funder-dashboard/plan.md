@@ -102,8 +102,8 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
   actuator keep their current access.
 - **Roles (D-13, D-15):** a `UserDirectory` maps `sub` to a role from `funding.auth.users`. Locally
   (from D2) that is `gap-1` → GAP_SPECIALIST, `income-1` → INCOME_SPECIALIST, `risc-1` →
-  RISC_SPECIALIST, `docs-1` → DOCUMENTS_SPECIALIST, `payment-1` → PAYMENT_SPECIALIST and
-  `supervisor-1` → SUPERVISOR; tests add their own ids. Until D2, `funder-1` and `funder-2` are
+  RISC_SPECIALIST, `docs-1` → DOCUMENTS_SPECIALIST, `payment-1` → PAYMENT_SPECIALIST,
+  `general-1` → GENERAL_FUNDER (the catch-all, D-17) and `supervisor-1` → SUPERVISOR; tests add their own ids. Until D2, `funder-1` and `funder-2` are
   FUNDER, and D2 moves the tests and docs to the new ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
   sign-on, the directory can read a provider claim (e.g. groups) instead; that's configuration.
 - **Tokens without a browser** (tests, `curl`): `POST $OIDC_ISSUER_URI/token` with
@@ -115,8 +115,9 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 - **Kinds of work and routing (§3 of the spec)** are a pure `WorkRouting` class in
   `funding-domain`: `kinds(deal) -> Set<WorkKind>` from the pending stips (by check, or by the
   field's document for a field review), the current results in ERROR or NEEDS_REVIEW, the
-  `RISC_INCOMPLETE` hold and the payment state; `routedTo(kinds) -> Role` (one kind → its
-  specialist, two or more → INCOME_SPECIALIST, none → SUPERVISOR only). Table-driven, so the
+  `RISC_INCOMPLETE` hold and the payment state, with `GENERAL` for anything the table doesn't map;
+  `routedTo(kinds) -> Role` (one kind → its specialist, `GENERAL` → GENERAL_FUNDER, two or more →
+  INCOME_SPECIALIST, none → SUPERVISOR only). Table-driven, so the
   mapping is one table a test walks cell by cell.
 - **Permissions** are a pure, table-driven `Permissions` class in `funding-domain`:
   `allowed(role, action, deal) -> Allowed | Refused(reason)`, on top of `WorkRouting`. It covers:

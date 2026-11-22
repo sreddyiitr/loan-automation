@@ -291,18 +291,19 @@ doesn't wait for D2.
 
 **Proves:** each deal's kinds of work route it to one specialist (or the income specialist when it
 has two or more), the API enforces AS-11.2, and the overview offers only the actions it allows.
-**Exit:** AS-11.1–11.7.
+**Exit:** AS-11.1–11.7; D-17.
 
 - [ ] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
   each stip by its check, a field review by its field's document, a manual stip, a check in ERROR,
-  `RISC_INCOMPLETE`, a failed or unknown payment; then routing for one kind, two or more kinds
+  `RISC_INCOMPLETE`, a failed or unknown payment, and `GENERAL` (a manual stip with no check, an
+  unmapped stip code); then routing for one kind, two or more kinds
   (LA-1027: RISC + documents + income → the income specialist) and none. It also checks every
   seeded scenario's routing (e.g. LA-1006 → documents, LA-1023 → RISC, LA-1030 → payment).
 - [ ] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
 - [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
-  `payment-1`, `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README and
+  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README and
   `learnings/oidc_authn_authz_summary.md` move off `funder-1` and `funder-2`.
 - [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
@@ -319,7 +320,7 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
 and nothing is assigned without the supervisor's click.
 **Exit:** AS-12.1–12.7; FR-13.
 
-- [x] **T251** Spec first: US-12, D-15, D-16, FR-13 and plan §7 (the spec PR, 2026-11-21).
+- [x] **T251** Spec first: US-12, D-15, D-16, D-17, FR-13 and plan §7 (the spec PR, 2026-11-21).
 - [ ] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
   `workKinds`, `routedTo` and earlier assignees per row; `GET /api/v1/users` (supervisor only)
   with role and open-deal count (FR-12, FR-13). Java tests.

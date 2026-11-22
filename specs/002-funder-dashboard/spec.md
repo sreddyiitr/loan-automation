@@ -30,8 +30,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 
 | Actor | Role |
 |---|---|
-| **Funder** | Anyone who works deals: one of the five specialists, or the supervisor. Signs in, works their queue, reviews deals, resolves stips, decides (US-11 sets what each may do). |
+| **Funder** | Anyone who works deals: one of the five specialists, the catch-all funder, or the supervisor. Signs in, works their queue, reviews deals, resolves stips, decides (US-11 sets what each may do). |
 | **Specialist** | A funder who works one **kind of work** (D-15): GAP, income, RISC, documents or payment. The **income specialist** also works deals that need more than one kind. |
+| **Catch-all funder** | Works only what no specialist owns (the `GENERAL` kind, D-17): e.g. a manual stip that names no check. |
 | **Supervisor** | Oversees every queue and assigns and reassigns work. **Can do everything**. Gets the assistant's suggestions for assigning unassigned deals (US-12). |
 | **Dashboard client** | A browser app that renders A2UI v1.0 surfaces with the React renderer plus our custom catalog, and sends the funder's clicks back as A2UI `action` events. |
 | **Agent service** | Python with ADK and `a2ui-adk`. It builds surfaces from funder API data (code, no LLM), handles actions by calling the funder API, and hosts the assistant. |
@@ -65,16 +66,17 @@ learning goal for this project. An LLM assistant helps explain a case, but never
   | `RISC` | a pending stip of the TILA check (`STIP_TILA_MATH_DISCREPANCY`); a review of a RISC field; the TILA check in ERROR; an incomplete RISC |
   | `DOCUMENTS` | a pending stip of the PRICE or VIN check (`STIP_PRICE_MISMATCH`, `STIP_VIN_MISMATCH`); a review of a Buyer's Order field; the PRICE or VIN check in ERROR |
   | `PAYMENT` | an APPROVED deal whose payment failed or whose outcome is unknown |
+  | `GENERAL` | anything no row above owns: a manual stip that names no check, or a stip code or hold this table doesn't map (so new work never lands with nobody) |
 
   A field review (`STIP_EXTRACTION_REVIEW_REQUIRED`) counts by the document the field is on. A
-  manual stip counts toward the kind of the check it names; one that names no check doesn't change
-  the kind.
-- **Routing:** who may work a deal, from its kinds. **One kind** → that kind's specialist. **Two or
-  more kinds** → the income specialist, who may then work every stip on it. **No kind** (nothing
-  needs a human) → nobody but the supervisor. The supervisor may work any deal. Routing is
+  manual stip counts toward the kind of the check it names; one that names no check is `GENERAL`.
+- **Routing:** who may work a deal, from its kinds. **One kind** → that kind's specialist (for
+  `GENERAL`, the catch-all funder). **Two or more kinds**, `GENERAL` included → the income
+  specialist, who may then work every stip on it. **No kind** (nothing needs a human) → nobody but
+  the supervisor. The supervisor may work any deal. Routing is
   recomputed whenever stips, results or payment change; it's derived, not stored.
 - **Role:** `GAP_SPECIALIST`, `INCOME_SPECIALIST`, `RISC_SPECIALIST`, `DOCUMENTS_SPECIALIST`,
-  `PAYMENT_SPECIALIST` or `SUPERVISOR`. The funder API looks it up from the signed-in user's id in
+  `PAYMENT_SPECIALIST`, `GENERAL_FUNDER` (the catch-all) or `SUPERVISOR`. The funder API looks it up from the signed-in user's id in
   its user directory, and enforces it.
 - **Assistant answer:** small structured JSON from the LLM, `{summary, suggestions[{action,
   reason}]}`, validated and then rendered by code.
@@ -82,7 +84,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 ## 4. User Stories & Acceptance Scenarios
 
 ### US-1 Sign in and worklist (P1)
-- **AS-1.1** A user signs in through the local OIDC provider's login page by typing a user id; there's no password, and this is local only. The funder API gives that user their role (one of the five specialists, or `SUPERVISOR`) from its user directory. Every request is then made under that id and role, with no identity typed by hand. An id that isn't in the directory is refused with 403 `UNKNOWN_USER`.
+- **AS-1.1** A user signs in through the local OIDC provider's login page by typing a user id; there's no password, and this is local only. The funder API gives that user their role (one of the five specialists, the catch-all funder, or `SUPERVISOR`) from its user directory. Every request is then made under that id and role, with no identity typed by hand. An id that isn't in the directory is refused with 403 `UNKNOWN_USER`.
 - **AS-1.2** **My queue** lists the latest versions assigned to the user that need a human:
   - STIPULATED;
   - PENDING_REVIEW held on an ERROR or an incomplete RISC;
@@ -171,8 +173,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-11.1** Every user can open and read any deal. Roles limit only **writes** and **queues**.
 - **AS-11.2** What each role may do (the API enforces it, the UI only reflects it):
 
-  "Routed to them" is the deal's routing (§3): its one kind's specialist, or the income specialist
-  when it has two or more kinds.
+  "Routed to them" is the deal's routing (§3): its one kind's specialist (the catch-all funder for
+  `GENERAL`), or the income specialist when it has two or more kinds. The catch-all funder has the
+  specialist's column.
 
   | Action | Specialist | Supervisor |
   |---|---|---|
@@ -188,7 +191,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-11.4** The audit trail records the actor's **role** with each change.
 - **AS-11.5** **A deal keeps its assignee when its routing changes.** Example: an income specialist works a deal with a GAP stip and an income stip, and clears the income stip; the deal is now routed to the GAP specialist. The assignee can still read it but no longer act (`NOT_YOUR_SPECIALTY`), and the deal appears in the supervisor's **needs reassignment** list until the supervisor reassigns it.
 - **AS-11.6** **Specialists stay in their lane.** A specialist acting on a deal routed to someone else gets 403 `NOT_YOUR_SPECIALTY`: e.g. the GAP specialist can't waive a price stip, and on a deal with two or more kinds only the income specialist (and the supervisor) may act.
-- **AS-11.7** Locally the user directory has `gap-1`, `income-1`, `risc-1`, `docs-1`, `payment-1` (one per specialty) and `supervisor-1`. Seeded deals cover every kind and the two-or-more-kinds case.
+- **AS-11.7** Locally the user directory has `gap-1`, `income-1`, `risc-1`, `docs-1`, `payment-1` (one per specialty), `general-1` (the catch-all) and `supervisor-1`. Seeded deals cover every specialist kind and the two-or-more-kinds case; tests cover `GENERAL` (a manual stip with no check).
 
 ### US-12 Assignment suggestions for the supervisor (P2, after D2)
 - **AS-12.1** On the unassigned list, the supervisor clicks **Suggest assignments**. The assistant proposes an assignee for each unassigned deal, most urgent first, as many as fit the model's window, each with a one-line reason (e.g. "LA-1012 → income-1: income variance; income-1 has the fewest open deals").
@@ -268,5 +271,6 @@ the expected result, for reference:
 | D-14 | The assistant runs as an **ADK `LlmAgent`** through LiteLLM, chosen for learning (owner, 2026-11-21). Our own `AgentExecutor` still routes; ADK runs only for assistant requests. Answers are checked by our code, not by ADK's `output_schema` (local Gemma refuses forced JSON, a2ui-notes §12b). |
 | D-15 | **Five specialists and a supervisor** (owner, 2026-11-21), replacing D-10 and D-11. Each deal's kind of work routes it: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) or payment, each to its own specialist. A deal with two or more kinds goes to the income specialist. The supervisor can do everything. "Send to the income queue" is gone, because routing is automatic. Enforced by the funder API (US-11), built in D2. |
 | D-16 | **Assignment suggestions** (US-12, owner, 2026-11-21): code decides who may work a deal, the LLM ranks and explains within that, and the supervisor confirms each suggestion. An ADK agent with read-only tools. Built after D2, as slice D2b. |
+| D-17 | **A catch-all funder** (`general-1`, role `GENERAL_FUNDER`; owner, 2026-11-21) works only what no specialist owns: the `GENERAL` kind (a manual stip with no check, or a stip code or hold the kinds table doesn't map). It counts toward "two or more kinds" like any other kind. |
 
 **Open (owner):** none.
