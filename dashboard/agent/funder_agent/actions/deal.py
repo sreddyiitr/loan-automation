@@ -9,8 +9,12 @@ from ..surfaces.overview import deal_model, overview_surface
 
 
 def load(api: FunderApi, loan_id: str) -> dict[str, Any]:
-    """Reads the deal from the funder API and shapes the overview's data model."""
-    return deal_model(api.overview(loan_id), api.versions(loan_id), me=api.me)
+    """Reads the deal from the funder API and shapes the overview's data model, including what's
+    been done (AS-2.7: the check results and the audit trail)."""
+    overview = api.overview(loan_id)
+    version = overview["applicationVersionId"]
+    return deal_model(overview, api.versions(loan_id), me=api.me,
+                      results=api.validation_results(version), audit=api.audit(version))
 
 
 def open_deal(api: FunderApi, loan_id: str) -> list[dict[str, Any]]:

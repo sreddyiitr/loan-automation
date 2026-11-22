@@ -110,6 +110,32 @@ test('AS_2_5_theOverviewLinksToItsWorkflowInTheTemporalUi', async ({page}) => {
   expect((await popup).url()).toContain(`/workflows/${deal.workflowId}`);
 });
 
+test("AS_2_7_whatsBeenDoneShowsEachCheckAndTheMilestonesOfAFundedDeal", async ({page}) => {
+  const errors = watchErrors(page);
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1001');                                       // seeded: every check passes, then it's paid
+  await expect(page.getByText("What's been done")).toBeVisible();
+  const checks = page.locator('.check');
+  await expect(checks).toHaveCount(5);
+  await expect(checks.locator('.check-label')).toHaveText(['Passed', 'Passed', 'Passed', 'Passed', 'Passed']);
+  await expect(page.locator('.check[data-check="TILA math"] .check-detail')).toHaveText(/^attempt 1 · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  const events = page.locator('.event-title');
+  await expect(events.first()).toHaveText('Funded');                     // newest first
+  await expect(events).toContainText([/^Paid: DSB-\w+, \$[\d,]+\.\d{2}$/, 'Checks finished: approved', 'Submitted for checks']);
+  await expect(page.locator('.event', {hasText: 'Submitted for checks'}).locator('.event-meta')).toContainText('Dealer submission');
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test("AS_2_7_aStipulatedDealShowsTheFailedCheckAndTheStipTheSystemRaised", async ({page}) => {
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1006');                                       // seeded: price 1¢ off
+  await expect(page.locator('.check[data-check="Price"] .check-label')).toHaveText('Failed');
+  const raised = page.locator('.event', {hasText: 'Stip raised: price mismatch'});
+  await expect(raised).toHaveCount(1);
+  await expect(raised.locator('.event-meta')).toContainText('System');
+  await expect(page.locator('.event-title', {hasText: 'Checks finished: stipulated'})).toHaveCount(1);
+});
+
 test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({page}) => {
   const errors = watchErrors(page);
   await unassignedLa1006();

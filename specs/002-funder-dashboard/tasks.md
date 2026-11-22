@@ -326,13 +326,25 @@ lives in the web app, and the overview's layout is still built by agent code.
     there, because navy had no contrast.
 
 - [x] **T165** Spec first: AS-2.7 ("What's been done"), `CheckList` and `Timeline` in plan §6.
-- [ ] **T166** Agent: the overview reads the results and the audit trail; `checks` (one per check,
+- [x] **T166** Agent: the overview reads the results and the audit trail; `checks` (one per check,
   current outcome in words) and `activity` (milestones in plain words, newest first, back-to-back
   assignment changes collapsed, at most 8) in the deal model; the section on the overview.
   `CheckList` and `Timeline` on both sides. Unit tests for every audit action's wording and the
   collapsing.
-- [ ] **T167** Playwright `AS_2_7_…`: a funded deal (LA-1001) shows five passed checks, the payment
+- [x] **T167** Playwright `AS_2_7_…`: a funded deal (LA-1001) shows five passed checks, the payment
   and "funded"; a stipulated one (LA-1006) shows PRICE failed and the stip raised by the system.
+  **Notes (T166–T167, done 2026-11-21):**
+  - `funder_agent/surfaces/activity.py` turns the results and the audit trail into words: every
+    audit action has its wording (status changes by reason, stips raised and resolved with the
+    note, assignments, re-runs, payment), with an unknown action still read as words. The actor is a
+    person's id, "System" (`system:…`) or "Dealer submission" (`dev:…`).
+  - Back-to-back assignment changes collapse into the last one, "(after N changes)". The test runs
+    made 81 of them on LA-1006, which show as one line.
+  - The overview reads two more endpoints (results and audit); no API change.
+  - The facts grid is three columns now: nine facts fill it, so no empty cell (one column on
+    phones).
+  - Tests: 150 agent tests (28 new), 15 Playwright tests (2 new: `AS_2_7_…`). Playwright's server
+    start limit is 120 s: the first run after a code change once took longer than 60 s.
 
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 

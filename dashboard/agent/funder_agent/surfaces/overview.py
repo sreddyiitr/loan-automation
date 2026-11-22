@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from .. import config
+from .activity import activity_model, checks_model
 from ..catalog import FUNDER_CATALOG_ID, VERSION
 
 TERMINAL = {"FUNDED", "REJECTED", "EXPIRED"}
@@ -77,8 +78,10 @@ def temporal_url(workflow_id: str) -> str:
 
 
 def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: datetime | None = None,
-               me: str | None = None) -> dict[str, Any]:
-    """``me`` is the signed-in user (the token's sub): their own deal reads "you"."""
+               me: str | None = None, results: list[dict[str, Any]] | None = None,
+               audit: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """``me`` is the signed-in user (the token's sub): their own deal reads "you". ``results`` and
+    ``audit`` give AS-2.7's "What's been done"."""
     now = now or datetime.now(timezone.utc)
     assignee = overview.get("assignedFunder")
     deal = {
@@ -101,7 +104,12 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         if overview.get("inProgress") else "",
         "temporalUrl": temporal_url(overview["workflowId"]) if overview.get("workflowId") else "",
         "versions": version_rows(versions),
+        "checks": checks_model(results or [], bool(overview.get("inProgress"))),
     }
+    activity = activity_model(audit or [])
+    deal["activity"] = activity["items"]
+    deal["activityNote"] = (f"{activity['older']} earlier event{'s' if activity['older'] != 1 else ''} "
+                            "in the full audit trail.") if activity["older"] else ""
     return with_facts(deal)
 
 
@@ -147,7 +155,8 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
     take = _take_controls() if deal.get("canTake") else []
     components = [
         {"id": "root", "component": "Card", "child": "body"},
-        {"id": "body", "component": "Column", "children": ["header", "progress", "facts", "actions", "history"]},
+        {"id": "body", "component": "Column",
+         "children": ["header", "progress", "facts", "actions", "done", "history"]},
         # D1c: a header with the deal's name, where it's from, and its status.
         {"id": "header", "component": "Row", "justify": "spaceBetween", "align": "start",
          "children": ["header_text", "status"]},
@@ -159,6 +168,15 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
         {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         {"id": "facts", "component": "FactList", "items": {"@path": "/deal/facts"}},
+        # AS-2.7: what the system and other people have already handled.
+        {"id": "done", "component": "Column", "children": ["done_title", "done_row"]},
+        {"id": "done_title", "component": "Heading", "level": 3, "text": "What's been done"},
+        {"id": "done_row", "component": "Row", "align": "start", "children": ["checks", "activity_col"]},
+        {"id": "checks", "component": "CheckList", "title": "Checks", "items": {"@path": "/deal/checks"}, "weight": 1},
+        {"id": "activity_col", "component": "Column", "children": ["activity", "activity_note"], "weight": 1},
+        {"id": "activity", "component": "Timeline", "title": "Activity", "items": {"@path": "/deal/activity"},
+         "emptyText": "Nothing yet"},
+        {"id": "activity_note", "component": "Text", "variant": "caption", "text": {"@path": "/deal/activityNote"}},
         {"id": "actions", "component": "Row", "align": "center",
          "children": [*(["take_modal"] if take else []), "summarize_button", "temporal_button"]},
         *take,

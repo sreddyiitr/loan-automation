@@ -18,7 +18,9 @@ tinted tiles, and the assistant in its own indigo colour, so what the AI wrote i
 themes, so the look lives in the web app (`web/src/index.css`): design tokens, the renderer's
 `--a2ui-*` variables set from them, and our components' styles. The agent sends only structure.
 The overview has a header (loan id, dealer, status badge), the facts as a label/value grid, an
-action bar and the version history; the assistant's panel sits beside it on wide screens.
+action bar, **What's been done** (AS-2.7: each check's outcome, and the deal's milestones newest
+first, with who did each), and the version history; the assistant's panel sits beside it on wide
+screens.
 
 What works end to end today:
 
@@ -100,7 +102,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading` and `FactList` (**built** in D1c: the basic `Text` has no title style, and facts read better as a label/value grid), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -149,14 +151,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 122 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 150 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     13 tests, each signing in on the real login page and named for its acceptance scenario.
+     15 tests, each signing in on the real login page and named for its acceptance scenario.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -164,6 +166,8 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      - `AS_2_1`: the overview shows each deal fact, expiry and payment, checked against the API;
      - `AS_2_3`: version history, newest first, earlier ones "superseded by vN";
      - `AS_2_5`: the link opens the deal's workflow in the Temporal UI;
+     - `AS_2_7`: what's been done: five passed checks and the payment on a funded deal, the failed
+       check and the stip the system raised on a stipulated one;
      - `AS_2_6`: Take asks for confirmation, then the deal is yours; if someone else took it
        first, nothing changes and the screen says who has it;
      - `AS_10_3`: every seeded scenario opens with the status its scenario file expects. This

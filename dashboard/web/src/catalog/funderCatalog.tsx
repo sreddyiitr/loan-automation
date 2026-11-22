@@ -95,12 +95,67 @@ const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({pro
   );
 });
 
+// CheckList and Timeline (AS-2.7, "What's been done"): what the system and people already handled.
+// The outcome or tone is always written out; colour and icon only group (NFR-04).
+const listSchema = z.object({
+  title: CommonSchemas.DynamicString.optional(),
+  items: CommonSchemas.DynamicValue,
+  emptyText: CommonSchemas.DynamicString.optional(),
+});
+const asList = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const ICON: Record<string, string> = {done: '✓', refused: '✕', waiting: '!', neutral: '•'};
+
+export const CheckListApi = {name: 'CheckList', schema: listSchema};
+
+const CheckList = createComponentImplementation(CheckListApi as never, ({props}) => {
+  const p = props as {title?: string; items?: unknown};
+  const items = asList<{check: string; outcome: string; label: string; detail: string}>(p.items);
+  return (
+    <section className="check-list">
+      {p.title && <h4 className="mini-title">{p.title}</h4>}
+      <ul>
+        {items.map((c) => (
+          <li key={c.check} className={`check tone-${c.outcome}`} data-check={c.check}>
+            <span className="check-icon" aria-hidden="true">{ICON[c.outcome] ?? '•'}</span>
+            <span className="check-name">{c.check}</span>
+            <span className="check-label">{c.label}</span>
+            {c.detail && <span className="check-detail">{c.detail}</span>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+});
+
+export const TimelineApi = {name: 'Timeline', schema: listSchema};
+
+const Timeline = createComponentImplementation(TimelineApi as never, ({props}) => {
+  const p = props as {title?: string; items?: unknown; emptyText?: string};
+  const items = asList<{when: string; title: string; actor: string; tone: string}>(p.items);
+  return (
+    <section className="timeline">
+      {p.title && <h4 className="mini-title">{p.title}</h4>}
+      {items.length === 0 ? <p className="muted">{p.emptyText ?? 'Nothing yet'}</p> : (
+        <ol>
+          {items.map((e, i) => (
+            <li key={i} className={`event tone-${e.tone}`}>
+              <span className="event-dot" aria-hidden="true" />
+              <span className="event-title">{e.title}</span>
+              <span className="event-meta">{e.actor} · {e.when}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+});
+
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
 // catalog. Our catalog therefore EXTENDS the Basic Catalog: all 18 basic components and 15 functions,
 // plus ours. Surfaces are created with this catalog's id.
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline] as never,
   [...basicCatalog.functions.values()] as never,
 );

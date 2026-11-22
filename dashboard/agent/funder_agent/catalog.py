@@ -80,7 +80,24 @@ FACT_LIST = ComponentApi("FactList", {
     "required": ["id", "component", "items"],
 })
 
-FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST]
+def _list_component(name: str, description: str) -> ComponentApi:
+    return ComponentApi(name, {
+        "type": "object", "description": description, "additionalProperties": False,
+        "properties": {
+            "id": {"type": "string"}, "component": {"const": name},
+            "title": _DYNAMIC, "items": _DYNAMIC, "emptyText": _DYNAMIC,
+            "weight": {"type": "number"}, "accessibility": {"type": "object"},
+        },
+        "required": ["id", "component", "items"],
+    })
+
+
+CHECK_LIST = _list_component(
+    "CheckList", "One row per check with its outcome in words (AS-2.7). items: a list of {check, outcome, label, detail}.")
+TIMELINE = _list_component(
+    "Timeline", "Events, newest first, each with when, what and who (AS-2.7). items: a list of {when, title, actor, tone}.")
+
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE]
 
 
 @lru_cache(maxsize=1)
