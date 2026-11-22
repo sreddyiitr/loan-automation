@@ -60,6 +60,8 @@ def route(token: str | None, text: str, actions: list[dict[str, Any]],
                         continue
                     replies += handler(api, action.get("context", {}))
                 return replies
+            if text.strip().lower() in ("my work", "home", ""):
+                return deal.my_work(api)                       # AS-1.8: where signing in lands
             loan = LOAN_ID.search(text)
             if not loan:
                 return notice_surface("Open a deal by its loan id, for example LA-1006.")

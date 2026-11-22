@@ -74,7 +74,11 @@ export default function App() {
       setEvents((e) => [...e, JSON.stringify(action)]);
       streamToAgent({version: '1.0', action: action as Message}, (reply) => {
         const created = apply(p, reply);
-        if (created.length) setVisible((v) => [...new Set([...v, ...created])]);   // e.g. a notice, the assistant panel
+        if (!created.length) return;
+        // Opening a deal from My work replaces the page; anything else (a notice, the assistant's
+        // panel) joins what's there.
+        if (created.some((id) => id.endsWith('_overview')) && !created.includes('notice')) setVisible(created);
+        else setVisible((v) => [...new Set([...v, ...created])]);
       }).catch((err) => setError(String(err)));
     });
     return p;
@@ -100,6 +104,19 @@ export default function App() {
         setSignInError(`Sign-in failed: ${err instanceof Error ? err.message : String(err)}`);
       });
   }, []);
+
+  // AS-1.8: signing in lands on My work.
+  useEffect(() => {
+    if (user && window.location.pathname !== CALLBACK_PATH) loadMyWork();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  function loadMyWork() {
+    setError(undefined);
+    sendToAgent('my work')
+      .then((messages) => setVisible(apply(processor, messages)))
+      .catch((err) => setError(String(err)));
+  }
 
   if (!user) {
     return window.location.pathname === CALLBACK_PATH && !signInError
@@ -142,13 +159,16 @@ export default function App() {
         <div className="hero-inner">
           <div className="hero-text">
             <p className="hero-kicker">Funding exceptions</p>
-            <h1 className="hero-title">Open a deal</h1>
+            <h1 className="hero-title">{visible.includes('worklist') ? 'Your work' : 'Deal'}</h1>
           </div>
+          <div className="hero-actions">
+            <button type="button" className="btn btn-hero" onClick={loadMyWork}>My work</button>
           <form className="open-deal" onSubmit={open}>
             <label htmlFor="loan-id">Loan id</label>
             <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="e.g. LA-1006" autoComplete="off" />
             <button type="submit" className="btn btn-primary">Open</button>
           </form>
+          </div>
         </div>
       </section>
       <main className="page">
