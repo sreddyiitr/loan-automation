@@ -105,55 +105,55 @@ public class FunderController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a manual stip", description = "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED to STIPULATED")
     public Map<String, Object> addStip(@PathVariable long versionId, @RequestBody ManualStipRequest body, @Parameter(hidden = true) Actor actor) {
-        return funder.addManualStip(versionId, body.code(), body.description(), actor.id());
+        return funder.addManualStip(versionId, body.code(), body.description(), actor);
     }
 
     @PatchMapping("/versions/{versionId}/stipulations/{stipId}")
     @Operation(summary = "Resolve a stip (SATISFIED or WAIVED)", description = "AS-10.2; RISC stips can't be waived (AS-8.10)")
     public Map<String, Object> resolveStip(@PathVariable long versionId, @PathVariable long stipId, @RequestBody ResolveStipRequest body,
                                            @Parameter(hidden = true) Actor actor) {
-        return funder.resolveStip(versionId, stipId, body.status(), body.reason(), actor.id());
+        return funder.resolveStip(versionId, stipId, body.status(), body.reason(), actor);
     }
 
     @PutMapping("/versions/{versionId}/assignee")
     @Operation(summary = "Reassign the funder, or unassign with funderId null", description = "AS-10.3, spec 002 AS-2.4")
     public Map<String, Object> reassign(@PathVariable long versionId, @RequestBody AssigneeRequest body,
                                         @Parameter(hidden = true) Actor actor) {
-        return funder.reassign(versionId, body.funderId(), actor.id());
+        return funder.reassign(versionId, body.funderId(), actor);
     }
 
     @PostMapping("/versions/{versionId}/take")
     @Operation(summary = "Take an unassigned deal (assign to self)",
             description = "Spec 002 AS-2.6: 409 ALREADY_ASSIGNED if someone else has it; unchanged if it's already yours")
     public Map<String, Object> take(@PathVariable long versionId, @Parameter(hidden = true) Actor actor) {
-        return funder.take(versionId, actor.id());
+        return funder.take(versionId, actor);
     }
 
     @PostMapping("/versions/{versionId}/approve")
     @Operation(summary = "Manual approve", description = "AS-8.7, AS-8.10: no PENDING stips, complete RISC, TILA PASS")
     public Map<String, Object> approve(@PathVariable long versionId, @Parameter(hidden = true) Actor actor) {
-        return funder.approve(versionId, actor.id());
+        return funder.approve(versionId, actor);
     }
 
     @PostMapping("/versions/{versionId}/reject")
     @Operation(summary = "Reject", description = "AS-8.5")
     public Map<String, Object> reject(@PathVariable long versionId, @RequestBody RejectRequest body,
                                       @Parameter(hidden = true) Actor actor) {
-        return funder.reject(versionId, body.reason(), actor.id());
+        return funder.reject(versionId, body.reason(), actor);
     }
 
     @PostMapping("/versions/{versionId}/rerun")
     @Operation(summary = "Re-run checks", description = "AS-8.4: the named checks, or by default those in ERROR")
     public Map<String, Object> rerun(@PathVariable long versionId, @RequestBody(required = false) RerunRequest body,
                                      @Parameter(hidden = true) Actor actor) {
-        return funder.rerun(versionId, body == null ? null : body.checks(), actor.id());
+        return funder.rerun(versionId, body == null ? null : body.checks(), actor);
     }
 
     @PostMapping("/versions/{versionId}/retry-disbursement")
     @Operation(summary = "Retry a failed disbursement", description = "C-8")
     public Map<String, Object> retryDisbursement(@PathVariable long versionId,
                                                  @Parameter(hidden = true) Actor actor) {
-        return funder.retryDisbursement(versionId, actor.id());
+        return funder.retryDisbursement(versionId, actor);
     }
 
     // ------------------------------------------------------------------ helpers

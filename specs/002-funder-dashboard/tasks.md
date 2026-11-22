@@ -429,9 +429,26 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
     not current users.
   - Tests: 481 unit (domain 273, seed 39), 160 agent and 17 Playwright tests, Playwright passing
     twice against the new directory. The Java total is 550.
-- [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
+- [x] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
   `after_state` (AS-11.4).
+  **Notes (done 2026-11-21):**
+  - Each write takes the `Actor` (id and role) and calls `authorize(...)` right after `guard()`
+    locks the version, so a refusal names the real reason before any business guard
+    (`ALREADY_ASSIGNED`, `PENDING_STIPS`, …). Locking and the latest-and-not-finished checks still
+    come first. The supervisor skips the lookup.
+  - The routing facts come from the database under the lock: the PENDING stips (a manual stip has
+    no check, so a known code routes by code and anything else is `GENERAL`), the current results
+    with their `flagged_fields`, the RISC hold (recomputed with `RiscCompleteness`, as approve does)
+    and, for an APPROVED version, the payment state.
+  - A refusal is 403 problem+json with a detail naming who the deal is routed to and its kinds of
+    work. The agent's `messages.yaml` has plain words for the three reasons.
+  - Every funder write's audit `after_state` carries `role` (AS-11.4), through one wrapper, so no
+    write can forget it.
+  - Checked live: `gap-1` taking LA-1007 gets `NOT_YOUR_SPECIALTY`, and `docs-1` takes it.
+  - Tests (part of T206): 7 new in `FunderApiTest` through the real API: each refusal reason, the
+    role in the audit, a two-kinds deal, AS-11.5's re-routing, and the catch-all's manual stip.
+    488 unit tests (557 Java in all), 160 agent and 17 Playwright tests pass.
 - [ ] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
   (FR-05b). The overview surface shows the kinds and who it's routed to, and only allowed
   actions; Take only when the deal is routed to you.

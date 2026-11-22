@@ -1,7 +1,11 @@
 package com.funding.api.funder;
 
+import com.funding.api.auth.Actor;
+import com.funding.domain.Role;
+
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -63,14 +67,14 @@ class FunderAuthTest {
                     .andExpect(jsonPath("$.reason").value("UNAUTHORIZED"));
         }
         verify(service, never()).overview(anyString());
-        verify(service, never()).approve(anyLong(), anyString());
+        verify(service, never()).approve(anyLong(), any(Actor.class));
     }
 
     @Test
     void AS_10_9_oldFunderHeaderIsNotIdentity() throws Exception {
         mvc.perform(approve().header("X-Funder-Id", "docs-1")).andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.reason").value("UNAUTHORIZED"));
-        verify(service, never()).approve(anyLong(), anyString());
+        verify(service, never()).approve(anyLong(), any(Actor.class));
     }
 
     @Test
@@ -80,14 +84,14 @@ class FunderAuthTest {
                 .andExpect(jsonPath("$.reason").value("UNKNOWN_USER"));
         mvc.perform(approve().with(as("stranger"))).andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.reason").value("UNKNOWN_USER"));
-        verify(service, never()).approve(anyLong(), anyString());
+        verify(service, never()).approve(anyLong(), any(Actor.class));
     }
 
     @Test
     void AS_10_9_actorIsTheTokenSubject() throws Exception {
-        when(service.approve(12, "docs-1")).thenReturn(Map.of("status", "APPROVED"));
+        when(service.approve(eq(12L), any(Actor.class))).thenReturn(Map.of("status", "APPROVED"));
         mvc.perform(approve().with(as("docs-1"))).andExpect(status().isOk());
-        verify(service).approve(eq(12L), eq("docs-1"));
+        verify(service).approve(eq(12L), eq(new Actor("docs-1", Role.DOCUMENTS_SPECIALIST)));   // the id and role reach the service
 
         when(service.overview("LA-1006")).thenReturn(Map.of("loanApplicationId", "LA-1006"));
         mvc.perform(get("/api/v1/applications/LA-1006").with(as("supervisor-1"))).andExpect(status().isOk())

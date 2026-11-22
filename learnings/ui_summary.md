@@ -82,7 +82,7 @@ Funding API (Java, spec 001): the only thing that writes
 | Area | What the funder can do |
 |---|---|
 | **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
-| **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI (D2, planned) |
+| **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI (D2: enforced since T204; the overview shows only allowed actions from T205) |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
 | **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |

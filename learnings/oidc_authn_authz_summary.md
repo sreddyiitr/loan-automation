@@ -171,7 +171,7 @@ This split is decision **D-13** in the spec: the office says *who*, and our app 
 
 ## Step 5: How the backend knows what each role may do
 
-**The rules are built; the API starts enforcing them in D2's next task (T204).**
+**Built and enforced (spec 002 D2).**
 
 Each deal gets one or more **kinds of work** from its open problems: GAP, income, RISC (the TILA
 math and RISC fields), documents (price and VIN), payment, or "general" for anything else. That
@@ -221,7 +221,7 @@ the dashboard which buttons to show, so the screen and the API can never disagre
      • docs-1 → DOCUMENTS_SPECIALIST                         not listed → 403 UNKNOWN_USER
    │
    ▼
- ⑤ Permissions (D2: built, enforced from T204)
+ ⑤ Permissions (D2)
      • is this deal routed to docs-1, and assigned to them?    no → 403 + reason
    │
    ▼

@@ -138,7 +138,7 @@ permissions (D2), then the worklist and the other tabs. See
 
 ## How we know it works
 
-**550 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**557 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -150,13 +150,13 @@ scenario through the full trigger path.
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API incl. spec 002 overview fields, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 55 | ✅ all pass |
+| API (start API, funder API incl. spec 002 overview fields, role enforcement, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 62 | ✅ all pass |
 | **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, real OIDC tokens, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider** | 68 | ✅ all pass |
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
 Spec 002 (the funder dashboard) adds **160 agent tests** (pytest) and **17 browser tests**
-(Playwright), counted separately; its Java tests are in the 550. None of them needs an AI model:
+(Playwright), counted separately; its Java tests are in the 557. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
@@ -639,6 +639,7 @@ the assistant works, in [`learnings/ui_summary.md`](learnings/ui_summary.md).
 | `oidc-env: … runs without scripts/oidc-config.json` | Your provider container was started without the config, so browser-login tokens would have the wrong audience. Run the two commands it prints (the image is local) |
 | The dashboard says your sign-in "has expired or isn't valid" right after signing in | The provider runs without `scripts/oidc-config.json` (source `scripts/oidc-env.sh` to check), or it restarted and the app still holds its old keys: restart the app |
 | `403 UNKNOWN_USER` from the funder API | The token's user isn't in `funding.auth.users`; use `gap-1`, `income-1`, `risc-1`, `docs-1`, `payment-1`, `general-1` or `supervisor-1` |
+| `403 NOT_YOUR_SPECIALTY` / `NOT_ASSIGNED_TO_YOU` / `ROLE_NOT_ALLOWED` | Spec 002 roles: each deal is routed to one specialist by its kind of work, and you can only work a deal routed to you and assigned to you (take it first); reassigning is the supervisor's. The `detail` says who the deal is routed to. Act as that user, or as `supervisor-1` |
 | `409 VERSION_EXPIRED` / `VERSION_TERMINAL` / `NOT_LATEST_VERSION` | The version is closed (expired, funded or rejected) or was superseded; act on the latest version instead |
 | `409 RISC_STIP_NOT_WAIVABLE` | TILA and RISC extraction stips can only be cleared by a corrected RISC |
 | `409 DOCUMENTS_FROZEN` from the dev documents endpoint | The version is APPROVED, FUNDED, REJECTED or EXPIRED. Resubmit as a new version instead (step 7) |
