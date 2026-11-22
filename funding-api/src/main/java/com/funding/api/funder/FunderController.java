@@ -77,9 +77,16 @@ public class FunderController {
     }
 
     @GetMapping("/versions/{versionId}/stipulations")
-    @Operation(summary = "Stipulations of a version", description = "AS-10.2")
+    @Operation(summary = "Stipulations of a version", description = "AS-10.2; each with waivable (AS-8.10, spec 002 AS-3.3)")
     public List<Map<String, Object>> stips(@PathVariable long versionId) {
         return rows(funder.stips(versionId));
+    }
+
+    @GetMapping("/stip-codes")
+    @Operation(summary = "The stip codes a funder may add",
+            description = "Spec 002 AS-3.5, D-19: the checks' codes, then the manual-only ones; each with words, the checks that raise it and whether it can be waived")
+    public List<Map<String, Object>> stipCodes() {
+        return funder.stipCodes();
     }
 
     @GetMapping("/versions/{versionId}/validation-results")
@@ -110,7 +117,7 @@ public class FunderController {
 
     @PostMapping("/versions/{versionId}/stipulations")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a manual stip", description = "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED to STIPULATED")
+    @Operation(summary = "Create a manual stip", description = "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED to STIPULATED; the code must be one of GET /stip-codes (400 UNKNOWN_STIP_CODE)")
     public Map<String, Object> addStip(@PathVariable long versionId, @RequestBody ManualStipRequest body, @Parameter(hidden = true) Actor actor) {
         return funder.addManualStip(versionId, body.code(), body.description(), actor);
     }

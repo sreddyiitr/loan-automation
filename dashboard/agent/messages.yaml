@@ -14,3 +14,5 @@ reasons:
   NOT_YOUR_SPECIALTY: This deal isn't routed to you. It needs a different specialist, or a supervisor can reassign it.
   NOT_ASSIGNED_TO_YOU: This deal isn't assigned to you. Take it first, or ask a supervisor to reassign it.
   ROLE_NOT_ALLOWED: Only a supervisor can do that.
+  # spec 002 D3: stips (D-19)
+  UNKNOWN_STIP_CODE: That stip code isn't on the list. Pick one from the list.

@@ -478,6 +478,46 @@ class FunderApiTest {
     }
 
     @Test
+    void AS_3_3_eachStipSaysWhetherItCanBeWaived() throws Exception {
+        long tila = settled("LA-1002");
+        mvc.perform(get("/api/v1/versions/{v}/stipulations", tila))
+                .andExpect(jsonPath("$[?(@.stipCode == 'STIP_TILA_MATH_DISCREPANCY')].waivable").value(org.hamcrest.Matchers.contains(false)));
+        long missing = settled("LA-1026"); // RISC finance_charge missing
+        mvc.perform(get("/api/v1/versions/{v}/stipulations", missing))
+                .andExpect(jsonPath("$[?(@.stipCode == 'STIP_EXTRACTION_REVIEW_REQUIRED' && @.description =~ /.*RISC\\..*/)].waivable")
+                        .value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(false))));
+        long price = settled("LA-1006");
+        mvc.perform(get("/api/v1/versions/{v}/stipulations", price))
+                .andExpect(jsonPath("$[?(@.stipCode == 'STIP_PRICE_MISMATCH')].waivable").value(org.hamcrest.Matchers.contains(true)));
+    }
+
+    @Test
+    void AS_3_5_stipCodesListTheChecksCodesThenTheManualOnes() throws Exception {
+        mvc.perform(get("/api/v1/stip-codes"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(10))
+                .andExpect(jsonPath("$[0].code").value("STIP_TILA_MATH_DISCREPANCY"))
+                .andExpect(jsonPath("$[0].raisedBy").value(org.hamcrest.Matchers.contains("TILA")))
+                .andExpect(jsonPath("$[0].waivable").value("NEVER"))
+                .andExpect(jsonPath("$[?(@.code == 'STIP_EXTRACTION_REVIEW_REQUIRED')].waivable").value(org.hamcrest.Matchers.contains("UNLESS_RISC_FIELD")))
+                .andExpect(jsonPath("$[8].code").value("STIP_DEALER_LETTER"))
+                .andExpect(jsonPath("$[8].manualOnly").value(true))
+                .andExpect(jsonPath("$[8].raisedBy").isEmpty())
+                .andExpect(jsonPath("$[9].code").value("STIP_OTHER"))
+                .andExpect(jsonPath("$[*].description").value(org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.not(org.hamcrest.Matchers.emptyString()))));
+    }
+
+    @Test
+    void AS_10_8_aCodeNotOnTheListIsRefused() throws Exception {
+        long id = settled("LA-1001");
+        assertThat(versionStatus(id)).isEqualTo("APPROVED");
+        write(post("/api/v1/versions/{v}/stipulations", id), """
+                {"code":"STIP_SOMETHING_NEW","description":"x"}""").andExpect(problem(400, "UNKNOWN_STIP_CODE"));
+        assertThat(versionStatus(id)).isEqualTo("APPROVED");
+        assertThat(jdbc.sql("SELECT count(*) FROM stipulations WHERE application_version_id = ?").param(id).query(Integer.class).single()).isZero();
+    }
+
+    @Test
     void AS_10_8_manualStipHasNullCheck() throws Exception {
         long id = settled("LA-1006"); // STIPULATED
         write(post("/api/v1/versions/{v}/stipulations", id), """
