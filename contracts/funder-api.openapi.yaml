@@ -83,6 +83,43 @@ paths:
       summary: "Version history, newest first"
       tags:
       - Funder
+  /api/v1/me:
+    get:
+      description: "Spec 002: the token's user id and their role from the directory"
+      operationId: me
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: object
+                additionalProperties: {}
+          description: OK
+      security:
+      - bearerAuth: []
+      summary: The signed-in user
+      tags:
+      - Funder
+  /api/v1/users:
+    get:
+      description: "Spec 002 FR-13 (US-12): supervisor only; openDeals counts the\
+        \ open latest versions assigned to each user"
+      operationId: users
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      security:
+      - bearerAuth: []
+      summary: "Every user, with their role and open deals"
+      tags:
+      - Funder
   /api/v1/versions/{versionId}/approve:
     post:
       description: "AS-8.7, AS-8.10: no PENDING stips, complete RISC, TILA PASS"

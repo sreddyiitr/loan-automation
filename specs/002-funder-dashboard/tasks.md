@@ -510,9 +510,23 @@ and nothing is assigned without the supervisor's click.
 **Exit:** AS-12.1–12.7; FR-13.
 
 - [x] **T251** Spec first: US-12, D-15, D-16, D-17, FR-13 and plan §7 (the spec PR, 2026-11-21).
-- [ ] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
+- [x] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
   `workKinds`, `routedTo` and earlier assignees per row; `GET /api/v1/users` (supervisor only)
   with role and open-deal count (FR-12, FR-13). Java tests.
+  **Notes (done 2026-11-22):**
+  - The unassigned list already exists: D6a's `queue=ready` for the supervisor. Its rows gain
+    `earlierAssignees`, the users assigned to earlier versions of the deal.
+  - `TeamController`: `GET /api/v1/me` (who's signed in, and their role) and `GET /api/v1/users`
+    (supervisor only, `ROLE_NOT_ALLOWED` otherwise): each user's role and `openDeals`. Both paths
+    are token-protected (`SecurityConfig`).
+  - The contract test now loads `TeamController` too, and the contract was regenerated with the
+    two paths. Before, it only saw `FunderController`, so a new controller's endpoints would have
+    gone unchecked.
+  - **Checked before building T254:** local Gemma calls ADK tools. A throwaway agent with
+    `unassigned_deals()` and `users()` called both and returned valid, eligible, most-urgent-first
+    suggestions: 1.9 s with thinking off, 7.4 s with it on, the latter with better reasons. So
+    T254 is a real tool-using agent, thinking on.
+  - Tests: 3 in `FunderApiTest` (70 in the API module).
 - [ ] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
   eligible user with the fewest open deals. Unit tests.
 - [ ] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
