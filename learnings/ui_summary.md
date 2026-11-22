@@ -143,8 +143,9 @@ Funding API (Java, spec 001): the only thing that writes
   - An **ADK `LlmAgent` with three read-only tools**: `unassigned_deals` (loan id, kinds of work,
     eligible user ids, days to expiry, earlier assignees), `users` (id, role, open deals) and
     `eligible(loan_id)`. Local Gemma calls them itself. No names, dealers, amounts or documents.
-  - The `assign` model in `models.yaml`, **thinking on**: better reasons, at 23–29 s for the 18
-    seeded deals (the button shows "Asking the assistant…" first).
+  - The `assign` model in `models.yaml`, **thinking off**: 6–13 s for the 18 seeded deals (thinking
+    on took 23–29 s with no better answers; owner's call). The panel shows "Asking the assistant…"
+    first.
   - Code checks the JSON answer (one retry), drops any suggestion for someone not eligible, and
     fills any gap from **code's own plan** (most urgent first, to the eligible person with the
     fewest open deals). With no model, the whole panel is code's plan, and says so.
