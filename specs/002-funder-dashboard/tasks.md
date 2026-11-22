@@ -371,27 +371,101 @@ lives in the web app, and the overview's layout is still built by agent code.
 has two or more), the API enforces AS-11.2, and the overview offers only the actions it allows.
 **Exit:** AS-11.1–11.7; D-17.
 
-- [ ] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
+- [x] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
   each stip by its check, a field review by its field's document, a manual stip, a check in ERROR,
   `RISC_INCOMPLETE`, a failed or unknown payment, and `GENERAL` (a manual stip with no check, an
   unmapped stip code); then routing for one kind, two or more kinds
   (LA-1027: RISC + documents + income → the income specialist) and none. It also checks every
   seeded scenario's routing (e.g. LA-1006 → documents, LA-1023 → RISC, LA-1030 → payment).
-- [ ] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
+  **Notes (done 2026-11-21):**
+  - `WorkRouting` (with `WorkKind`) is in `funding-domain` (`com.funding.domain.routing`), pure and
+    table-driven: `kinds(deal)` and `route(kinds)`. The `Role` enum gains the five specialists and
+    `GENERAL_FUNDER`; `FUNDER` stays, deprecated, until T203.
+  - **Two cases the spec left open, decided here:**
+    - A stip code the table doesn't map but that names a check (a manual stip) takes that check's
+      kind. With no check, it's `GENERAL`.
+    - Check results route only while a deal is under review or stipulated, so a deal approved over
+      an INCOME error doesn't route back to income. Payment routes only when the deal is approved.
+  - `WorkRoutingTest`: 46 cases.
+  - `ScenarioRoutingTest` (funding-seed) runs every seeded scenario through the real rule engine
+    and generated fixtures, then checks the routing of all 35. Two examples: LA-1023 and LA-1033 are
+    raised by PRICE, but their flagged field is on the RISC, so they go to the RISC specialist.
+    LA-1027 has three kinds, so it goes to the income specialist. The seeds cover every specialist;
+    `GENERAL` isn't seeded, so the unit tests and T204 cover it.
+  - Unit tests: 390 (48 new); the seed gates pass (no rule fingerprint changed).
+- [x] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
-- [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
+  **Notes (done 2026-11-21):**
+  - `Permissions` (`com.funding.domain.routing`): `check(role, user, action, deal, assignee)`
+    returns allowed, or refused with `ROLE_NOT_ALLOWED`, `NOT_YOUR_SPECIALTY` or
+    `NOT_ASSIGNED_TO_YOU`. `all(...)` returns every action's decision, for the overview (T205).
+    `needsReassignment(deal, assigneeRole)` serves AS-11.5.
+  - The order of checks matters:
+    - Reading is always allowed, and so is anything the supervisor does.
+    - Supervisor-only actions refuse everyone else with `ROLE_NOT_ALLOWED`.
+    - Routing comes before assignment, so a specialist who still holds a deal that has been
+      re-routed gets `NOT_YOUR_SPECIALTY`, not `NOT_ASSIGNED_TO_YOU`.
+    - Take checks only the routing; `ALREADY_ASSIGNED` stays the API's own guard.
+  - The deprecated `FUNDER` role may only read.
+  - `PermissionsTest`: 101 cases, one per cell of AS-11.2 for every specialist and the supervisor,
+    plus the AS-11.5 and AS-11.6 examples.
+- [x] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
   `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README,
   `learnings/oidc_authn_authz_summary.md` and the demo (`DEMO_USER` in `dashboard/web/demo/record.mjs`)
   move off `funder-1` and `funder-2`.
-- [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
+  **Notes (done 2026-11-21):**
+  - `application.yml`'s `funding.auth.users` now lists `gap-1`, `income-1`, `risc-1`, `docs-1`,
+    `payment-1`, `general-1` and `supervisor-1`. `Role.FUNDER` is gone; `funder-1` now gets 403
+    `UNKNOWN_USER` (checked live).
+  - Tests move to roles that will still pass once T204 enforces them: `funder-1` → `docs-1`
+    (LA-1006 is documents work) and `funder-2` → `supervisor-1` (the only other user who may take
+    a documents deal). The functional tests already act as their own supervisor (`funder-it`).
+  - The demo signs in as `risc-1` (LA-1002 is RISC work); the answer recorder as `supervisor-1`.
+  - README step 6 now takes LA-1006 before waiving it, since the waive needs it assigned to you.
+    The walkthrough, troubleshooting, `ui_summary` and the OIDC explainer list the new users; the
+    explainer's "what each role may do" now describes routing.
+  - The recorded answers still mention `funder-2` as data sent at recording time; they're records,
+    not current users.
+  - Tests: 481 unit (domain 273, seed 39), 160 agent and 17 Playwright tests, Playwright passing
+    twice against the new directory. The Java total is 550.
+- [x] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
   `after_state` (AS-11.4).
-- [ ] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
+  **Notes (done 2026-11-21):**
+  - Each write takes the `Actor` (id and role) and calls `authorize(...)` right after `guard()`
+    locks the version, so a refusal names the real reason before any business guard
+    (`ALREADY_ASSIGNED`, `PENDING_STIPS`, …). Locking and the latest-and-not-finished checks still
+    come first. The supervisor skips the lookup.
+  - The routing facts come from the database under the lock: the PENDING stips (a manual stip has
+    no check, so a known code routes by code and anything else is `GENERAL`), the current results
+    with their `flagged_fields`, the RISC hold (recomputed with `RiscCompleteness`, as approve does)
+    and, for an APPROVED version, the payment state.
+  - A refusal is 403 problem+json with a detail naming who the deal is routed to and its kinds of
+    work. The agent's `messages.yaml` has plain words for the three reasons.
+  - Every funder write's audit `after_state` carries `role` (AS-11.4), through one wrapper, so no
+    write can forget it.
+  - Checked live: `gap-1` taking LA-1007 gets `NOT_YOUR_SPECIALTY`, and `docs-1` takes it.
+  - Tests (part of T206): 7 new in `FunderApiTest` through the real API: each refusal reason, the
+    role in the audit, a two-kinds deal, AS-11.5's re-routing, and the catch-all's manual stip.
+    488 unit tests (557 Java in all), 160 agent and 17 Playwright tests pass.
+- [x] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
   (FR-05b). The overview surface shows the kinds and who it's routed to, and only allowed
   actions; Take only when the deal is routed to you.
-- [ ] **T206** Tests: `FunderApiTest` `AS_11_3_…`, `AS_11_5_…`, `AS_11_6_…`; Playwright: a
+- [x] **T206** Tests: `FunderApiTest` `AS_11_3_…`, `AS_11_5_…`, `AS_11_6_…`; Playwright: a
   specialist can't act outside their lane and is told why, and the supervisor can.
+  **Notes (T205–T206, done 2026-11-21):**
+  - The overview takes the viewer and adds `workKinds`, `routedTo`, `viewer` and `allowedActions`
+    ({action, allowed, reason}) from the same `Permissions` the writes use.
+  - The deal page offers Take only when the API allows it and nobody has the deal, and has a
+    "Routed to" fact (e.g. "Income specialist · RISC, documents and income work"; "(you)" when it's
+    yours; "Nobody: nothing needs a specialist"). It replaces "Submitted", which the header shows.
+  - `FunderApiTest`'s reads go through a test resolver that reads as its supervisor when nobody
+    is signed in; writes keep the real rule (401), which an existing test caught when the fallback
+    first covered writes too.
+  - Tests: `FunderApiTest` 2 more (T206's API part landed with T204: 7). Agent 168 (8 new). Playwright
+    19 (2 new: the right specialist may take; another kind's specialist isn't offered Take).
+  - **D2 is done.** The README screenshot and demo are refreshed for the new fact.
 
 ## D2b: Assignment suggestions for the supervisor (US-12)
 

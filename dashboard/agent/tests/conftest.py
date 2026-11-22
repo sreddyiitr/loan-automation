@@ -34,6 +34,13 @@ OVERVIEW = {
     "assignedFunder": None, "submittedAt": "2026-11-21T05:44:33.169612Z", "expiresAt": "2026-12-21T05:44:33.169612Z",
     "workflowId": "funding-local-12", "workflowStep": "WAITING_FOR_FUNDER", "inProgress": False,
     "payment": {"state": "NOT_STARTED"},
+    # spec 002 T205: routing and what the viewer (docs-1) may do
+    "workKinds": ["DOCUMENTS"], "routedTo": "DOCUMENTS_SPECIALIST",
+    "viewer": {"id": "docs-1", "role": "DOCUMENTS_SPECIALIST"},
+    "allowedActions": [{"action": "VIEW", "allowed": True, "reason": None},
+                       {"action": "TAKE", "allowed": True, "reason": None},
+                       {"action": "RESOLVE_STIP", "allowed": False, "reason": "NOT_ASSIGNED_TO_YOU"},
+                       {"action": "REASSIGN", "allowed": False, "reason": "ROLE_NOT_ALLOWED"}],
 }
 VERSIONS = [
     {"applicationVersionId": 12, "versionNumber": 2, "isLatestVersion": True, "versionStatus": "STIPULATED",

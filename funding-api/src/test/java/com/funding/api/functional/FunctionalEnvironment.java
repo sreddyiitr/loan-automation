@@ -43,7 +43,7 @@ final class FunctionalEnvironment {
     static final String WIREMOCK_URL = require("WIREMOCK_URL");
     /** Spec 002 FR-09: the shared mock OIDC provider. Tokens need no isolation: they name a user, nothing else. */
     static final String OIDC_ISSUER_URI = require("OIDC_ISSUER_URI");
-    /** The user the functional tests act as; SUPERVISOR, since supervisors may do everything (spec 002 D-11). */
+    /** The user the functional tests act as; SUPERVISOR, since supervisors may do everything (spec 002 D-15). */
     static final String TEST_USER = "funder-it";
 
     static {

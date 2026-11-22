@@ -103,8 +103,7 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 - **Roles (D-13, D-15):** a `UserDirectory` maps `sub` to a role from `funding.auth.users`. Locally
   (from D2) that is `gap-1` → GAP_SPECIALIST, `income-1` → INCOME_SPECIALIST, `risc-1` →
   RISC_SPECIALIST, `docs-1` → DOCUMENTS_SPECIALIST, `payment-1` → PAYMENT_SPECIALIST,
-  `general-1` → GENERAL_FUNDER (the catch-all, D-17) and `supervisor-1` → SUPERVISOR; tests add their own ids. Until D2, `funder-1` and `funder-2` are
-  FUNDER, and D2 moves the tests and docs to the new ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
+  `general-1` → GENERAL_FUNDER (the catch-all, D-17) and `supervisor-1` → SUPERVISOR; tests add their own ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
   sign-on, the directory can read a provider claim (e.g. groups) instead; that's configuration.
 - **Tokens without a browser** (tests, `curl`): `POST $OIDC_ISSUER_URI/token` with
   `grant_type=client_credentials`, `client_id=<user id>`, any secret and `scope=funding-api` returns

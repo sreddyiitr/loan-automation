@@ -21,7 +21,7 @@ STIPS = [
      "description": "Cash price mismatch: RISC 31450.00, Buyer's Order 31450.01", "resolutionNote": None,
      "resolvedBy": None, "triggeredByDocumentId": 17},
     {"stipId": 21, "validationCheck": "VIN", "stipCode": "STIP_VIN_MISMATCH", "status": "WAIVED",
-     "description": "VIN differs on GAP", "resolutionNote": "typo on the GAP form", "resolvedBy": "funder-2"},
+     "description": "VIN differs on GAP", "resolutionNote": "typo on the GAP form", "resolvedBy": "supervisor-1"},
 ]
 RESULTS = [
     {"resultId": 1, "validationCheck": "PRICE", "outcome": "FAIL", "attempt": 1, "isCurrent": True,
@@ -69,7 +69,7 @@ def test_AS_8_5_theModelSeesOnlyThisDealTrimmedToWhatExplainsIt():
     assert data["checksNotPassed"][1]["error"] == "income API: server error (503)"
     assert [s["code"] for s in data["openStips"]] == ["STIP_PRICE_MISMATCH"]
     assert data["resolvedStips"] == [{"code": "STIP_VIN_MISMATCH", "check": "VIN", "description": "VIN differs on GAP",
-                                      "status": "WAIVED", "resolvedBy": "funder-2", "note": "typo on the GAP form"}]
+                                      "status": "WAIVED", "resolvedBy": "supervisor-1", "note": "typo on the GAP form"}]
 
 
 def test_AS_8_5_noNamesIdsOrSsnReachTheModel():

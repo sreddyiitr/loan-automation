@@ -66,11 +66,15 @@ funding:
     api-key: ${FUNDING_TRIGGER_API_KEY:local-dev-key}
     local-runner.enabled: true
   # Sign in as one of these on the mock provider's login page, or get a token with
-  # client_credentials and client_id=<user id> (plan §4).
+  # client_credentials and client_id=<user id> (plan §4). One specialist per kind of work, a
+  # catch-all for work no specialist owns, and a supervisor (spec 002 D-15, D-17, AS-11.7).
   auth.users:
-    funder-1: FUNDER
-    funder-2: FUNDER
+    gap-1: GAP_SPECIALIST
     income-1: INCOME_SPECIALIST
+    risc-1: RISC_SPECIALIST
+    docs-1: DOCUMENTS_SPECIALIST
+    payment-1: PAYMENT_SPECIALIST
+    general-1: GENERAL_FUNDER
     supervisor-1: SUPERVISOR
 
 ---

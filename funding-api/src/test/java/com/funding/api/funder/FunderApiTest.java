@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.funding.api.ProblemHandler;
+import com.funding.api.auth.Actor;
 import com.funding.api.auth.ActorArgumentResolver;
 import com.funding.api.seed.SeedDataLoader;
 import com.funding.domain.Check;
@@ -114,7 +115,7 @@ class FunderApiTest {
 
         FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults(), EXPIRE_AFTER);
         mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
-                .setCustomArgumentResolvers(new ActorArgumentResolver()).build();
+                .setCustomArgumentResolvers(new SupervisorByDefault()).build();
     }
 
     @AfterEach
@@ -123,6 +124,23 @@ class FunderApiTest {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * Reads in these tests come with no signed-in user; they read as the test's supervisor. Writes keep
+     * the real rule (no user: 401) and set their own user ({@link #write}, {@link #writeAs}).
+     * FunderAuthTest covers the real token path.
+     */
+    static final class SupervisorByDefault extends ActorArgumentResolver {
+        @Override
+        public Actor resolveArgument(org.springframework.core.MethodParameter p, org.springframework.web.method.support.ModelAndViewContainer m,
+                                     org.springframework.web.context.request.NativeWebRequest r,
+                                     org.springframework.web.bind.support.WebDataBinderFactory b) {
+            boolean read = "GET".equals(r.getNativeRequest(jakarta.servlet.http.HttpServletRequest.class).getMethod());
+            return read && SecurityContextHolder.getContext().getAuthentication() == null ? new Actor(FUNDER, Role.SUPERVISOR)
+                    : super.resolveArgument(p, m, r, b);     // a write with no user stays 401 (AS_10_9_writeWithoutUserIsRefused)
+        }
+    }
+
 
     private long latest(String scenario) {
         return jdbc.sql("SELECT application_version_id FROM application_versions WHERE loan_application_id = ? AND is_latest_version")
@@ -172,7 +190,7 @@ class FunderApiTest {
     /**
      * A write as {@link #FUNDER}. This MockMvc has no security filter (FunderAuthTest covers the
      * token path), so the signed-in user is put in the security context directly. SUPERVISOR,
-     * because supervisors may do everything (spec 002 D-11), so spec 001's scenarios keep their meaning.
+     * because supervisors may do everything (spec 002 D-15), so spec 001's scenarios keep their meaning.
      */
     private ResultActions write(MockHttpServletRequestBuilder req, String body) throws Exception {
         req.contentType(MediaType.APPLICATION_JSON);
@@ -183,6 +201,27 @@ class FunderApiTest {
         } finally {
             SecurityContextHolder.clearContext();
         }
+    }
+
+    /** A write as a specific user and role (spec 002 D2): the role decides what the API allows. */
+    private ResultActions writeAs(String user, Role role, MockHttpServletRequestBuilder req, String body) throws Exception {
+        req.contentType(MediaType.APPLICATION_JSON);
+        SecurityContextHolder.getContext().setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                user, null, List.of(new SimpleGrantedAuthority("ROLE_" + role))));
+        try {
+            return mvc.perform(body == null ? req : req.content(body));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private String lastAuditRole(long versionId, String action) {
+        return jdbc.sql("""
+                SELECT after_state->>'role' FROM audit_log
+                 WHERE action = ? AND (entity_id = ? OR entity_id IN
+                       (SELECT stip_id::text FROM stipulations WHERE application_version_id = ?))
+                 ORDER BY audit_id DESC LIMIT 1""")
+                .params(action, Long.toString(versionId), versionId).query(String.class).single();
     }
 
     private ResultActions resolve(long id, long stipId, String status, String reason) throws Exception {
@@ -572,5 +611,125 @@ class FunderApiTest {
                 .andExpect(problem(401, "UNAUTHORIZED"));
         assertThat(versionStatus(id)).isEqualTo("STIPULATED");
         mvc.perform(get("/api/v1/versions/{v}/stipulations", 999999)).andExpect(problem(404, "NOT_FOUND"));
+    }
+
+    // ------------------------------------------------------------------ spec 002 D2: roles enforced (T204, T206)
+
+    @Test
+    void AS_11_3_aSpecialistOutsideTheirLaneIsRefusedWithAReason() throws Exception {
+        long id = settled("LA-1006");                                         // price 1 cent off: documents work
+        writeAs("gap-1", Role.GAP_SPECIALIST, post("/api/v1/versions/{v}/take", id), null)
+                .andExpect(problem(403, "NOT_YOUR_SPECIALTY"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("routed to DOCUMENTS_SPECIALIST")));
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.assignedFunder").value("docs-1"));
+    }
+
+    @Test
+    void AS_11_3_aSpecialistMustTakeTheDealBeforeWorkingIt() throws Exception {
+        long id = settled("LA-1006");
+        long price = stip(id, "STIP_PRICE_MISMATCH");
+        String waive = """
+                {"status":"WAIVED","reason":"1 cent, dealer confirmed"}""";
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, patch("/api/v1/versions/{v}/stipulations/{s}", id, price), waive)
+                .andExpect(problem(403, "NOT_ASSIGNED_TO_YOU"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("take it first")));
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, patch("/api/v1/versions/{v}/stipulations/{s}", id, price), waive)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("WAIVED"));
+    }
+
+    @Test
+    void AS_11_2_reassigningIsTheSupervisorsAlone() throws Exception {
+        long id = settled("LA-1006");
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, put("/api/v1/versions/{v}/assignee", id), """
+                {"funderId":"docs-1"}""").andExpect(problem(403, "ROLE_NOT_ALLOWED"));
+        writeAs("supervisor-1", Role.SUPERVISOR, put("/api/v1/versions/{v}/assignee", id), """
+                {"funderId":"docs-1"}""").andExpect(status().isOk());
+    }
+
+    @Test
+    void AS_11_4_theAuditTrailRecordsTheActorsRole() throws Exception {
+        long id = settled("LA-1006");
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        assertThat(lastAuditRole(id, "ASSIGNEE_CHANGED")).isEqualTo("DOCUMENTS_SPECIALIST");
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_PRICE_MISMATCH")), """
+                {"status":"WAIVED","reason":"1 cent"}""").andExpect(status().isOk());
+        assertThat(lastAuditRole(id, "WAIVED")).isEqualTo("DOCUMENTS_SPECIALIST");
+    }
+
+    @Test
+    void AS_11_6_aDealWithTwoKindsIsTheIncomeSpecialistsAndNobodyElsesBelowTheSupervisor() throws Exception {
+        long id = settled("LA-1027");                                         // TILA and VIN fail: RISC + documents
+        writeAs("risc-1", Role.RISC_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(problem(403, "NOT_YOUR_SPECIALTY"));
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(problem(403, "NOT_YOUR_SPECIALTY"));
+        writeAs("income-1", Role.INCOME_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        // even assigned to them, a specialist can't work another kind's deal
+        writeAs("supervisor-1", Role.SUPERVISOR, put("/api/v1/versions/{v}/assignee", id), """
+                {"funderId":"docs-1"}""").andExpect(status().isOk());
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_VIN_MISMATCH")), """
+                {"status":"WAIVED","reason":"typo"}""").andExpect(problem(403, "NOT_YOUR_SPECIALTY"));
+    }
+
+    @Test
+    void AS_11_5_whenTheRoutingChangesTheAssigneeKeepsTheDealButCanNoLongerAct() throws Exception {
+        long id = settled("LA-1027");                                         // RISC + documents: the income specialist's
+        writeAs("income-1", Role.INCOME_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        writeAs("income-1", Role.INCOME_SPECIALIST, patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_VIN_MISMATCH")), """
+                {"status":"WAIVED","reason":"typo on the GAP form"}""").andExpect(status().isOk());
+        // only the TILA stip is left: RISC work now
+        writeAs("income-1", Role.INCOME_SPECIALIST, post("/api/v1/versions/{v}/reject", id), """
+                {"reason":"no"}""").andExpect(problem(403, "NOT_YOUR_SPECIALTY"));
+        mvc.perform(get("/api/v1/applications/LA-1027")).andExpect(jsonPath("$.assignedFunder").value("income-1"));   // kept
+        writeAs("risc-1", Role.RISC_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(problem(409, "ALREADY_ASSIGNED"));
+        writeAs("supervisor-1", Role.SUPERVISOR, put("/api/v1/versions/{v}/assignee", id), """
+                {"funderId":"risc-1"}""").andExpect(status().isOk());              // the supervisor reassigns
+        writeAs("risc-1", Role.RISC_SPECIALIST, post("/api/v1/versions/{v}/reject", id), """
+                {"reason":"the dealer withdrew"}""").andExpect(status().isOk());
+    }
+
+    @Test
+    void D_17_aManualStipWithACodeNoSpecialistOwnsIsTheCatchAllsWork() throws Exception {
+        long id = settled("LA-1001");                                         // every check passes
+        writeAs("supervisor-1", Role.SUPERVISOR, post("/api/v1/versions/{v}/stipulations", id), """
+                {"code":"STIP_DEALER_LETTER","description":"letter from the dealer about the trade-in"}""")
+                .andExpect(status().isCreated());
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(problem(403, "NOT_YOUR_SPECIALTY"));
+        writeAs("general-1", Role.GENERAL_FUNDER, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        writeAs("general-1", Role.GENERAL_FUNDER, patch("/api/v1/versions/{v}/stipulations/{s}", id, stip(id, "STIP_DEALER_LETTER")), """
+                {"status":"SATISFIED","reason":"letter received"}""").andExpect(status().isOk());
+    }
+
+    @Test
+    void FR_05b_theOverviewSaysWhoTheDealIsRoutedToAndWhatTheViewerMayDo() throws Exception {
+        long id = settled("LA-1006");                                         // price 1 cent off: documents work
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.workKinds").value(org.hamcrest.Matchers.contains("DOCUMENTS")))
+                .andExpect(jsonPath("$.routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.viewer.id").value("docs-1"))
+                .andExpect(jsonPath("$.viewer.role").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].allowed").value(org.hamcrest.Matchers.contains(true)))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'RESOLVE_STIP')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_ASSIGNED_TO_YOU")))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'REASSIGN')].reason")
+                        .value(org.hamcrest.Matchers.contains("ROLE_NOT_ALLOWED")));
+        writeAs("gap-1", Role.GAP_SPECIALIST, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(jsonPath("$.routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
+        writeAs("supervisor-1", Role.SUPERVISOR, get("/api/v1/applications/LA-1006"), null)
+                .andExpect(jsonPath("$.allowedActions[?(@.allowed == false)]").isEmpty());   // the supervisor may do anything
+        assertThat(id).isPositive();
+    }
+
+    @Test
+    void FR_05b_aDealWithNothingToDoIsRoutedToNobody() throws Exception {
+        settled("LA-1001");                                                   // every check passes
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/applications/LA-1001"), null)
+                .andExpect(jsonPath("$.workKinds").isEmpty())
+                .andExpect(jsonPath("$.routedTo").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
+                        .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
     }
 }

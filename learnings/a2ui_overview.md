@@ -135,7 +135,7 @@ not text. The page also shows it under "Events sent back to the agent" so the te
 
 **5. The screen updates.** `apply()` in `App.tsx` keeps a `createSurface` that follows a
 `deleteSurface` of the same id. Otherwise it skips duplicate creates. The new surface shows
-"Assigned to: funder-1 (you)" and no Take button.
+"Assigned to: docs-1 (you)" and no Take button.
 
 This is the pattern the whole dashboard will use: **the funder clicks, code writes through the
 API, code re-reads, and the agent sends the updated screen.** When only values change, that's a

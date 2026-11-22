@@ -47,16 +47,16 @@ def test_NFR_05_noReservedKeysTheWebRendererRejects(deal):
 
 @pytest.mark.parametrize("assignee, status, offered", [
     (None, "STIPULATED", True), (None, "PENDING_REVIEW", True), ("funder-9", "STIPULATED", False),
-    ("funder-1", "STIPULATED", False), (None, "FUNDED", False), (None, "EXPIRED", False),
+    ("docs-1", "STIPULATED", False), (None, "FUNDED", False), (None, "EXPIRED", False),
 ])
 def test_AS_2_6_takeIsOfferedOnlyOnAnUnassignedOpenDeal(assignee, status, offered):
-    deal = deal_model({**OVERVIEW, "assignedFunder": assignee, "status": status}, VERSIONS, NOW, me="funder-1")
+    deal = deal_model({**OVERVIEW, "assignedFunder": assignee, "status": status}, VERSIONS, NOW, me="docs-1")
     ids = {c["id"] for c in overview_surface(deal)[1]["updateComponents"]["components"]}
     assert deal["canTake"] is offered and ("take_modal" in ids) is offered
 
 
 def test_AS_2_6_yourOwnDealSaysYou():
-    assert deal_model({**OVERVIEW, "assignedFunder": "funder-1"}, VERSIONS, NOW, me="funder-1")["assignedFunder"] == "funder-1 (you)"
+    assert deal_model({**OVERVIEW, "assignedFunder": "docs-1"}, VERSIONS, NOW, me="docs-1")["assignedFunder"] == "docs-1 (you)"
 
 
 def test_NFR_05_noticeSurfaceIsValidA2ui():
@@ -139,7 +139,7 @@ def test_AS_2_1_theFactsAreALabelValueListFromTheDealsOwnFields():
     """D1c: the facts are one FactList bound to /deal/facts, built from the same fields as before."""
     deal = deal_model(OVERVIEW, VERSIONS, NOW)
     assert [f["label"] for f in deal["facts"]] == ["Assigned to", "Expiry", "Payment", "Dealer", "Borrower",
-                                                   "Co-borrower", "Stated income", "VIN", "Submitted"]
+                                                   "Co-borrower", "Stated income", "VIN", "Routed to"]
     facts = {f["label"]: f["value"] for f in deal["facts"]}
     assert facts["Dealer"] == "Lone Star Motors" and facts["Stated income"] == "$85,000.00"
     assert facts["Assigned to"] == "Unassigned" and facts["Co-borrower"] == "None"
@@ -147,3 +147,42 @@ def test_AS_2_1_theFactsAreALabelValueListFromTheDealsOwnFields():
     assert next(c for c in components if c["id"] == "facts") == \
         {"id": "facts", "component": "FactList", "items": {"@path": "/deal/facts"}}
     assert next(c for c in components if c["id"] == "title")["component"] == "Heading"
+
+
+# ---------------------------------------------------------------- spec 002 T205: the rules on the overview
+
+def refused_take(reason="NOT_YOUR_SPECIALTY"):
+    return OVERVIEW | {"allowedActions": [{"action": "TAKE", "allowed": False, "reason": reason}]}
+
+
+def test_FR_05b_takeIsOfferedOnlyWhenTheApiAllowsIt():
+    assert deal_model(OVERVIEW, VERSIONS, NOW)["canTake"] is True
+    assert deal_model(refused_take(), VERSIONS, NOW)["canTake"] is False
+    ids = {c["id"] for m in overview_surface(deal_model(refused_take(), VERSIONS, NOW))
+           if "updateComponents" in m for c in m["updateComponents"]["components"]}
+    assert "take_button" not in ids and "summarize_button" in ids          # Summarize is read-only: always there
+
+
+def test_FR_05b_takeStillNeedsTheDealToBeUnassignedAndOpen():
+    assert deal_model(OVERVIEW | {"assignedFunder": "supervisor-1"}, VERSIONS, NOW)["canTake"] is False
+    assert deal_model(OVERVIEW | {"status": "FUNDED"}, VERSIONS, NOW)["canTake"] is False
+
+
+def test_FR_05b_withoutAllowedActionsTheOldRuleStands():
+    old = {k: v for k, v in OVERVIEW.items() if k not in ("allowedActions", "routedTo", "workKinds", "viewer")}
+    deal = deal_model(old, VERSIONS, NOW)
+    assert deal["canTake"] is True and deal["routedTo"] == "—"
+
+
+@pytest.mark.parametrize("fields, text", [
+    ({}, "Documents specialist · documents work (you)"),
+    ({"viewer": {"id": "gap-1", "role": "GAP_SPECIALIST"}}, "Documents specialist · documents work"),
+    ({"workKinds": ["RISC", "DOCUMENTS", "INCOME"], "routedTo": "INCOME_SPECIALIST"},
+     "Income specialist · RISC, documents and income work"),
+    ({"workKinds": ["GENERAL"], "routedTo": "GENERAL_FUNDER"}, "Catch-all funder · general work"),
+    ({"workKinds": [], "routedTo": None}, "Nobody: nothing needs a specialist"),
+])
+def test_AS_11_2_routedToSaysWhoAndWhy(fields, text):
+    deal = deal_model(OVERVIEW | fields, VERSIONS, NOW)
+    assert deal["routedTo"] == text
+    assert {f["label"]: f["value"] for f in deal["facts"]}["Routed to"] == text

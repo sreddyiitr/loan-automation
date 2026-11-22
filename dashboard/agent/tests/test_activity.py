@@ -55,8 +55,8 @@ def test_AS_2_7_aCheckWithNoResultSaysSo(in_progress, word):
     ("CREATED", {"applicationVersionId": 9}, "New version created"),
     ("WAIVED", {"status": "WAIVED", "note": "1 cent, dealer confirmed"}, "Stip waived: 1 cent, dealer confirmed"),
     ("SATISFIED", {"status": "SATISFIED", "note": "auto-resolved by re-run"}, "Stip satisfied: auto-resolved by re-run"),
-    ("ASSIGNEE_CHANGED", {"assignedFunder": "funder-2", "reason": "TAKEN"}, "Taken by funder-2"),
-    ("ASSIGNEE_CHANGED", {"assignedFunder": "funder-1"}, "Assigned to funder-1"),
+    ("ASSIGNEE_CHANGED", {"assignedFunder": "supervisor-1", "reason": "TAKEN"}, "Taken by supervisor-1"),
+    ("ASSIGNEE_CHANGED", {"assignedFunder": "docs-1"}, "Assigned to docs-1"),
     ("ASSIGNEE_CHANGED", {"assignedFunder": None}, "Unassigned"),
     ("RERUN_REQUESTED", {"checks": ["INCOME"]}, "Re-run requested: INCOME"),
     ("DISBURSEMENT_COMPLETED", {"amount": "28450.00", "reference": "DSB-2CDD4A58"}, "Paid: DSB-2CDD4A58, $28,450.00"),
@@ -68,7 +68,7 @@ def test_AS_2_7_eachAuditEntryReadsAsPlainWords(action, after, title):
 
 
 @pytest.mark.parametrize("actor, shown", [
-    ("system:funding-local-6", "System"), ("dev:submit", "Dealer submission"), ("funder-2", "funder-2"), (None, "Unknown")])
+    ("system:funding-local-6", "System"), ("dev:submit", "Dealer submission"), ("supervisor-1", "supervisor-1"), (None, "Unknown")])
 def test_AS_2_7_whoDidItIsAPersonTheSystemOrTheDealersSubmission(actor, shown):
     assert actor_name(actor) == shown
 
@@ -78,14 +78,14 @@ def test_AS_2_7_newestFirstAndBackToBackAssignmentsAreOneLine():
         entry("STATUS_CHANGED", {"status": "PENDING_REVIEW", "reason": "SUBMITTED"}, "dev:submit", "2026-11-21T18:47:16Z", 1),
         entry("CREATED", {"code": "STIP_PRICE_MISMATCH"}, at="2026-11-21T18:47:19Z", i=2),
         entry("ASSIGNEE_CHANGED", {"assignedFunder": None}, "supervisor-1", "2026-11-21T18:48:13Z", 3),
-        entry("ASSIGNEE_CHANGED", {"assignedFunder": "funder-1", "reason": "TAKEN"}, "funder-1", "2026-11-21T18:48:14Z", 4),
-        entry("ASSIGNEE_CHANGED", {"assignedFunder": "funder-2", "reason": "TAKEN"}, "funder-2", "2026-11-21T18:48:17Z", 5),
+        entry("ASSIGNEE_CHANGED", {"assignedFunder": "docs-1", "reason": "TAKEN"}, "docs-1", "2026-11-21T18:48:14Z", 4),
+        entry("ASSIGNEE_CHANGED", {"assignedFunder": "supervisor-1", "reason": "TAKEN"}, "supervisor-1", "2026-11-21T18:48:17Z", 5),
     ]
     items = activity_model(audit)["items"]
-    assert [i["title"] for i in items] == ["Taken by funder-2 (after 3 changes)", "Stip raised: price mismatch",
+    assert [i["title"] for i in items] == ["Taken by supervisor-1 (after 3 changes)", "Stip raised: price mismatch",
                                            "Submitted for checks"]
-    assert items[0] == {"when": "2026-11-21 18:48", "title": "Taken by funder-2 (after 3 changes)",
-                        "actor": "funder-2", "tone": "neutral"}
+    assert items[0] == {"when": "2026-11-21 18:48", "title": "Taken by supervisor-1 (after 3 changes)",
+                        "actor": "supervisor-1", "tone": "neutral"}
 
 
 def test_AS_2_7_atMostEightLinesAndTheRestAreCounted():

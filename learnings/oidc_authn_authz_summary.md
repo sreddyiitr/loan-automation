@@ -23,10 +23,10 @@ Step 5, the permission rules, is the next slice (D2).
 
 ## Step 1: Getting your ID card (signing in)
 
-You walk up to the front office and say "I'm **funder-1**."
+You walk up to the front office and say "I'm **docs-1**."
 
 The office makes you an ID card. Written on it:
-- **Who you are:** `funder-1`. The field is called `sub`, short for "subject".
+- **Who you are:** `docs-1`. The field is called `sub`, short for "subject".
 - **Which office made it:** `http://127.0.0.1:8090/funding`. This is `iss`, the issuer.
 - **Which door it's for:** `funding-api`. This is `aud`, the audience.
 - **When it stops working:** in one hour. This is `exp`.
@@ -37,12 +37,12 @@ the **signature**.
 A real card from our local provider, opened up:
 
 ```
-sub: funder-1   iss: http://127.0.0.1:8090/funding   aud: funding-api   exp: …
+sub: docs-1   iss: http://127.0.0.1:8090/funding   aud: funding-api   exp: …
 ```
 
 There are two ways to ask for a card:
 - **In the browser:** the dashboard's **Sign in** button sends you to the provider's login page.
-  You type `funder-1`, and you're sent back with the card. This is OIDC's "Authorization Code with
+  You type `docs-1`, and you're sent back with the card. This is OIDC's "Authorization Code with
   PKCE" flow, done by the `oidc-client-ts` library in `dashboard/web/src/auth.ts`. The card is
   kept in memory only, so reloading the page means signing in again.
   - **Telling the office which door the card is for.** Out of the box, our practice office writes
@@ -51,11 +51,11 @@ There are two ways to ask for a card:
     A real office has the same setting: Auth0 calls it the API's *audience*, and Okta and Entra ID
     register the API. `scripts/oidc-env.sh` checks the rule book is loaded before anything starts.
 - **Without a browser** (tests and `curl`): one request that says "a card for
-  `client_id=funder-1`, please". README step 6 does this:
+  `client_id=docs-1`, please". README step 6 does this:
 
   ```bash
   TOKEN=$(curl -s -X POST http://127.0.0.1:8090/funding/token \
-    -d grant_type=client_credentials -d client_id=funder-1 -d client_secret=any -d scope=funding-api \
+    -d grant_type=client_credentials -d client_id=docs-1 -d client_secret=any -d scope=funding-api \
     | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
   ```
 
@@ -87,10 +87,10 @@ like a sealed envelope you can read. It has three parts, separated by dots:
 ```
 eyJraWQi…  .  eyJzdWIiOiJmdW5kZXItMSIs…  .  kX9f2…
   header          the writing on the card          the seal
-                  (sub = funder-1, iss, aud, exp)
+                  (sub = docs-1, iss, aud, exp)
 ```
 
-Anyone can *read* the middle part. So how does the teacher know you didn't just write "funder-1"
+Anyone can *read* the middle part. So how does the teacher know you didn't just write "docs-1"
 on a card yourself?
 
 **The teacher checks the seal.** The office publishes a page that says "here's how to check our
@@ -129,15 +129,18 @@ So the teacher looks at **the class list on the desk**. That's the user director
 ```yaml
 funding:
   auth.users:
-    funder-1: FUNDER
-    funder-2: FUNDER
+    gap-1: GAP_SPECIALIST
     income-1: INCOME_SPECIALIST
+    risc-1: RISC_SPECIALIST
+    docs-1: DOCUMENTS_SPECIALIST
+    payment-1: PAYMENT_SPECIALIST
+    general-1: GENERAL_FUNDER
     supervisor-1: SUPERVISOR
 ```
 
 When your card is checked, `UserDirectory` looks up your name:
-- **`funder-1` is on the list** → "you're a FUNDER". Spring Security attaches the label
-  `ROLE_FUNDER` to your request.
+- **`docs-1` is on the list** → "you're a DOCUMENTS_SPECIALIST". Spring Security attaches the label
+  `ROLE_DOCUMENTS_SPECIALIST` to your request.
 - **`stranger` isn't on the list** → no role → **403 `UNKNOWN_USER`**. Your card is real, but
   you're not in this class.
 
@@ -168,39 +171,42 @@ This split is decision **D-13** in the spec: the office says *who*, and our app 
 
 ## Step 5: How the backend knows what each role may do
 
-**This part isn't built yet. It's the next slice, D2.**
+**Built and enforced (spec 002 D2).**
 
-The rules are already written down, as the table in spec AS-11.2. In short:
+Each deal gets one or more **kinds of work** from its open problems: GAP, income, RISC (the TILA
+math and RISC fields), documents (price and VIN), payment, or "general" for anything else. That
+decides who it's **routed to**:
+- one kind → that kind's specialist (`gap-1`, `income-1`, `risc-1`, `docs-1`, `payment-1`, or the
+  catch-all `general-1`);
+- two or more kinds → the income specialist;
+- the supervisor can work any deal.
 
-| Action | Funder | Income specialist | Supervisor |
-|---|---|---|---|
-| Waive a normal stip, on their own deal | ✅ | ✅ | ✅ any deal |
-| Waive an **income** stip | ❌ | ✅ | ✅ |
-| Approve while income work is pending | ❌ | ✅ | ✅ |
-| Reassign a deal to someone else | ❌ | ❌ | ✅ |
-| … and so on (the full table is in the spec) | | | |
+Then the rule is simple (spec AS-11.2):
 
-In D2 this becomes a small Java class, `Permissions`, which answers one question:
+| Action | A specialist | The supervisor |
+|---|---|---|
+| Read any deal | ✅ | ✅ |
+| Take a deal | ✅ if it's routed to them | ✅ any |
+| Waive or satisfy a stip, re-run, approve, reject, retry a payment | ✅ if it's routed to them **and** assigned to them | ✅ any deal |
+| Reassign a deal, or ask for assignment suggestions | ❌ | ✅ |
+
+A small Java class, `Permissions`, answers one question:
 
 > "Can **this role** do **this action** on **this deal**?" → *yes*, or *no, because…*
 
-The "because" is a reason like `NOT_ASSIGNED_TO_YOU` or `INCOME_WORK_NEEDS_SPECIALIST`. Before
-every write, the API asks `Permissions` first, and refuses with 403 and that reason. The same
-class also tells the dashboard which buttons to show, so the screen and the API can never disagree.
-
-**What happens right now, before D2:** the door checks your card and checks that you're on the
-class list, and that's it. Anyone on the list can do any action. The API already *knows* your
-role, because it's inside the `Actor` that every write receives; it just doesn't use it yet.
+The "because" is a reason like `NOT_YOUR_SPECIALTY` or `NOT_ASSIGNED_TO_YOU`. Before every write,
+the API asks `Permissions` first, and refuses with 403 and that reason. The same class also tells
+the dashboard which buttons to show, so the screen and the API can never disagree.
 
 ---
 
 ## The whole trip, in one picture
 
 ```
- You: "I'm funder-1"
+ You: "I'm docs-1"
    │
    ▼
- ① OIDC provider (port 8090)  ── makes a sealed card: sub=funder-1, aud=funding-api, 1 hour
+ ① OIDC provider (port 8090)  ── makes a sealed card: sub=docs-1, aud=funding-api, 1 hour
    │
    ▼
  ② Dashboard / curl  ── "Authorization: Bearer <card>" on every request
@@ -208,18 +214,18 @@ role, because it's inside the `Actor` that every write receives; it just doesn't
    ▼
  ③ Funder API door (Spring Security)
      • seal real?  right office?  right door?  not expired?   no → 401 UNAUTHORIZED
-     • read sub = "funder-1"
+     • read sub = "docs-1"
    │
    ▼
  ④ User directory (application.yml)
-     • funder-1 → FUNDER                                       not listed → 403 UNKNOWN_USER
+     • docs-1 → DOCUMENTS_SPECIALIST                         not listed → 403 UNKNOWN_USER
    │
    ▼
- ⑤ Permissions (D2, not built yet)
-     • may a FUNDER approve this deal right now?               no → 403 + reason
+ ⑤ Permissions (D2)
+     • is this deal routed to docs-1, and assigned to them?    no → 403 + reason
    │
    ▼
- ⑥ Do the work, and write "actor = funder-1" in the audit trail
+ ⑥ Do the work, and write "actor = docs-1" in the audit trail
 ```
 
 Steps ①–④ and ⑥ are built (T101–T102). Step ⑤ is D2.

@@ -10,3 +10,7 @@ reasons:
   ALREADY_ASSIGNED: Someone else took this deal first. The overview now shows who has it.
   DISBURSEMENT_IN_PROGRESS: A payment for this deal is being made right now. Try again in a moment.
   MALFORMED: The dashboard sent a request the funder API didn't understand. This is a bug; please report it.
+  # spec 002 D2: roles (AS-11.3)
+  NOT_YOUR_SPECIALTY: This deal isn't routed to you. It needs a different specialist, or a supervisor can reassign it.
+  NOT_ASSIGNED_TO_YOU: This deal isn't assigned to you. Take it first, or ask a supervisor to reassign it.
+  ROLE_NOT_ALLOWED: Only a supervisor can do that.

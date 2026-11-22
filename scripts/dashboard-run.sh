@@ -117,7 +117,8 @@ fi
 cat <<MSG
 
   Funder dashboard: http://localhost:$WEB_PORT
-  Sign in as funder-1, funder-2, income-1 or supervisor-1 (no password), then open LA-1006.
+  Sign in as docs-1, gap-1, income-1, risc-1, payment-1, general-1 or supervisor-1 (no password),
+  then open a deal, e.g. LA-1006 (docs-1's kind of work).
   Temporal UI: http://localhost:8233   Funder API: http://localhost:$API_PORT/swagger-ui.html
 
 MSG

@@ -28,17 +28,17 @@ const money = (n: number) => n.toLocaleString('en-US', {style: 'currency', curre
 test('AS_1_1_signsInOnTheProviderPageAndEveryWriteIsMadeAsThatUser', async ({page}) => {
   const errors = watchErrors(page);
   const deal = await unassignedLa1006();
-  await signInAs(page, 'funder-1');                                    // no identity typed anywhere else
+  await signInAs(page, 'docs-1');                                    // no identity typed anywhere else
   await openDeal(page, 'LA-1006');
   await page.getByRole('button', {name: 'Take this deal'}).click();
   await page.getByRole('dialog').getByRole('button', {name: 'Yes, take it'}).click();
-  await expect(fact(page, 'Assigned to')).toHaveText('funder-1 (you)');
+  await expect(fact(page, 'Assigned to')).toHaveText('docs-1 (you)');
 
   const audit = await (await api('supervisor-1', `/versions/${deal.applicationVersionId}/audit`)).json();
   const last = audit.at(-1);
   expect(last.action).toBe('ASSIGNEE_CHANGED');
-  expect(last.actor).toBe('funder-1');                                 // the token's sub, through the agent
-  expect(last.afterState.assignedFunder).toBe('funder-1');
+  expect(last.actor).toBe('docs-1');                                 // the token's sub, through the agent
+  expect(last.afterState.assignedFunder).toBe('docs-1');
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
@@ -51,7 +51,7 @@ test('AS_1_1_aUserWhoIsNotInTheDirectoryIsRefused', async ({page}) => {
 
 test('AS_1_5_anUnknownLoanIdShowsNotFoundNotAnErrorPage', async ({page}) => {
   const errors = watchErrors(page);
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-404');
   await expect(page.getByText("That deal doesn't exist. Check the loan id.")).toBeVisible();
   await expect(page.locator('.status-badge')).toHaveCount(0);
@@ -61,7 +61,7 @@ test('AS_1_5_anUnknownLoanIdShowsNotFoundNotAnErrorPage', async ({page}) => {
 test('AS_2_1_theOverviewShowsTheDealFactsExpiryAndPayment', async ({page}) => {
   const errors = watchErrors(page);
   const deal = await unassignedLa1006();                               // the API is the source of each value
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
 
   await expect(page.getByText(`LA-1006 · v${deal.latestVersionNumber}`, {exact: true})).toBeVisible();
@@ -74,7 +74,7 @@ test('AS_2_1_theOverviewShowsTheDealFactsExpiryAndPayment', async ({page}) => {
     ['Stated income', money(deal.statedIncomeAnnual)],
     ['VIN', deal.vehicleVin],
     ['Assigned to', 'Unassigned'],
-    ['Submitted', deal.submittedAt.slice(0, 10)],
+    ['Routed to', 'Documents specialist · documents work (you)'],      // AS-11.2: LA-1006 is docs-1's kind of work
   ]) await expect(fact(page, label), label).toHaveText(value);
   await expect(fact(page, 'Expiry')).toHaveText(new RegExp(`^(\\d+ days? left|Expires today) \\(${deal.expiresAt.slice(0, 10)}\\)$`));
   expect(deal.payment.state).toBe('NOT_STARTED');                      // LA-1006 is STIPULATED: nothing paid yet
@@ -85,8 +85,8 @@ test('AS_2_1_theOverviewShowsTheDealFactsExpiryAndPayment', async ({page}) => {
 
 test('AS_2_3_versionHistoryListsEveryVersionNewestFirst', async ({page}) => {
   const deal = await unassignedLa1006();
-  const versions = await (await api('funder-1', '/applications/LA-1006/versions')).json();
-  await signInAs(page, 'funder-1');
+  const versions = await (await api('docs-1', '/applications/LA-1006/versions')).json();
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
 
   await expect(page.getByRole('columnheader', {name: 'Version'})).toBeVisible();     // our DataTable
@@ -103,7 +103,7 @@ test('AS_2_3_versionHistoryListsEveryVersionNewestFirst', async ({page}) => {
 
 test('AS_2_5_theOverviewLinksToItsWorkflowInTheTemporalUi', async ({page}) => {
   const deal = await unassignedLa1006();
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
   const popup = page.waitForEvent('popup');
   await page.getByRole('button', {name: 'Open the workflow in Temporal'}).click();
@@ -112,7 +112,7 @@ test('AS_2_5_theOverviewLinksToItsWorkflowInTheTemporalUi', async ({page}) => {
 
 test("AS_2_7_whatsBeenDoneShowsEachCheckAndTheMilestonesOfAFundedDeal", async ({page}) => {
   const errors = watchErrors(page);
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1001');                                       // seeded: every check passes, then it's paid
   await expect(page.getByText("What's been done")).toBeVisible();
   const checks = page.locator('.check');
@@ -128,7 +128,7 @@ test("AS_2_7_whatsBeenDoneShowsEachCheckAndTheMilestonesOfAFundedDeal", async ({
 });
 
 test("AS_2_7_aStipulatedDealShowsTheFailedCheckAndTheStipTheSystemRaised", async ({page}) => {
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');                                       // seeded: price 1¢ off
   await expect(page.locator('.check[data-check="Price"] .check-label')).toHaveText('Failed');
   const raised = page.locator('.event', {hasText: 'Stip raised: price mismatch'});
@@ -138,7 +138,7 @@ test("AS_2_7_aStipulatedDealShowsTheFailedCheckAndTheStipTheSystemRaised", async
 });
 
 test("AS_2_7_aPassedCheckOpensToShowWhyItPassed", async ({page}) => {
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1001');
   const tila = page.locator('.check[data-check="TILA math"]');
   await expect(tila.locator('.check-reason')).toHaveText('All 3 comparisons match');
@@ -154,7 +154,7 @@ test("AS_2_7_aPassedCheckOpensToShowWhyItPassed", async ({page}) => {
 });
 
 test("AS_2_7_checksThatDidntPassStartOpenAndSayWhy", async ({page}) => {
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1002');                                       // seeded: TILA total off by $10
   const tila = page.locator('.check[data-check="TILA math"]');
   await expect(tila.locator('.check-reason')).toHaveText("2 of 3 comparisons don't match");
@@ -165,10 +165,30 @@ test("AS_2_7_checksThatDidntPassStartOpenAndSayWhy", async ({page}) => {
   await expect(page.locator('.check[data-check="Income"] .check-reason')).toHaveText("Couldn't finish: income API: server error (503)");
 });
 
+test('AS_11_6_aSpecialistForAnotherKindOfWorkIsNotOfferedTakeAndSeesWhoItIsFor', async ({page}) => {
+  const errors = watchErrors(page);
+  await unassignedLa1006();                                              // a price mismatch: documents work
+  await signInAs(page, 'gap-1');
+  await openDeal(page, 'LA-1006');
+  await expect(fact(page, 'Routed to')).toHaveText('Documents specialist · documents work');
+  await expect(fact(page, 'Assigned to')).toHaveText('Unassigned');
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);     // the API says gap-1 may not
+  await expect(page.getByRole('button', {name: 'Summarize'})).toBeVisible();           // reading is for everyone
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('AS_11_2_theRightSpecialistSeesTheDealIsTheirsAndMayTakeIt', async ({page}) => {
+  await unassignedLa1006();
+  await signInAs(page, 'docs-1');
+  await openDeal(page, 'LA-1006');
+  await expect(fact(page, 'Routed to')).toHaveText('Documents specialist · documents work (you)');
+  await expect(page.getByRole('button', {name: 'Take this deal'})).toBeVisible();
+});
+
 test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({page}) => {
   const errors = watchErrors(page);
   await unassignedLa1006();
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
 
   await page.getByRole('button', {name: 'Take this deal'}).click();
@@ -177,7 +197,7 @@ test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({pa
   await expect(fact(page, 'Assigned to')).toHaveText('Unassigned');     // nothing happens before confirming
   await dialog.getByRole('button', {name: 'Yes, take it'}).click();
 
-  await expect(fact(page, 'Assigned to')).toHaveText('funder-1 (you)'); // written as the token's user, then re-read
+  await expect(fact(page, 'Assigned to')).toHaveText('docs-1 (you)'); // written as the token's user, then re-read
   await expect(page.getByRole('dialog')).toHaveCount(0);                     // the rebuilt surface closed it
   await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
   await expect(page.getByTestId('events')).toContainText('deal.take');
@@ -186,15 +206,15 @@ test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({pa
 
 test('AS_2_6_ifSomeoneElseTookItFirstNothingChangesAndTheOverviewSaysWhoHasIt', async ({page}) => {
   const deal = await unassignedLa1006();
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
   await expect(page.getByRole('button', {name: 'Take this deal'})).toBeVisible();
-  await takeAs('funder-2', deal.applicationVersionId);                       // meanwhile, on another screen
+  await takeAs('supervisor-1', deal.applicationVersionId);                       // meanwhile, on another screen
 
   await page.getByRole('button', {name: 'Take this deal'}).click();
   await page.getByRole('dialog').getByRole('button', {name: 'Yes, take it'}).click();
   await expect(page.getByText('Someone else took this deal first. The overview now shows who has it.')).toBeVisible();
-  await expect(fact(page, 'Assigned to')).toHaveText('funder-2');
+  await expect(fact(page, 'Assigned to')).toHaveText('supervisor-1');
   await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
 });
 
@@ -208,7 +228,7 @@ test('AS_10_3_onFirstLaunchEverySeededScenarioOpensWithItsExpectedStatus', async
   const errors = watchErrors(page);
   const scenarios = seededScenarios();
   expect(scenarios.length).toBeGreaterThan(30);
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   for (const {id, status} of scenarios) {
     await openDeal(page, id);
     await expect(page.getByText(new RegExp(`^${id} · v\\d+$`)), `${id} opens`).toBeVisible();

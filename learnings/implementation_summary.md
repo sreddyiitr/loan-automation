@@ -399,20 +399,20 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 
 | Suite | Runs against | Tests | Result |
 |---|---|---:|---|
-| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) | nothing (pure) | 136 | ✅ |
+| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) plus spec 002's `WorkRouting` (46) and `Permissions` (91) | nothing (pure) | 273 | ✅ |
 | `funding-persistence` (incl. document freeze, guarded status writes, document-added trigger, new version in one transaction and the concurrent-V2 race) | Testcontainers `postgres:18` | 38 | ✅ |
-| `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, the S5 history / prior-document / amend vocabulary, and the S6 volume set) | repository data | 37 | ✅ |
+| `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, the S5 history / prior-document / amend vocabulary, and the S6 volume set) plus `ScenarioRoutingTest`: every seed's routing (2) | repository data | 39 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
 | `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, take and unassign, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 55 | ✅ |
+| `funding-api` unit (spec 002 role enforcement: each refusal reason, the role in the audit, re-routing and the catch-all; start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, take and unassign, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 64 | ✅ |
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 160 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 17 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 168 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 19 | ✅ |
 
-**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 160 agent tests and 17 Playwright tests. Test names trace to the
+**Total: 559 tests** (490 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 168 agent tests and 19 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -496,6 +496,18 @@ Spec 002, D1 (T101–T102):
   it runs with `scripts/oidc-config.json` (tokens for the dashboard's client carry
   `aud=funding-api`), and `oidc-env.sh` refuses a provider without it. The API's audience check
   stays strict.
+- **Roles enforced (D2, T201–T204):** `WorkRouting` and `Permissions` in `funding-domain` decide who
+  may work a deal; `FunderService` asks `Permissions` right after each write's row lock and before
+  the business guards, and refuses with 403 problem+json (`NOT_YOUR_SPECIALTY`,
+  `NOT_ASSIGNED_TO_YOU`, `ROLE_NOT_ALLOWED`) with a detail naming who the deal is routed to. The
+  routing facts are read under the lock (pending stips, current results with flagged fields, the
+  RISC hold recomputed as approve does, the payment state). Every write's audit after_state
+  carries `role`. The supervisor skips the lookup. Users: `gap-1`, `income-1`, `risc-1`, `docs-1`,
+  `payment-1`, `general-1`, `supervisor-1`.
+- **The overview reflects the roles (D2, T205):** it adds `workKinds`, `routedTo`, `viewer` and
+  `allowedActions` (each action with allowed and a reason), from the same `Permissions`. The deal
+  page shows "Routed to" (e.g. "Documents specialist · documents work (you)") and offers Take only
+  when the API allows it and nobody has the deal.
 - **Take (T106):** `POST /versions/{vid}/take` assigns to the caller only if nobody has it,
   under the row lock (409 `ALREADY_ASSIGNED`), so two stale screens can't both win.
   `PUT …/assignee` also unassigns with `null` (AS-2.4). In the dashboard, Take sits behind a
@@ -600,5 +612,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, the five specialist roles, the catch-all funder and their enforcement (D2, specified 2026-11-21: D-15, D-17), assignment suggestions for the supervisor (D2b, D-16), the assistant's suggest and draft stip (D8). A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). Not yet: worklist, tabs, assignment suggestions for the supervisor (D2b), the assistant's suggest and draft stip (D8). D2 (roles) is done: five specialists, a catch-all and a supervisor, enforced by the API, with the overview showing who each deal is routed to and only the actions the viewer may take. A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

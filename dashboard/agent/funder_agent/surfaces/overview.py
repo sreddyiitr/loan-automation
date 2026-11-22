@@ -95,7 +95,8 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         "statedIncome": money(overview.get("statedIncomeAnnual")),
         "vehicleVin": overview.get("vehicleVin") or "—",
         "assignedFunder": f"{assignee} (you)" if assignee and assignee == me else assignee or "Unassigned",
-        "canTake": assignee is None and overview["status"] not in TERMINAL,
+        "canTake": assignee is None and overview["status"] not in TERMINAL and may(overview, "TAKE"),
+        "routedTo": routed_text(overview, me),
         "submitted": _date(overview.get("submittedAt")),
         "expiry": expiry_text(overview.get("expiresAt"), overview["status"], now),
         "payment": payment_text(overview.get("payment") or {}),
@@ -116,7 +117,36 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
 # AS-2.1: the facts, in the order the funder reads them; shown as a FactList (label/value grid, D1c).
 FACTS = [("Assigned to", "assignedFunder"), ("Expiry", "expiry"), ("Payment", "payment"),
          ("Dealer", "dealershipName"), ("Borrower", "borrowerName"), ("Co-borrower", "coBorrowerName"),
-         ("Stated income", "statedIncome"), ("VIN", "vehicleVin"), ("Submitted", "submitted")]
+         ("Stated income", "statedIncome"), ("VIN", "vehicleVin"), ("Routed to", "routedTo")]   # the header shows the submitted date
+
+ROLE_WORDS = {"GAP_SPECIALIST": "GAP specialist", "INCOME_SPECIALIST": "Income specialist",
+              "RISC_SPECIALIST": "RISC specialist", "DOCUMENTS_SPECIALIST": "Documents specialist",
+              "PAYMENT_SPECIALIST": "Payment specialist", "GENERAL_FUNDER": "Catch-all funder", "SUPERVISOR": "Supervisor"}
+KIND_WORDS = {"GAP": "GAP", "INCOME": "income", "RISC": "RISC", "DOCUMENTS": "documents", "PAYMENT": "payment",
+              "GENERAL": "general"}
+
+
+def may(overview: dict[str, Any], action: str) -> bool:
+    """FR-05b: what the funder API says this viewer may do. An API without allowedActions allows it,
+    and the API still refuses anything it shouldn't (FR-11)."""
+    actions = overview.get("allowedActions")
+    if actions is None:
+        return True
+    return any(a.get("action") == action and a.get("allowed") for a in actions)
+
+
+def routed_text(overview: dict[str, Any], me: str | None) -> str:
+    """AS-11.2: who the deal is routed to and why, e.g. "Documents specialist · documents work (you)"."""
+    if "routedTo" not in overview:
+        return "—"
+    role = overview.get("routedTo")
+    if not role:
+        return "Nobody: nothing needs a specialist"
+    kinds = [KIND_WORDS.get(k, k.lower()) for k in overview.get("workKinds") or []]
+    work = (", ".join(kinds[:-1]) + " and " + kinds[-1] if len(kinds) > 1 else "".join(kinds)) + " work" if kinds else ""
+    viewer = overview.get("viewer") or {}
+    you = " (you)" if viewer.get("role") == role else ""
+    return ROLE_WORDS.get(role, role) + (f" · {work}" if work else "") + you
 
 
 def with_facts(deal: dict[str, Any]) -> dict[str, Any]:

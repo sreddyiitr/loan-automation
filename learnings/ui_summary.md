@@ -45,8 +45,7 @@ its own read-only panel under the overview: "Summarizing…" at once, then two o
 with a note that the assistant wrote them from this deal's data only. With no model running, the
 panel says the assistant is unavailable and everything else works.
 
-Not yet built: the worklist, the other tabs, the five specialist roles and their enforcement
-(D2), assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
+Not yet built: the worklist, the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
 and "draft stip text" (D8).
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -82,7 +81,7 @@ Funding API (Java, spec 001): the only thing that writes
 | Area | What the funder can do |
 |---|---|
 | **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
-| **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI (D2, planned) |
+| **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI, and shown on the deal page: "Routed to" says whose work it is ("(you)" when it's yours), and only the actions you may take are offered (D2) |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
 | **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |
@@ -144,7 +143,7 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
 2. By hand instead: `make run` and `make seed-submit-all`, then
    `cd dashboard/agent && uv run python main.py`, then `cd dashboard/web && npm install && npm run dev`.
 3. Go to http://localhost:5173 and click **Sign in**. On the provider's login page ("Just a mock
-   login"), type a user id: `funder-1`, `funder-2`, `income-1` or `supervisor-1`. Leave the claims
+   login"), type a user id: `docs-1`, `gap-1`, `income-1`, `risc-1`, `payment-1`, `general-1` or `supervisor-1`. Leave the claims
    box empty, then click **Sign-in**. Back on the dashboard, type a loan id (e.g. `LA-1006`) and
    click **Open**.
    - The sign-in is OIDC Authorization Code with PKCE (`src/auth.ts`, `oidc-client-ts`). The
@@ -154,14 +153,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 160 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 168 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     17 tests, each signing in on the real login page and named for its acceptance scenario.
+     19 tests, each signing in on the real login page and named for its acceptance scenario.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -176,6 +175,8 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
        first, nothing changes and the screen says who has it;
      - `AS_10_3`: every seeded scenario opens with the status its scenario file expects. This
        holds on a fresh database; a deal changed by hand (say, LA-1006 waived) fails it, by name;
+     - `AS_11_2`, `AS_11_6`: the right specialist sees the deal is theirs and may take it; a
+       specialist for another kind of work isn't offered Take and sees who it's for;
      - `FR_11`: signed out shows only the sign-in screen;
      - `AS_8_1`: Summarize shows the recorded summary, read-only, and the overview stays; a
        finished deal is summarized by how it ended;

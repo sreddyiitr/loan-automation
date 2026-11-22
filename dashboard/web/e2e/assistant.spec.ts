@@ -13,7 +13,7 @@ const recorded = (loan: string) => JSON.parse(readFileSync(`${RECORDINGS}${loan}
 
 test('AS_8_1_summarizeExplainsTheDealReadOnlyAndTheOverviewStays', async ({page}) => {
   const errors = watchErrors(page);
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1006');
   await expect(page.getByText(/^LA-1006 · v\d+$/)).toBeVisible();
 
@@ -39,7 +39,7 @@ test('AS_8_1_summarizeExplainsTheDealReadOnlyAndTheOverviewStays', async ({page}
 });
 
 test('AS_8_1_aFinishedDealIsSummarizedByHowItEnded', async ({page}) => {
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1001');
   await page.getByRole('button', {name: 'Summarize'}).click();
   await expect(page.getByText(recorded('LA-1001'), {exact: true})).toBeVisible();
@@ -48,7 +48,7 @@ test('AS_8_1_aFinishedDealIsSummarizedByHowItEnded', async ({page}) => {
 
 test('AS_8_4_withNoModelTheAssistantIsUnavailableAndEverythingElseWorks', async ({page}) => {
   const errors = watchErrors(page);
-  await signInAs(page, 'funder-1');
+  await signInAs(page, 'docs-1');
   await openDeal(page, 'LA-1002');                                                 // no recording: as if no model runs
   await page.getByRole('button', {name: 'Summarize'}).click();
   await expect(page.getByText('The assistant is unavailable right now. Everything else on this deal works.')).toBeVisible();
