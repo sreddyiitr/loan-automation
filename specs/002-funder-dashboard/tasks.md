@@ -346,6 +346,13 @@ lives in the web app, and the overview's layout is still built by agent code.
   - Tests: 150 agent tests (28 new), 15 Playwright tests (2 new: `AS_2_7_…`). Playwright's server
     start limit is 120 s: the first run after a code change once took longer than 60 s.
 
+- [x] **T168** Spec first: AS-2.7's checks say why and open to show what they compared.
+- [ ] **T169** Agent: each check's one-line reason and its comparisons in words (from the results'
+  details: comparisons, flagged fields, the error's message); `CheckList` opens and closes in the
+  browser, checks that didn't pass start open; the checks take the section's full width. Unit
+  tests for the wording; Playwright: a passed check opens to show its matching comparisons, a
+  failed one is open and shows the mismatch, a needs-review one names the field.
+
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 
 **Proves:** each deal's kinds of work route it to one specialist (or the income specialist when it
