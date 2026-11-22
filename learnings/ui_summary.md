@@ -18,8 +18,8 @@ tinted tiles, and the assistant in its own indigo colour, so what the AI wrote i
 themes, so the look lives in the web app (`web/src/index.css`): design tokens, the renderer's
 `--a2ui-*` variables set from them, and our components' styles. The agent sends only structure.
 The overview has a header (loan id, dealer, status badge), the facts as a label/value grid, an
-action bar, **What's been done** (AS-2.7: each check's outcome, and the deal's milestones newest
-first, with who did each), and the version history; the assistant's panel sits beside it on wide
+action bar, **What's been done** (AS-2.7: each check's outcome and why, opening to show every comparison
+it made, expected against found; and the deal's milestones newest first, with who did each), and the version history; the assistant's panel sits beside it on wide
 screens.
 
 What works end to end today:
@@ -151,14 +151,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 150 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 160 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     15 tests, each signing in on the real login page and named for its acceptance scenario.
+     17 tests, each signing in on the real login page and named for its acceptance scenario.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -167,7 +167,8 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      - `AS_2_3`: version history, newest first, earlier ones "superseded by vN";
      - `AS_2_5`: the link opens the deal's workflow in the Temporal UI;
      - `AS_2_7`: what's been done: five passed checks and the payment on a funded deal, the failed
-       check and the stip the system raised on a stipulated one;
+       check and the stip the system raised on a stipulated one; a passed check opens to show why it
+       passed, and checks that didn't pass start open and say why;
      - `AS_2_6`: Take asks for confirmation, then the deal is yours; if someone else took it
        first, nothing changes and the screen says who has it;
      - `AS_10_3`: every seeded scenario opens with the status its scenario file expects. This

@@ -1,6 +1,7 @@
 // Our custom catalog (plan §6): the Basic Catalog has no table, status badge, heading or fact list, so we add them.
 // Keep it in step with dashboard/agent/funder_agent/catalog.py.
 // A component = an API (Zod schema built from CommonSchemas, so bindings resolve) + a React implementation.
+import {useState} from 'react';
 import {z} from 'zod';
 import {Catalog, CommonSchemas} from '@a2ui/web_core/v1_0';
 import {createComponentImplementation} from '@a2ui/react';
@@ -107,22 +108,57 @@ const ICON: Record<string, string> = {done: '✓', refused: '✕', waiting: '!',
 
 export const CheckListApi = {name: 'CheckList', schema: listSchema};
 
+type Comparison = {what: string; expected: string; found: string; ok: boolean};
+type CheckItem = {check: string; outcome: string; label: string; detail: string; reason?: string; open?: boolean;
+  comparisons?: Comparison[]};
+
+// One check: a button that opens and closes what it compared. Opening is local UI state (no round
+// trip to the agent); `open` is only where it starts (checks that didn't pass start open).
+function CheckRow({c}: {c: CheckItem}) {
+  const [open, setOpen] = useState(Boolean(c.open));
+  const comparisons = c.comparisons ?? [];
+  const canOpen = comparisons.length > 0 || Boolean(c.reason);
+  return (
+    <li className={`check tone-${c.outcome}${open ? ' is-open' : ''}`} data-check={c.check}>
+      <button type="button" className="check-head" aria-expanded={open} disabled={!canOpen}
+              onClick={() => setOpen((o) => !o)}>
+        <span className="check-icon" aria-hidden="true">{ICON[c.outcome] ?? '•'}</span>
+        <span className="check-text">
+          <span className="check-name">{c.check}</span>
+          {c.reason && <span className="check-reason">{c.reason}</span>}
+        </span>
+        <span className="check-label">{c.label}</span>
+        {canOpen && <span className="check-chevron" aria-hidden="true" />}
+      </button>
+      {open && (
+        <div className="check-body">
+          {comparisons.length > 0 && (
+            <table className="comparisons">
+              <thead><tr><th aria-label="Matched" /><th>What was compared</th><th>Expected</th><th>Found</th></tr></thead>
+              <tbody>
+                {comparisons.map((x, i) => (
+                  <tr key={i} className={x.ok ? 'ok' : 'bad'}>
+                    <td className="cmp-mark">{x.ok ? '✓' : '✕'}<span className="sr-only">{x.ok ? 'matches' : "doesn't match"}</span></td>
+                    <td>{x.what}</td><td className="num">{x.expected}</td><td className="num">{x.found}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {c.detail && <p className="check-detail">{c.detail}</p>}
+        </div>
+      )}
+    </li>
+  );
+}
+
 const CheckList = createComponentImplementation(CheckListApi as never, ({props}) => {
   const p = props as {title?: string; items?: unknown};
-  const items = asList<{check: string; outcome: string; label: string; detail: string}>(p.items);
+  const items = asList<CheckItem>(p.items);
   return (
     <section className="check-list">
       {p.title && <h4 className="mini-title">{p.title}</h4>}
-      <ul>
-        {items.map((c) => (
-          <li key={c.check} className={`check tone-${c.outcome}`} data-check={c.check}>
-            <span className="check-icon" aria-hidden="true">{ICON[c.outcome] ?? '•'}</span>
-            <span className="check-name">{c.check}</span>
-            <span className="check-label">{c.label}</span>
-            {c.detail && <span className="check-detail">{c.detail}</span>}
-          </li>
-        ))}
-      </ul>
+      <ul>{items.map((c) => <CheckRow key={c.check} c={c} />)}</ul>
     </section>
   );
 });

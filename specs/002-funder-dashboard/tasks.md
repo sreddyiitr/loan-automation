@@ -347,11 +347,23 @@ lives in the web app, and the overview's layout is still built by agent code.
     start limit is 120 s: the first run after a code change once took longer than 60 s.
 
 - [x] **T168** Spec first: AS-2.7's checks say why and open to show what they compared.
-- [ ] **T169** Agent: each check's one-line reason and its comparisons in words (from the results'
+- [x] **T169** Agent: each check's one-line reason and its comparisons in words (from the results'
   details: comparisons, flagged fields, the error's message); `CheckList` opens and closes in the
   browser, checks that didn't pass start open; the checks take the section's full width. Unit
   tests for the wording; Playwright: a passed check opens to show its matching comparisons, a
   failed one is open and shows the mismatch, a needs-review one names the field.
+  **Notes (done 2026-11-21):**
+  - Each check says why in one line: "All 13 comparisons match", "1 of 3 comparisons doesn't
+    match", "Low-confidence field: RISC cash price", "Couldn't finish: income API: server error
+    (503)". The results' details already held every comparison, passes included; no API change.
+  - Comparison names are worded in code: `BUYERS_ORDER` → "Buyer's Order", underscores → spaces,
+    `|variance| <= threshold` → "variance within the threshold". The error's message is taken out
+    of its technical wrapper.
+  - A check opens and closes in the browser (`useState` in `CheckList`); what didn't pass starts
+    open. A mismatch is highlighted, with the value found in red.
+  - Two older tests needed narrower locators, because open checks add tables to the page: the
+    version history is `.data-table`, and the attempt line is inside an opened check.
+  - Tests: 160 agent tests (10 new), 17 Playwright tests (2 new).
 
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 

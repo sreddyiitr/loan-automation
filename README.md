@@ -148,7 +148,7 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **150 agent tests** (pytest) and **15 browser tests**
+Spec 002 (the funder dashboard) adds **160 agent tests** (pytest) and **17 browser tests**
 (Playwright), counted separately; its Java tests are in the 411. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
@@ -527,9 +527,9 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 150 agent tests, no services and no model needed
+make test-dashboard        # 160 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 15 browser tests: their own agent and web app, make dashboard's API and sign-in
+make test-dashboard-e2e    # 17 browser tests: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
 ```
 

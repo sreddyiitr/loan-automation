@@ -106,7 +106,54 @@ def test_AS_2_7_theOverviewShowsWhatsBeenDoneAndPassesStrictValidation():
     validate(messages)
     components = {c["id"]: c for c in messages[1]["updateComponents"]["components"]}
     assert components["checks"] == {"id": "checks", "component": "CheckList", "title": "Checks",
-                                    "items": {"@path": "/deal/checks"}, "weight": 1}
+                                    "items": {"@path": "/deal/checks"}}
     assert components["activity"]["component"] == "Timeline"
     assert "done" in components["body"]["children"]
     assert deal["activity"][0]["title"] == "Stip raised: price mismatch"
+
+
+# ---------------------------------------------------------------- why each check came out as it did (T169)
+
+def details_result(check, outcome, comparisons=(), flagged=(), error=None):
+    r = result(check, outcome)
+    r["details"] = {"comparisons": list(comparisons), "flagged_fields": list(flagged), **({"error": error} if error else {})}
+    return r
+
+
+def cmp(name, expected, actual, ok):
+    return {"name": name, "expected": expected, "actual": actual, "ok": ok}
+
+
+@pytest.mark.parametrize("outcome, comparisons, flagged, error, reason", [
+    ("PASS", [cmp("a", "1", "1", True)] * 13, [], None, "All 13 comparisons match"),
+    ("PASS", [cmp("a", "1", "1", True)], [], None, "The comparison matches"),
+    ("FAIL", [cmp("a", "1", "2", False)], [], None, "The comparison doesn't match"),
+    ("FAIL", [cmp("a", "1", "2", False), cmp("b", "1", "1", True), cmp("c", "1", "1", True)], [], None,
+     "1 of 3 comparisons doesn't match"),
+    ("FAIL", [cmp("a", "1", "2", False), cmp("b", "1", "1", True), cmp("c", "1", "2", False)], [], None,
+     "2 of 3 comparisons don't match"),
+    ("NEEDS_REVIEW", [], ["RISC.cash_price"], None, "Low-confidence field: RISC cash price"),
+    ("NEEDS_REVIEW", [], ["RISC.cash_price", "BUYERS_ORDER.vehicle_year"], None,
+     "Low-confidence fields: RISC cash price, Buyer's Order vehicle year"),
+    ("ERROR", [], [], "check failed technically: message='income API: server error (503)', type='IncomeUnavailable'",
+     "Couldn't finish: income API: server error (503)"),
+    ("PASS", [], [], None, "No comparisons recorded"),
+])
+def test_AS_2_7_eachCheckSaysWhyItCameOutAsItDid(outcome, comparisons, flagged, error, reason):
+    row = next(r for r in checks_model([details_result("PRICE", outcome, comparisons, flagged, error)]) if r["check"] == "Price")
+    assert row["reason"] == reason
+
+
+def test_AS_2_7_aCheckOpensToShowWhatItComparedInWords():
+    rows = checks_model([
+        details_result("PRICE", "FAIL", [cmp("RISC cash_price = BUYERS_ORDER total_vehicle_cash_price", "31450.00", "31450.01", False)]),
+        details_result("INCOME", "PASS", [cmp("|variance| <= threshold", "15.00%", "4.00%", True)]),
+        details_result("VIN", "PASS", [cmp("vin (RISC vs GAP_AGREEMENT)", "4T1", "4T1", True)]),
+    ])
+    by = {r["check"]: r for r in rows}
+    assert by["Price"]["comparisons"] == [{"what": "RISC cash price = Buyer's Order total vehicle cash price",
+                                           "expected": "31450.00", "found": "31450.01", "ok": False}]
+    assert by["Income"]["comparisons"][0]["what"] == "variance within the threshold"
+    assert by["VIN and vehicle"]["comparisons"][0]["what"] == "vin (RISC vs GAP agreement)"
+    assert (by["Price"]["open"], by["Income"]["open"]) == (True, False)       # what didn't pass starts open
+    assert by["TILA math"]["comparisons"] == [] and by["TILA math"]["open"] is False   # not run yet

@@ -169,11 +169,10 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
         {"id": "facts", "component": "FactList", "items": {"@path": "/deal/facts"}},
         # AS-2.7: what the system and other people have already handled.
-        {"id": "done", "component": "Column", "children": ["done_title", "done_row"]},
+        # The checks take the full width: each opens to show what it compared (AS-2.7).
+        {"id": "done", "component": "Column", "children": ["done_title", "checks", "activity", "activity_note"]},
         {"id": "done_title", "component": "Heading", "level": 3, "text": "What's been done"},
-        {"id": "done_row", "component": "Row", "align": "start", "children": ["checks", "activity_col"]},
-        {"id": "checks", "component": "CheckList", "title": "Checks", "items": {"@path": "/deal/checks"}, "weight": 1},
-        {"id": "activity_col", "component": "Column", "children": ["activity", "activity_note"], "weight": 1},
+        {"id": "checks", "component": "CheckList", "title": "Checks", "items": {"@path": "/deal/checks"}},
         {"id": "activity", "component": "Timeline", "title": "Activity", "items": {"@path": "/deal/activity"},
          "emptyText": "Nothing yet"},
         {"id": "activity_note", "component": "Text", "variant": "caption", "text": {"@path": "/deal/activityNote"}},

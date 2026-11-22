@@ -90,7 +90,7 @@ test('AS_2_3_versionHistoryListsEveryVersionNewestFirst', async ({page}) => {
   await openDeal(page, 'LA-1006');
 
   await expect(page.getByRole('columnheader', {name: 'Version'})).toBeVisible();     // our DataTable
-  const rows = page.locator('table tbody tr');
+  const rows = page.locator('.data-table table tbody tr');
   await expect(rows).toHaveCount(versions.length);
   const latest = deal.latestVersionNumber;
   await expect(rows.first()).toContainText(`v${latest}`);
@@ -118,6 +118,7 @@ test("AS_2_7_whatsBeenDoneShowsEachCheckAndTheMilestonesOfAFundedDeal", async ({
   const checks = page.locator('.check');
   await expect(checks).toHaveCount(5);
   await expect(checks.locator('.check-label')).toHaveText(['Passed', 'Passed', 'Passed', 'Passed', 'Passed']);
+  await page.locator('.check[data-check="TILA math"] .check-head').click();   // the attempt and time are inside
   await expect(page.locator('.check[data-check="TILA math"] .check-detail')).toHaveText(/^attempt 1 · \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   const events = page.locator('.event-title');
   await expect(events.first()).toHaveText('Funded');                     // newest first
@@ -134,6 +135,34 @@ test("AS_2_7_aStipulatedDealShowsTheFailedCheckAndTheStipTheSystemRaised", async
   await expect(raised).toHaveCount(1);
   await expect(raised.locator('.event-meta')).toContainText('System');
   await expect(page.locator('.event-title', {hasText: 'Checks finished: stipulated'})).toHaveCount(1);
+});
+
+test("AS_2_7_aPassedCheckOpensToShowWhyItPassed", async ({page}) => {
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1001');
+  const tila = page.locator('.check[data-check="TILA math"]');
+  await expect(tila.locator('.check-reason')).toHaveText('All 3 comparisons match');
+  await expect(tila.locator('.comparisons')).toHaveCount(0);            // passed: starts closed
+  await tila.locator('.check-head').click();
+  const row = tila.locator('.comparisons tbody tr', {hasText: 'amount financed + finance charge = total of payments'});
+  await expect(row.locator('td')).toHaveText(['✓matches', 'amount financed + finance charge = total of payments',
+                                              /^\d+\.\d{2}$/, /^\d+\.\d{2}$/]);
+  const [, , expected, found] = await row.locator('td').allTextContents();
+  expect(found).toBe(expected);                                         // why it passed: the sides agree
+  await tila.locator('.check-head').click();
+  await expect(tila.locator('.comparisons')).toHaveCount(0);            // and closes again
+});
+
+test("AS_2_7_checksThatDidntPassStartOpenAndSayWhy", async ({page}) => {
+  await signInAs(page, 'funder-1');
+  await openDeal(page, 'LA-1002');                                       // seeded: TILA total off by $10
+  const tila = page.locator('.check[data-check="TILA math"]');
+  await expect(tila.locator('.check-reason')).toHaveText("2 of 3 comparisons don't match");
+  await expect(tila.locator('.comparisons tr.bad')).toHaveCount(2);     // open without a click
+  await openDeal(page, 'LA-1023');                                       // seeded: low-confidence cash price
+  await expect(page.locator('.check[data-check="Price"] .check-reason')).toHaveText('Low-confidence field: RISC cash price');
+  await openDeal(page, 'LA-1016');                                       // seeded: income API down
+  await expect(page.locator('.check[data-check="Income"] .check-reason')).toHaveText("Couldn't finish: income API: server error (503)");
 });
 
 test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({page}) => {

@@ -5,6 +5,7 @@ The overview shows them with ``CheckList`` and ``Timeline``.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 CHECKS = ["TILA", "PRICE", "VIN", "GAP", "INCOME"]
@@ -26,18 +27,74 @@ def _words(code: str | None) -> str:
     return (code or "").removeprefix("STIP_").replace("_", " ").lower()
 
 
-def checks_model(results: list[dict[str, Any]], in_progress: bool = False) -> list[dict[str, str]]:
-    """One row per check, its current result in words."""
+DOCUMENTS = {"BUYERS_ORDER": "Buyer's Order", "GAP_AGREEMENT": "GAP agreement", "RISC": "RISC"}
+
+
+def comparison_name(name: str | None) -> str:
+    """'RISC cash_price = BUYERS_ORDER total_vehicle_cash_price' -> "RISC cash price = Buyer's Order
+    total vehicle cash price". Document codes become their names; field names lose underscores."""
+    text = (name or "").replace("|variance| <= threshold", "variance within the threshold")
+    for code, words in DOCUMENTS.items():
+        text = re.sub(rf"\b{code}\b", words, text)
+    return text.replace("_", " ")
+
+
+def field_name(field: str) -> str:
+    """'RISC.cash_price' -> 'RISC cash price'."""
+    doc, _, rest = field.partition(".")
+    return f"{DOCUMENTS.get(doc, doc)} {rest.replace('_', ' ')}".strip() if rest else comparison_name(field)
+
+
+def error_message(error: str | None) -> str:
+    """The readable part of a technical failure: message='income API: server error (503)', ..."""
+    if not error:
+        return ""
+    m = re.search(r"message='([^']*)'", error)
+    return m.group(1) if m else error
+
+
+def check_reason(outcome: str | None, details: dict[str, Any]) -> str:
+    """Why the check came out as it did, in one line."""
+    comparisons = details.get("comparisons") or []
+    bad = [c for c in comparisons if not c.get("ok")]
+    flagged = [field_name(f) for f in details.get("flagged_fields") or []]
+    if outcome == "ERROR":
+        return f"Couldn't finish: {error_message(details.get('error'))}" if details.get("error") else "Couldn't finish"
+    if flagged:
+        return f"Low-confidence field{'s' if len(flagged) > 1 else ''}: {', '.join(flagged)}"
+    if not comparisons:
+        return "No comparisons recorded"
+    if not bad:
+        n = len(comparisons)
+        return f"All {n} comparison{'s' if n != 1 else ''} match" if n > 1 else "The comparison matches"
+    if len(comparisons) == 1:
+        return "The comparison doesn't match"
+    return f"{len(bad)} of {len(comparisons)} comparisons {'doesn' if len(bad) == 1 else 'don'}'t match"
+
+
+def checks_model(results: list[dict[str, Any]], in_progress: bool = False) -> list[dict[str, Any]]:
+    """One row per check: its current result in words, why, and what it compared."""
     current = {r["validationCheck"]: r for r in results if r.get("isCurrent", True)}
     rows = []
     for check in CHECKS:
         r = current.get(check)
         if r is None:
-            label, tone, detail = ("Running" if in_progress else "Not run yet"), "neutral", ""
-        else:
-            label, tone = OUTCOMES.get(r.get("outcome"), (str(r.get("outcome", "")).title(), "neutral"))
-            detail = f"attempt {r.get('attempt', 1)} · {_when(r.get('evaluatedAt'))}"
-        rows.append({"check": CHECK_NAMES[check], "outcome": tone, "label": label, "detail": detail})
+            rows.append({"check": CHECK_NAMES[check], "outcome": "neutral",
+                         "label": "Running" if in_progress else "Not run yet", "detail": "",
+                         "reason": "", "open": False, "comparisons": []})
+            continue
+        outcome = r.get("outcome")
+        label, tone = OUTCOMES.get(outcome, (str(outcome or "").title(), "neutral"))
+        details = r.get("details") or {}
+        rows.append({
+            "check": CHECK_NAMES[check], "outcome": tone, "label": label,
+            "detail": f"attempt {r.get('attempt', 1)} · {_when(r.get('evaluatedAt'))}",
+            "reason": check_reason(outcome, details),
+            "open": outcome != "PASS",                       # what didn't pass starts open
+            "comparisons": [{"what": comparison_name(c.get("name")), "expected": str(c.get("expected", "")),
+                             "found": str(c.get("actual", "")), "ok": bool(c.get("ok"))}
+                            for c in details.get("comparisons") or []],
+        })
     return rows
 
 
