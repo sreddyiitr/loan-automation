@@ -393,3 +393,31 @@ p { margin: 0; }
 /* the My work card: no blue edge (that marks a deal), a little more room */
 .workspace-main div.a2ui-card:has(.work-list) { border-top: 0; padding: 22px 22px 4px; }
 .work-list .work-card { box-shadow: var(--shadow-sm); }
+
+/* Assignment suggestions (US-12): the indigo AI panel's rows, each with its own confirmed Assign */
+.suggestion-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.suggestion {
+  display: flex; align-items: center; gap: 16px; justify-content: space-between;
+  padding: 12px 14px; border-radius: 12px; background: var(--surface, #fff);
+  border: 1px solid var(--line, #e4e7ec); border-left: 4px solid var(--ai, #5b5bd6); box-shadow: var(--shadow-sm);
+}
+.suggestion[data-source="plan"] { border-left-color: var(--ink-muted, #667085); }
+.suggestion-main { display: grid; gap: 4px; min-width: 0; }
+.suggestion-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.suggestion-arrow { color: var(--ink-muted, #667085); }
+.suggestion-assignee { font-weight: 700; color: var(--ink-strong, #101828); }
+.suggestion-role, .suggestion-days { font-size: 0.8rem; color: var(--ink-muted, #667085); }
+.suggestion-reason { font-size: 0.9rem; color: var(--ink, #344054); }
+.suggestion-source {
+  display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  background: var(--ai-soft, #eef0ff); color: var(--ai, #4b4bc4);
+}
+.suggestion-source.source-plan { background: #f2f4f7; color: #475467; }
+.suggestion-assign, .suggestion-yes, .suggestion-no {
+  border-radius: 8px; padding: 7px 14px; font-weight: 600; cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+}
+.suggestion-assign, .suggestion-yes { background: var(--ai, #5b5bd6); color: #fff; }
+.suggestion-no { background: transparent; border-color: var(--line, #d0d5dd); color: var(--ink, #344054); }
+.suggestion-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+@media (max-width: 640px) { .suggestion { flex-direction: column; align-items: stretch; } }
+.suggestion-sent { color: var(--ok, #067647); font-weight: 600; white-space: nowrap; }

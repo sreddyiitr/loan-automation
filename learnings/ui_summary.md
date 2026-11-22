@@ -5,14 +5,14 @@ It is built on the spec 001 funder API and uses **A2UI** for the UI and **ADK** 
 Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md) and
 [`a2ui-notes.md`](../specs/002-funder-dashboard/a2ui-notes.md).
 
-## Status (2026-11-21)
+## Status (2026-11-22)
 
 **Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11), **D1b,
 Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
-A 38-second walkthrough is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
+A 70-second walkthrough (My work, a deal, Summarize, and the supervisor's suggestions) is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
 again after UI changes.
 
 **The look (D1c, D-18):** clean fintech, light, with dark mode following the OS: a navy top bar and
@@ -28,6 +28,15 @@ screens.
 **Signing in lands on My work** (D6a): the deals assigned to you and the ones ready for you to
 take, each a card with its status, what's missing in plain words, who it's routed to and days to
 expiry. Click a card to open the deal; **My work** brings you back.
+
+**Assignment suggestions for the supervisor** (D2b, US-12): on the supervisor's My work, **✦ Suggest
+assignments** opens an indigo panel beside the lists. One row per unassigned deal: loan → assignee,
+their role, days left, the reason, and a tag saying whether it came from the **Assistant** or
+**Code's plan**. **Assign** asks "Assign LA-… to …?" in the row itself; **Yes, assign** makes the
+normal audited reassign, marks the row **Assigned ✓** and refreshes My work. There's no "assign all".
+Specialists don't get the button.
+
+![Assignment suggestions: the supervisor's panel beside My work, one row confirming](screenshots/Assignment%20suggestions.png)
 
 ![My work, as docs-1](screenshots/My%20work.png)
 
@@ -94,7 +103,7 @@ Funding API (Java, spec 001): the only thing that writes
 | **Documents** | Document versions, extracted fields with confidence, compare v1 vs v2. *A page viewer with highlighted fields comes later (it needs document storage)* |
 | **Decisions** | Approve, reject, re-run checks, retry a failed payment; only the actions the status allows are shown |
 | **Audit** | Who did what and when, with before and after values; a link to the run in the Temporal UI |
-| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (D2b, planned: code decides who's eligible, the AI ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
+| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (**built**, D2b: code decides who's eligible, an AI agent with read-only tools ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
 
 ## What's fixed and what's dynamic
 
@@ -103,6 +112,7 @@ Funding API (Java, spec 001): the only thing that writes
 | The screens: worklist and the five tabs | **Code** → A2UI JSON (no LLM) | Predictable, fast, testable like spec 001 |
 | Every write (waive, approve, reject, …) | **Code**, after the funder's click → funder API | The model never acts on its own |
 | Assistant answers | **LLM** → small JSON, which code checks and renders as plain text in a fixed panel | Works on small local models; the model can't add buttons or actions |
+| Assignment suggestions | **LLM agent** calls read-only tools and answers JSON; **code** drops ineligible picks and fills gaps from its own plan; the panel and its Assign buttons are **code** | The model ranks and explains; it can't assign or widen who's eligible |
 | One "ask for a view" feature (e.g. "show the income history as a card") | **LLM writes the A2UI itself** | The generative-UI learning piece |
 
 ## Components
@@ -110,7 +120,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), `WorkList` (D6a, My work's clickable cards), `SuggestionList` (D2b: suggestion rows, each with an in-place confirmed Assign), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -129,6 +139,16 @@ Funding API (Java, spec 001): the only thing that writes
   - The panel is streamed over A2A `message/stream`: "Summarizing…", then the answer.
 - **Speed:** about 1–2 s warm, ~9 s when Ollama has to load the model first; the target is 15 s
   (NFR-02, owner).
+- **How Suggest assignments runs** (D2b):
+  - An **ADK `LlmAgent` with three read-only tools**: `unassigned_deals` (loan id, kinds of work,
+    eligible user ids, days to expiry, earlier assignees), `users` (id, role, open deals) and
+    `eligible(loan_id)`. Local Gemma calls them itself. No names, dealers, amounts or documents.
+  - The `assign` model in `models.yaml`, **thinking off**: 6–13 s for the 18 seeded deals (thinking
+    on took 23–29 s with no better answers; owner's call). The panel shows "Asking the assistant…"
+    first.
+  - Code checks the JSON answer (one retry), drops any suggestion for someone not eligible, and
+    fills any gap from **code's own plan** (most urgent first, to the eligible person with the
+    fewest open deals). With no model, the whole panel is code's plan, and says so.
 - With no model running, the assistant is shown as unavailable and everything else works.
 
 ## Run the spike (today)

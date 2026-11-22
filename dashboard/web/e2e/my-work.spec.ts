@@ -39,8 +39,10 @@ test('AS_1_8_aSpecialistLandsOnTheirWorkOpensADealWithAClickAndFindsItAssignedAf
 });
 
 test('AS_1_8_theSupervisorSeesEveryUnassignedDealThatNeedsSomeone', async ({page}) => {
+  const loans = ['LA-1002', 'LA-1018', 'LA-1012', 'LA-1030'];          // RISC, GAP, income, payment work
+  for (const loan of loans) await unassigned(loan);                     // the demo, or a person, may have taken one
   await signInAs(page, 'supervisor-1');
-  for (const loan of ['LA-1002', 'LA-1018', 'LA-1012', 'LA-1030']) {   // RISC, GAP, income, payment work
+  for (const loan of loans) {
     await expect(card(ready(page), loan), loan).toBeVisible();
   }
   await expect(card(ready(page), 'LA-1030').locator('.work-chip')).toHaveText(['Payment outcome unknown']);

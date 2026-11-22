@@ -195,6 +195,7 @@ public class FunderService {
         r.put("expiresAt", expiresAt(v));
         r.put("workKinds", WorkRouting.kinds(deal).stream().map(Enum::name).toList());
         r.put("routedTo", routed.map(Enum::name).orElse(null));
+        r.put("earlierAssignees", queries.earlierAssignees(v.loanApplicationId(), v.versionNumber()));   // AS-12.3
         // what's holding it (AS-1.8): pending stips, checks that couldn't finish or need review, the RISC, the payment
         r.put("pendingStips", deal.pendingStips().stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();

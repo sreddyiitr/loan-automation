@@ -43,8 +43,20 @@ def open_from_list(api: FunderApi, context: dict[str, Any]) -> list[dict[str, An
 
 
 def my_work(api: FunderApi) -> list[dict[str, Any]]:
-    """AS-1.8: what's assigned to the signed-in user and what's ready for them to take."""
-    return worklist_surface(work_model(api.worklist("mine"), api.worklist("ready")))
+    """AS-1.8: what's assigned to the signed-in user and what's ready for them to take. The supervisor
+    also gets "Suggest assignments" (US-12)."""
+    supervisor = api.whoami().get("role") == "SUPERVISOR"
+    return worklist_surface(work_model(api.worklist("mine"), api.worklist("ready")), supervisor=supervisor)
 
 
-HANDLERS = {"deal.take": take, "deal.open": open_from_list}
+def assign(api: FunderApi, context: dict[str, Any]) -> list[dict[str, Any]]:
+    """``deal.assign`` (AS-12.4): the supervisor confirmed one suggestion; the normal audited reassign,
+    then My work, refreshed. A refusal (e.g. a specialist's stale screen) is a notice."""
+    try:
+        api.assign(int(context["applicationVersionId"]), str(context["assignee"]))
+    except ApiError as e:
+        return notice_surface(message_for(e.reason))
+    return my_work(api) + notice_surface(f"{context.get('loanApplicationId', 'The deal')} is assigned to {context['assignee']}.")
+
+
+HANDLERS = {"deal.take": take, "deal.open": open_from_list, "deal.assign": assign}

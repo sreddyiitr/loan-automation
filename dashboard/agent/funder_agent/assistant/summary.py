@@ -151,15 +151,16 @@ async def summarize(conversation: Conversation, data: dict[str, Any]) -> Answer:
 
 
 class AdkConversation:
-    """The summary as an ADK LlmAgent (D-14) on its own in-memory session, so the retry sees the first
-    reply and nothing else. ``model`` is the registry's LiteLlm, or any ADK BaseLlm in tests."""
+    """An assistant feature as an ADK LlmAgent (D-14) on its own in-memory session, so a retry sees the
+    first reply and nothing else. ``model`` is the registry's LiteLlm, or any ADK BaseLlm in tests;
+    ``tools`` are read-only functions the model may call (assignment suggestions, US-12)."""
 
-    def __init__(self, model: Any, instruction: str = INSTRUCTION, name: str = "summary"):
+    def __init__(self, model: Any, instruction: str = INSTRUCTION, name: str = "summary", tools: list | None = None):
         from google.adk.agents import LlmAgent
         from google.adk.runners import InMemoryRunner
         # The instruction goes through ADK's {state} templating, so it must hold no braces.
         assert "{" not in instruction, "ADK would read braces in the instruction as state variables"
-        self._runner = InMemoryRunner(agent=LlmAgent(name=name, model=model, instruction=instruction),
+        self._runner = InMemoryRunner(agent=LlmAgent(name=name, model=model, instruction=instruction, tools=tools or []),
                                       app_name="funder_assistant")
         self._session_id: str | None = None
 

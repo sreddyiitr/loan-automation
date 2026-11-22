@@ -29,7 +29,8 @@ public class SecurityConfig implements WebMvcConfigurer {
 
     /** The funder API (spec 001 US-10, spec 002 §5). */
     public static final String[] FUNDER_PATHS = {
-        "/api/v1/applications/**", "/api/v1/versions/**", "/api/v1/stip-codes/**", "/api/v1/settings/**"};
+        "/api/v1/applications/**", "/api/v1/versions/**", "/api/v1/stip-codes/**", "/api/v1/settings/**",
+        "/api/v1/me", "/api/v1/users/**"};
 
     @Bean
     SecurityFilterChain funderApi(HttpSecurity http, UserDirectory users) throws Exception {

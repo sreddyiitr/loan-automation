@@ -30,7 +30,7 @@ The project is **spec-driven**: read [`specs/constitution.md`](specs/constitutio
 
 ## See it in action
 
-![The funder dashboard in 38 seconds: sign in, open a deal, see every check and why it passed or failed, open a passed check's evidence, ask the local AI assistant for a summary, and open a funded deal](learnings/demo.webp)
+![The funder dashboard in 70 seconds: sign in and land on My work, open a deal with a click, see every check and why it passed or failed, open a passed check's evidence, ask the local AI assistant for a summary, then the supervisor asks the assistant for assignment suggestions and confirms one](learnings/demo.webp)
 
 A deal that needs a funder, from sign-in to the assistant's summary (local Gemma, live), then a
 funded deal. Re-record it with `make demo` (see [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional)).
@@ -117,7 +117,7 @@ Behind that, in more detail (the spec 001 trigger path):
 - Activity and relay log lines carry the loan, version and workflow IDs, and Temporal's metrics
   appear at `/actuator/metrics`.
 
-**The funder dashboard (spec 002), so far** (slices D0, D1 and D1b):
+**The funder dashboard (spec 002), so far** (slices D0–D2b and D6a):
 - **Sign in** on the local OIDC provider's login page, and land on **My work**: the deals assigned to
   you and the ones ready for you to take, each with what's missing. The funder API knows who you are
   from your token, and records you (and your role) as the actor of every change.
@@ -128,18 +128,23 @@ Behind that, in more detail (the spec 001 trigger path):
 - **Summarize**: a local AI model explains in two or three sentences why the deal isn't funded,
   or how it ended. It's read-only, sees only this deal, and its words are shown as plain text.
   With no model running, everything else still works.
+- **Suggest assignments** (supervisor only): an AI agent reads the unassigned deals and the team's
+  workload through read-only tools and proposes who should take each one, with a reason. Code
+  drops anything that breaks the routing rules, and nothing is assigned until the supervisor
+  confirms that one suggestion. With no model, code's own plan is shown instead.
+  ![Assignment suggestions](learnings/screenshots/Assignment%20suggestions.png)
 - **One command** (`make dashboard`) starts the funding API, the agent and the web app, and
   submits the seeded scenarios.
 
-Code builds every screen and makes every write; the AI only explains. Next: roles and
-permissions (D2), then the worklist and the other tabs. See
+Code builds every screen and makes every write; the AI only explains and suggests. Next: the
+stipulations tab and the other deal tabs (D3 on). See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
 ---
 
 ## How we know it works
 
-**562 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**565 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
@@ -151,17 +156,17 @@ scenario through the full trigger path.
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
 | Workflows (incl. income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, replay suite, log correlation) | Temporal `TestWorkflowEnvironment` (time-skipping), Testcontainers, WireMock | test Temporal, Postgres, generated stubs, recorded histories | 64 | ✅ 63 pass, 1 skipped (the history recorder, on request only) |
 | Trigger plumbing | JUnit 5 | nothing | 3 | ✅ all pass |
-| API (start API, funder API incl. spec 002 overview fields, role enforcement, take and unassign, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 67 | ✅ all pass |
+| API (start API, funder API incl. spec 002 overview fields, role enforcement, take and unassign, the team and `/me`, bearer-token security, dev endpoints, OpenAPI contract) | Spring MockMvc, Spring Security Test, Temporal test env | test Temporal + Postgres | 70 | ✅ all pass |
 | **Functional** (every scenario, every income and disbursement catalog entry, 13 funder actions, real OIDC tokens, 6 versioning cases, worker restart, observability) | JUnit 5 + Spring Boot on a real port | **AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider** | 68 | ✅ all pass |
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **183 agent tests** (pytest) and **21 browser tests**
-(Playwright), counted separately; its Java tests are in the 562. None of them needs an AI model:
+Spec 002 (the funder dashboard) adds **201 agent tests** (pytest) and **24 browser tests**
+(Playwright), counted separately; its Java tests are in the 565. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
-<sub>Last full run: 2026-11-21 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-22 (unit; functional 2026-11-21; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -577,7 +582,7 @@ Then, at http://localhost:5173:
 
 **The demo (`make demo`)** records the dashboard with Playwright: six scenes, each with an on-screen
 caption and a visible pointer, then ffmpeg writes `target/demo/demo.mp4` (about 0.8 MB),
-`demo.webp` (a silent loop, about 0.6 MB; the README's copy is `learnings/demo.webp`) and `demo.srt`.
+`demo.webp` (a silent loop, about 0.8 MB; the README's copy is `learnings/demo.webp`) and `demo.srt`.
 For a voice-over, point `DEMO_VOICE_DIR` at a folder of `line-1.wav` … `line-6.wav`: each scene then
 lasts as long as its line, and the voice is laid at each scene's start. The narration is in
 `dashboard/web/demo/narration.json`. The MP4 and the voice clips stay local (`target/` is ignored);
