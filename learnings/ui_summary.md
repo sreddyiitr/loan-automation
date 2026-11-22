@@ -28,8 +28,9 @@ its own read-only panel under the overview: "Summarizing…" at once, then two o
 with a note that the assistant wrote them from this deal's data only. With no model running, the
 panel says the assistant is unavailable and everything else works.
 
-Not yet built: the worklist, the other tabs, role enforcement (D2), and the assistant's
-"suggest next step" and "draft stip text" (D8).
+Not yet built: the worklist, the other tabs, the five specialist roles and their enforcement
+(D2), assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
+and "draft stip text" (D8).
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
 [`a2ui_overview.md`](a2ui_overview.md) walks through how the code works, and
@@ -64,14 +65,14 @@ Funding API (Java, spec 001): the only thing that writes
 | Area | What the funder can do |
 |---|---|
 | **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
-| **Roles** | **Funder** (own and unassigned deals; sends income work to the income queue), **income specialist** (works the income queue) and **supervisor** (can do everything: all queues, income work, reassigns). Enforced by the API, not just the UI |
+| **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI (D2, planned) |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
 | **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |
 | **Documents** | Document versions, extracted fields with confidence, compare v1 vs v2. *A page viewer with highlighted fields comes later (it needs document storage)* |
 | **Decisions** | Approve, reject, re-run checks, retry a failed payment; only the actions the status allows are shown |
 | **Audit** | Who did what and when, with before and after values; a link to the run in the Temporal UI |
-| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text. It only *suggests*; the funder clicks to act |
+| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (D2b, planned: code decides who's eligible, the AI ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
 
 ## What's fixed and what's dynamic
 

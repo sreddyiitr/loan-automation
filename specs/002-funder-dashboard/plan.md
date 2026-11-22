@@ -100,9 +100,11 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
   `/api/v1/applications/**`, `/versions/**`, `/stip-codes` and `/settings/**` call needs a token
   (401 otherwise). The start API (`X-Trigger-Api-Key`), the `local` dev endpoints, Swagger and
   actuator keep their current access.
-- **Roles (D-13):** a `UserDirectory` maps `sub` to a role from `funding.auth.users`. Locally that
-  is `funder-1` and `funder-2` → FUNDER, `income-1` → INCOME_SPECIALIST and `supervisor-1` →
-  SUPERVISOR; tests add their own ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
+- **Roles (D-13, D-15):** a `UserDirectory` maps `sub` to a role from `funding.auth.users`. Locally
+  (from D2) that is `gap-1` → GAP_SPECIALIST, `income-1` → INCOME_SPECIALIST, `risc-1` →
+  RISC_SPECIALIST, `docs-1` → DOCUMENTS_SPECIALIST, `payment-1` → PAYMENT_SPECIALIST,
+  `general-1` → GENERAL_FUNDER (the catch-all, D-17) and `supervisor-1` → SUPERVISOR; tests add their own ids. Until D2, `funder-1` and `funder-2` are
+  FUNDER, and D2 moves the tests and docs to the new ids. An unknown `sub` gets 403 `UNKNOWN_USER`. With single
   sign-on, the directory can read a provider claim (e.g. groups) instead; that's configuration.
 - **Tokens without a browser** (tests, `curl`): `POST $OIDC_ISSUER_URI/token` with
   `grant_type=client_credentials`, `client_id=<user id>`, any secret and `scope=funding-api` returns
@@ -110,16 +112,22 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
   2026-11-21). MockMvc tests skip the provider and use Spring Security Test's `jwt()`.
 - **No compatibility rule:** `X-Funder-Id` and `MISSING_FUNDER_ID` are removed. Spec 001's tests
   move to tokens (T102) and keep their assertions; README `curl` examples get a token first.
+- **Kinds of work and routing (§3 of the spec)** are a pure `WorkRouting` class in
+  `funding-domain`: `kinds(deal) -> Set<WorkKind>` from the pending stips (by check, or by the
+  field's document for a field review), the current results in ERROR or NEEDS_REVIEW, the
+  `RISC_INCOMPLETE` hold and the payment state, with `GENERAL` for anything the table doesn't map;
+  `routedTo(kinds) -> Role` (one kind → its specialist, `GENERAL` → GENERAL_FUNDER, two or more →
+  INCOME_SPECIALIST, none → SUPERVISOR only). Table-driven, so the
+  mapping is one table a test walks cell by cell.
 - **Permissions** are a pure, table-driven `Permissions` class in `funding-domain`:
-  `allowed(role, action, deal) -> Allowed | Refused(reason)`. It covers:
+  `allowed(role, action, deal) -> Allowed | Refused(reason)`, on top of `WorkRouting`. It covers:
   - assignment (`NOT_ASSIGNED_TO_YOU`);
-  - income work (`INCOME_WORK_NEEDS_SPECIALIST`);
-  - role-only actions (`ROLE_NOT_ALLOWED`).
+  - routing (`NOT_YOUR_SPECIALTY`);
+  - role-only actions (`ROLE_NOT_ALLOWED`: reassign and US-12 are the supervisor's).
 
   `FunderService` checks it before the existing guards. The same class produces `allowedActions`
-  (FR-05b), so the UI and the API can't disagree.
-- **Income work** = a PENDING income stip, or a current INCOME result that is FAIL, NEEDS_REVIEW
-  or ERROR.
+  (FR-05b), so the UI and the API can't disagree. A deal whose assignee isn't its routed role
+  (AS-11.5) is "needs reassignment", derived in the worklist query.
 - **Audit:** `actor` stays the user id; the role goes into `after_state.role` (AS-11.4). There's
   no schema change.
 
@@ -127,14 +135,14 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 
 | Addition | Shape | Notes |
 |---|---|---|
-| Worklist | `GET /api/v1/applications?queue=mine\|unassigned\|income\|all&status=&stipCode=&holdReason=&dealer=&expiresWithinDays=&sort=expiry\|age&page=` | Latest, non-terminal versions only (AS-1.6). Each row: loan id, version id, status, dealer, assignee, hold reasons, pending stip codes, `expiresAt`, `inProgress` |
+| Worklist | `GET /api/v1/applications?queue=mine\|unassigned\|specialty\|needs-reassignment\|all&workKind=&status=&stipCode=&holdReason=&dealer=&expiresWithinDays=&sort=expiry\|age&page=` | Latest, non-terminal versions only (AS-1.6). Each row: loan id, version id, status, dealer, assignee, earlier assignees, hold reasons, pending stip codes, `workKinds`, `routedTo`, `expiresAt`, `inProgress` |
 | Hold reasons | Derived in SQL from stips, current results, the disbursement row and status | `STIPS_PENDING`, `CHECK_ERROR`, `RISC_INCOMPLETE` (from the last `RISC_INCOMPLETE` status audit), `PAYMENT_FAILED`, `PAYMENT_UNKNOWN`; not stored |
 | Overview fields | `expiresAt`, `workflowId`, `workflowStep`, `inProgress`, `payment` {state, reference, amount}, `allowedActions[]` {action, allowed, reason} | T103 (D1) adds all but `allowedActions` (D2, from `Permissions`). **`expiresAt`** = `submittedAt` + `funding.workflow.expire-after` (the workflow's own deadline, AS-8.6); `null` before submission and once FUNDED or REJECTED. **`workflowStep`** is the workflow query's `step` (`null` with no run). **`inProgress`** is true for every step except `WAITING_FOR_FUNDER` and `DONE` (AS-2.2). **`payment.state`** is `NOT_STARTED` (no disbursement row), `IN_FLIGHT` (REQUESTED while the step is `DISBURSING`), `PAID` (COMPLETED, with `reference` and `amount`), `FAILED` (the API refused it), or `UNKNOWN` (REQUESTED with no call running: retries exhausted, C-8). **`workflowId`** builds the Temporal UI link (AS-2.5) |
 | Stip codes | `GET /api/v1/stip-codes` | From `StipCodes`, with descriptions and `waivable` |
 | Comparison attribution | `documents: {left, right}` and `fields` on each comparison | Optional fields, so `rules.lock` stays unaffected. **Check:** does the result-details JSON change the conformance gate? Expected: no |
 | Confidence cut-off | `GET /api/v1/settings/ui` → `{confidenceFlagBelow, expiringSoonDays}` | `expiringSoonDays` defaults to 5 (D-12) |
-| Take | `POST /api/v1/versions/{vid}/take` | AS-2.6: assigns the version to the caller (the token's `sub`) under the row lock. Already the caller's → 200, unchanged and not audited; someone else's → 409 `ALREADY_ASSIGNED`; otherwise audited as `ASSIGNEE_CHANGED` with reason `TAKEN`. D2 adds the AS-11.2 role rule. `PUT …/assignee` stays the supervisor's reassign (AS-2.4) |
-| Send to income queue | `POST /api/v1/versions/{vid}/income-queue` | Flags the deal for income work without changing the assignee (AS-11.5); audited |
+| Take | `POST /api/v1/versions/{vid}/take` | AS-2.6: assigns the version to the caller (the token's `sub`) under the row lock. Already the caller's → 200, unchanged and not audited; someone else's → 409 `ALREADY_ASSIGNED`; otherwise audited as `ASSIGNEE_CHANGED` with reason `TAKEN`. D2 adds the AS-11.2 rule: only a deal routed to the caller (or any, for the supervisor). `PUT …/assignee` stays the supervisor's reassign (AS-2.4) |
+| Users | `GET /api/v1/users` | Supervisor only (FR-13): each user's id, role and open-deal count, for US-12 |
 | Bearer auth | Every endpoint above, and spec 001's funder endpoints: `Authorization: Bearer <OIDC token>` | §4; 401 without a valid token, 403 `UNKNOWN_USER` for an id not in the directory |
 
 The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` keeps it in sync.
@@ -205,6 +213,15 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
   retry.
 - **No model available:** `/api/tags` on Ollama fails, so the assistant shows "unavailable"
   (AS-8.4).
+- **Assignment suggestions (US-12, slice D2b):** the `assign` feature in `models.yaml`, thinking on
+  (it ranks). An ADK `LlmAgent` with **read-only function tools**, each calling the funder API with
+  the supervisor's token: `unassigned_deals()` (loan id, kinds, routing, days to expiry, earlier
+  assignees), `users()` (id, role, open deals) and `eligible(loan_id)`. It returns JSON
+  `{suggestions[{loanId, assignee, reason}]}`; code drops any suggestion whose assignee isn't
+  eligible (FR-08 retry once), and fills the rest from code's own plan (most urgent first, fewest
+  open deals), marked as such. Each row's **Assign** sends the normal reassign (`PUT …/assignee`)
+  after a confirmation. The deals are batched to fit the 4k window (~20 per call). Replay tests
+  as in T155.
 
 ## 8. Developer setup (US-10)
 

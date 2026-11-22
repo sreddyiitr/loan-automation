@@ -287,17 +287,54 @@ doesn't wait for D2.
   further. Observed in T153–T155: **0.7–2.1 s warm**, **8.9 s cold** (Ollama unloads the model after
   5 idle minutes), all within 15 s. No `keep_alive` tuning.
 
-## D2: Roles and permissions
+## D2: Roles and permissions (five specialists and a supervisor, D-15)
 
-**Proves:** the API enforces AS-11.2, and the overview offers only the actions it allows.
-**Exit:** AS-11.1–11.6.
+**Proves:** each deal's kinds of work route it to one specialist (or the income specialist when it
+has two or more), the API enforces AS-11.2, and the overview offers only the actions it allows.
+**Exit:** AS-11.1–11.7; D-17.
 
-- [ ] **T201** Test: `PermissionsTest` covers every cell of the AS-11.2 table, plus `NOT_ASSIGNED_TO_YOU`, `INCOME_WORK_NEEDS_SPECIALIST` and `ROLE_NOT_ALLOWED`.
-- [ ] **T202** `Permissions` in `funding-domain`; income work derived from stips and results.
-- [ ] **T203** `FunderService` checks `Permissions` before the existing guards (including Take from T106) and returns 403 problem+json with a reason. The role goes into the audit `after_state` (AS-11.4).
-- [ ] **T204** `POST /versions/{vid}/income-queue` (AS-11.5), with tests.
-- [ ] **T205** `allowedActions` on the overview, from `Permissions` (FR-05b); the overview surface shows only allowed actions.
-- [ ] **T206** Test: `FunderApiTest` additions, `AS_11_3_…`, `AS_11_6_…`.
+- [ ] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
+  each stip by its check, a field review by its field's document, a manual stip, a check in ERROR,
+  `RISC_INCOMPLETE`, a failed or unknown payment, and `GENERAL` (a manual stip with no check, an
+  unmapped stip code); then routing for one kind, two or more kinds
+  (LA-1027: RISC + documents + income → the income specialist) and none. It also checks every
+  seeded scenario's routing (e.g. LA-1006 → documents, LA-1023 → RISC, LA-1030 → payment).
+- [ ] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
+  covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
+  `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
+- [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
+  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README and
+  `learnings/oidc_authn_authz_summary.md` move off `funder-1` and `funder-2`.
+- [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
+  from T106) and returns 403 problem+json with a reason. The role goes into the audit
+  `after_state` (AS-11.4).
+- [ ] **T205** On the overview: `workKinds`, `routedTo` and `allowedActions` from `Permissions`
+  (FR-05b). The overview surface shows the kinds and who it's routed to, and only allowed
+  actions; Take only when the deal is routed to you.
+- [ ] **T206** Tests: `FunderApiTest` `AS_11_3_…`, `AS_11_5_…`, `AS_11_6_…`; Playwright: a
+  specialist can't act outside their lane and is told why, and the supervisor can.
+
+## D2b: Assignment suggestions for the supervisor (US-12)
+
+**Proves:** an ADK agent with read-only tools proposes assignments, code decides who's eligible,
+and nothing is assigned without the supervisor's click.
+**Exit:** AS-12.1–12.7; FR-13.
+
+- [x] **T251** Spec first: US-12, D-15, D-16, D-17, FR-13 and plan §7 (the spec PR, 2026-11-21).
+- [ ] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
+  `workKinds`, `routedTo` and earlier assignees per row; `GET /api/v1/users` (supervisor only)
+  with role and open-deal count (FR-12, FR-13). Java tests.
+- [ ] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
+  eligible user with the fewest open deals. Unit tests.
+- [ ] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
+  `eligible`) on the `assign` model in `models.yaml`; code drops ineligible suggestions (one
+  retry) and fills the rest from T253's plan; the model sees no names, amounts or documents
+  (AS-12.6).
+- [ ] **T255** The supervisor's surface: **Suggest assignments** on the unassigned list, one row
+  per suggestion with its reason and an **Assign** button behind a confirmation (the normal
+  reassign, AS-12.4). Not offered to specialists.
+- [ ] **T256** Recorded answers (as T155) and tests: an ineligible suggestion is dropped, no model
+  shows code's plan, the prompt holds no names; Playwright `AS_12_1_…`, `AS_12_4_…`.
 
 ## D3: Stipulations tab
 
@@ -330,9 +367,9 @@ doesn't wait for D2.
 
 - [ ] **T601** Test: hold reasons and every filter on the seeded scenarios (Java, Testcontainers).
 - [ ] **T602** `GET /api/v1/applications` with the queues, filters, sort and paging.
-- [ ] **T603** The worklist surface: my queue, unassigned, income queue, expiring soon; filters for status, stip type, hold reason, dealer and days to expiry.
-- [ ] **T604** Send to the income queue from a deal (funder), and pick it up from the income queue (specialist).
-- [ ] **T605** Playwright: filters, `AS_1_6_…`, the income-queue round trip.
+- [ ] **T603** The worklist surface: my queue, unassigned, my specialty queue, needs reassignment (supervisor), expiring soon; filters for status, kind of work, stip type, hold reason, dealer and days to expiry.
+- [ ] **T604** Needs reassignment (AS-11.5): a deal whose routing changed shows there, and the supervisor reassigns it from the list.
+- [ ] **T605** Playwright: filters, `AS_1_6_…`, a routing change landing in needs reassignment and the supervisor's reassign.
 
 ## D7: Documents and audit
 
@@ -367,5 +404,6 @@ doesn't wait for D2.
 | US-2 Overview | D1, D5 | | US-8 Assistant | D1b (Summarize), D8 |
 | US-3 Stipulations | D3 | | US-9 Generated view | D9 |
 | US-4 Results | D4 | | US-10 Developer setup | D1 (and every slice) |
-| US-5 Documents | D7 | | US-11 Roles | D1 (sign-in, directory), D2 (permissions), and every write |
+| US-5 Documents | D7 | | US-11 Roles | D1 (sign-in, directory), D2 (routing, permissions), and every write |
+| | | | US-12 Assignment suggestions | D2b |
 | US-6 Decisions | D5 | | | |

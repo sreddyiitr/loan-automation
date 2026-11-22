@@ -113,7 +113,8 @@ shows "submitted" and refreshes the status (2.5).
 | # | Capability | Mark | Notes |
 |---|---|---|---|
 | 8.1 | **Sign-in and identity:** the funder's id comes from the login, not a header | 🆕 | Spec 001 left authN/authZ out. The owner decides the identity provider |
-| 8.2 | **Roles:** funder, income specialist and supervisor (owner, 2026-11-21), enforced by the API (spec.md US-11) | 🆕 | Today any funder can do everything; needs role checks in the funder API |
+| 8.2 | **Roles:** five specialists (GAP, income, RISC, documents, payment), a catch-all funder (D-17) and a supervisor, each deal routed by its kinds of work (owner, 2026-11-21, D-15), enforced by the API (spec.md US-11) | 🆕 | Today any funder can do everything; needs routing and role checks in the funder API (D2) |
+| 8.2a | **Assignment suggestions** for the supervisor: an ADK agent ranks eligible specialists for each unassigned deal; the supervisor confirms each (spec.md US-12, D-16) | 🆕 | Needs D2's routing, a users endpoint and the unassigned list (D2b) |
 | 8.3 | **Fresh data:** statuses change asynchronously (checks, payments, expiry) | 🟡 | Polling the overview works today; push (events) is a later option |
 | 8.4 | Never show the SSN | ✅ | No funder endpoint returns it; the snapshot only knows a token exists (FR-13) |
 
