@@ -1,0 +1,17 @@
+{
+  "comment": "The demo's six scenes (make demo). caption: shown on screen during the recording; spoken: what the voice says, for demo.srt. A voice clip line-<n>.wav per scene sets how long that scene lasts; without one, seconds is used.",
+  "lines": [
+    {"n": 1, "seconds": 6.0, "caption": "The funder dashboard: where people handle the loans automation couldn’t fund",
+     "spoken": "This is the funder dashboard: the place where people handle the loans our automation couldn't fund on its own."},
+    {"n": 2, "seconds": 2.5, "caption": "Sign in, and open a deal by its loan id",
+     "spoken": "I sign in, and open a deal by its loan id."},
+    {"n": 3, "seconds": 9.0, "caption": "What’s been done: every check, and exactly why it passed or failed",
+     "spoken": "Right away I can see what's been done: every check, and exactly why it passed or failed. Here the TILA math is off by ten dollars."},
+    {"n": 4, "seconds": 4.0, "caption": "Passed checks show their evidence too; the activity shows who did what",
+     "spoken": "Every passed check shows its evidence too, and the activity shows who did what."},
+    {"n": 5, "seconds": 5.0, "caption": "The assistant summarizes the deal, with a local AI model on this laptop",
+     "spoken": "If I want the short version, the assistant summarizes the deal, using a local AI model on my laptop."},
+    {"n": 6, "seconds": 4.5, "caption": "Code builds every screen and makes every change. The AI only explains.",
+     "spoken": "Code builds every screen and makes every change. The AI only explains."}
+  ]
+}

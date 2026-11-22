@@ -343,6 +343,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   override with `TEMPORAL_DB`), so runs survive a restart. Plain `start-dev` is in memory: a
   restart left Postgres deals pointing at runs that no longer existed (dashboard links 404'd).
   The scripts still never start Temporal themselves.
+- **`make demo`** (`scripts/demo.sh`, `scripts/demo_assemble.py`, `dashboard/web/demo/`) records
+  the dashboard demo with Playwright (captions and a visible pointer in the page) and writes
+  `target/demo/demo.mp4`, `demo.webp` and `demo.srt` with ffmpeg; `DEMO_VOICE_DIR` adds a voice-over
+  timed scene by scene. Only the WebP is committed (`learnings/demo.webp`, shown in the README).
 - **`scripts/dashboard-preflight.sh`** (spec 002, AS-10.2) names each missing prerequisite with
   its install command and exits 1. Ollama with `gemma4:e4b` is only a warning (AS-10.4).
 - **`scripts/dashboard-run.sh`** (`make dashboard`, AS-10.1/10.3): preflight, then reuse or start

@@ -12,6 +12,9 @@ Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
+A 38-second walkthrough is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
+again after UI changes.
+
 **The look (D1c, D-18):** clean fintech, light, with dark mode following the OS: a navy top bar and
 hero band with the loan search, white cards lifted over it, key facts (assignee, expiry, payment) in
 tinted tiles, and the assistant in its own indigo colour, so what the AI wrote is easy to spot. A2UI v1.0 has no

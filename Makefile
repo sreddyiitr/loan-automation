@@ -8,7 +8,7 @@ OIDC  := source scripts/oidc-env.sh
 MVN   := mvn -q -B
 TEMPORAL_DB ?= $(HOME)/.temporal/funding.db
 
-.PHONY: temporal run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e record-assistant
+.PHONY: temporal run down seed-check seed-regenerate seed-submit-all test-unit test-functional test-functional-volume verify-emulator dashboard dashboard-preflight test-dashboard test-dashboard-e2e record-assistant demo
 
 temporal:                 ## Temporal dev server on a file DB ($(TEMPORAL_DB)), so runs survive a restart; in its own terminal
 	@mkdir -p "$(dir $(TEMPORAL_DB))" && temporal server start-dev --db-filename "$(TEMPORAL_DB)"
@@ -72,6 +72,9 @@ test-dashboard-e2e:       ## spec 002 Playwright tests: start their own replayin
 
 record-assistant:         ## spec 002 T155: record the model's summaries of some seeded deals for replay (needs make dashboard and Ollama)
 	@cd dashboard/agent && uv run python -m funder_agent.assistant.record
+
+demo:                     ## spec 002: record the dashboard demo to target/demo (demo.mp4, demo.webp, demo.srt); DEMO_VOICE_DIR=<folder with line-1.wav…> adds your voice
+	@./scripts/demo.sh
 
 verify-emulator:          ## T608: re-run plan V-2, V-4 and the RDS probe against the current emulator; writes target/verify-emulator.md
 	@./scripts/verify-emulator.sh
