@@ -291,7 +291,7 @@ doesn't wait for D2.
 
 **Proves:** the dashboard looks like a real product, with no protocol or API change: the theme
 lives in the web app, and the overview's layout is still built by agent code.
-**Exit:** AS-2.1, AS-2.3, AS-2.5, AS-2.6 and AS-8.1 still pass on the new layout; NFR-04, NFR-05.
+**Exit:** AS-2.1, AS-2.3, AS-2.5, AS-2.6 and AS-8.1 still pass on the new layout; AS-2.7; NFR-04, NFR-05.
 
 - [x] **T161** Theme: design tokens on `:root` (light, with a dark mode that follows the OS), the
   renderer's `--a2ui-*` variables set from them, and styles for the shell, `DataTable` and
@@ -324,6 +324,15 @@ lives in the web app, and the overview's layout is still built by agent code.
     facts in tinted tiles; a tinted table header; gradient primary buttons; and the assistant in
     its own indigo colour with a ✦. Dark mode checked too: section titles got their own colour
     there, because navy had no contrast.
+
+- [x] **T165** Spec first: AS-2.7 ("What's been done"), `CheckList` and `Timeline` in plan §6.
+- [ ] **T166** Agent: the overview reads the results and the audit trail; `checks` (one per check,
+  current outcome in words) and `activity` (milestones in plain words, newest first, back-to-back
+  assignment changes collapsed, at most 8) in the deal model; the section on the overview.
+  `CheckList` and `Timeline` on both sides. Unit tests for every audit action's wording and the
+  collapsing.
+- [ ] **T167** Playwright `AS_2_7_…`: a funded deal (LA-1001) shows five passed checks, the payment
+  and "funded"; a stipulated one (LA-1006) shows PRICE failed and the stip raised by the system.
 
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 

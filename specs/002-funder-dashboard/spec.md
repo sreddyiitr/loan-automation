@@ -115,6 +115,9 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-2.4** A funder can **reassign** the deal to another funder from a list, or back to unassigned (`funderId: null`), which puts it in the unassigned queue again. The change shows at once and appears in the audit trail. Who may reassign is AS-11.2.
 - **AS-2.5** A link opens the deal's workflow run in the Temporal UI.
 - **AS-2.6** **Take** (assign to self) is offered only on an unassigned deal. It asks for confirmation; once confirmed, the overview shows the user as the assignee and no longer offers Take. If someone else took the deal in the meantime, for example from a stale screen, the API refuses with 409 `ALREADY_ASSIGNED`, nothing changes, and the overview shows who has it. Taking a deal you already have changes nothing. Role rules on Take come with AS-11.2.
+- **AS-2.7** The overview has a **What's been done** section, so a funder sees what the system and other people have already handled:
+  - **Checks:** each of TILA, PRICE, VIN, GAP and INCOME with its current outcome in words (passed, failed, needs review, error, or not run yet), its attempt and when it finished;
+  - **Activity:** the deal's milestones, newest first, each in plain words with who did it (a person, the system, or the dealer's submission): submitted, checks finished, stips raised and resolved (with the note), assignments, re-runs, approval, payment and funding. Back-to-back assignment changes show as one line ("taken by funder-2, after 3 changes"). At most 8 lines; older ones are in the full audit trail (US-7).
 
 ### US-3 Stipulations (P1) (source Tab 2)
 - **AS-3.1** The stip list shows each stip's:
