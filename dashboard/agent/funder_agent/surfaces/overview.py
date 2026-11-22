@@ -11,6 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from .. import config
+from .activity import activity_model, checks_model
 from ..catalog import FUNDER_CATALOG_ID, VERSION
 
 TERMINAL = {"FUNDED", "REJECTED", "EXPIRED"}
@@ -77,11 +78,13 @@ def temporal_url(workflow_id: str) -> str:
 
 
 def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: datetime | None = None,
-               me: str | None = None) -> dict[str, Any]:
-    """``me`` is the signed-in user (the token's sub): their own deal reads "you"."""
+               me: str | None = None, results: list[dict[str, Any]] | None = None,
+               audit: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """``me`` is the signed-in user (the token's sub): their own deal reads "you". ``results`` and
+    ``audit`` give AS-2.7's "What's been done"."""
     now = now or datetime.now(timezone.utc)
     assignee = overview.get("assignedFunder")
-    return {
+    deal = {
         "loanApplicationId": overview["loanApplicationId"],
         "applicationVersionId": overview["applicationVersionId"],
         "versionNumber": overview.get("latestVersionNumber"),
@@ -101,17 +104,24 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         if overview.get("inProgress") else "",
         "temporalUrl": temporal_url(overview["workflowId"]) if overview.get("workflowId") else "",
         "versions": version_rows(versions),
+        "checks": checks_model(results or [], bool(overview.get("inProgress"))),
     }
+    activity = activity_model(audit or [])
+    deal["activity"] = activity["items"]
+    deal["activityNote"] = (f"{activity['older']} earlier event{'s' if activity['older'] != 1 else ''} "
+                            "in the full audit trail.") if activity["older"] else ""
+    return with_facts(deal)
 
 
-def _fact(cid: str, label: str, path: str) -> dict[str, Any]:
-    return {"id": cid, "component": "Text", "text": {"@call": "formatString", "args": {"value": f"{label}: ${{/deal/{path}}}"}}}
+# AS-2.1: the facts, in the order the funder reads them; shown as a FactList (label/value grid, D1c).
+FACTS = [("Assigned to", "assignedFunder"), ("Expiry", "expiry"), ("Payment", "payment"),
+         ("Dealer", "dealershipName"), ("Borrower", "borrowerName"), ("Co-borrower", "coBorrowerName"),
+         ("Stated income", "statedIncome"), ("VIN", "vehicleVin"), ("Submitted", "submitted")]
 
 
-FACTS = [("dealer", "Dealer", "dealershipName"), ("borrower", "Borrower", "borrowerName"),
-         ("co_borrower", "Co-borrower", "coBorrowerName"), ("income", "Stated income", "statedIncome"),
-         ("vin", "VIN", "vehicleVin"), ("assignee", "Assigned to", "assignedFunder"),
-         ("submitted", "Submitted", "submitted"), ("expiry", "Expiry", "expiry"), ("payment", "Payment", "payment")]
+def with_facts(deal: dict[str, Any]) -> dict[str, Any]:
+    """The FactList's items, from the deal's own fields, so a data refresh updates both (FR-10)."""
+    return deal | {"facts": [{"label": label, "value": str(deal[key])} for label, key in FACTS]}
 
 
 def _take_controls() -> list[dict[str, Any]]:
@@ -142,18 +152,31 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
     surface the browser already has: ``deleteSurface`` first, which also closes an open Modal.
     """
     sid = surface_id(deal["applicationVersionId"])
-    facts = [_fact(*f) for f in FACTS]
     take = _take_controls() if deal.get("canTake") else []
     components = [
         {"id": "root", "component": "Card", "child": "body"},
         {"id": "body", "component": "Column",
-         "children": ["title", "status", "progress", *[f["id"] for f in facts], "actions", "history_title", "history"]},
-        {"id": "title", "component": "Text",
+         "children": ["header", "progress", "facts", "actions", "done", "history"]},
+        # D1c: a header with the deal's name, where it's from, and its status.
+        {"id": "header", "component": "Row", "justify": "spaceBetween", "align": "start",
+         "children": ["header_text", "status"]},
+        {"id": "header_text", "component": "Column", "children": ["title", "subtitle"]},
+        {"id": "title", "component": "Heading", "level": 1,
          "text": {"@call": "formatString", "args": {"value": "${/deal/loanApplicationId} · v${/deal/versionNumber}"}}},
+        {"id": "subtitle", "component": "Text", "variant": "caption",
+         "text": {"@call": "formatString", "args": {"value": "${/deal/dealershipName} · submitted ${/deal/submitted}"}}},
         {"id": "status", "component": "StatusBadge", "status": {"@path": "/deal/status"}},
         {"id": "progress", "component": "Text", "variant": "caption", "text": {"@path": "/deal/progressText"}},
-        *facts,
-        {"id": "actions", "component": "Row",
+        {"id": "facts", "component": "FactList", "items": {"@path": "/deal/facts"}},
+        # AS-2.7: what the system and other people have already handled.
+        # The checks take the full width: each opens to show what it compared (AS-2.7).
+        {"id": "done", "component": "Column", "children": ["done_title", "checks", "activity", "activity_note"]},
+        {"id": "done_title", "component": "Heading", "level": 3, "text": "What's been done"},
+        {"id": "checks", "component": "CheckList", "title": "Checks", "items": {"@path": "/deal/checks"}},
+        {"id": "activity", "component": "Timeline", "title": "Activity", "items": {"@path": "/deal/activity"},
+         "emptyText": "Nothing yet"},
+        {"id": "activity_note", "component": "Text", "variant": "caption", "text": {"@path": "/deal/activityNote"}},
+        {"id": "actions", "component": "Row", "align": "center",
          "children": [*(["take_modal"] if take else []), "summarize_button", "temporal_button"]},
         *take,
         # AS-8.1: read-only, so it's on every deal and needs no confirmation; the panel is its own surface.
@@ -167,8 +190,7 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
         {"id": "temporal_button", "component": "Button", "variant": "borderless", "child": "temporal_label",
          "accessibility": {"label": "Open the workflow in Temporal"},
          "action": {"functionCall": {"@call": "openUrl", "args": {"url": {"@path": "/deal/temporalUrl"}}}}},
-        {"id": "history_title", "component": "Text", "text": "Version history"},
-        {"id": "history", "component": "DataTable",
+        {"id": "history", "component": "DataTable", "title": "Version history",
          "columns": [{"key": "version", "title": "Version"}, {"key": "status", "title": "Status"},
                      {"key": "submitted", "title": "Submitted"}, {"key": "note", "title": ""}],
          "rows": {"@path": "/deal/versions"}, "emptyText": "No versions"},

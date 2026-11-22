@@ -34,13 +34,20 @@ def assistant_surface(version_id: int, state: str, summary: str = "") -> list[di
     createSurface, updateComponents and updateDataModel. A second createSurface of the same id is an
     integrity error in A2UI, so each reply stands on its own and replies can follow each other."""
     sid = surface_id(version_id)
+    lines = ["summary", "disclosure"] if state == "ok" else ["state"]
+    every = {
+        "state": {"id": "state", "component": "Text", "text": {"@path": "/assistant/stateText"}},
+        "summary": {"id": "summary", "component": "Text", "text": {"@path": "/assistant/summary"}},
+        "disclosure": {"id": "disclosure", "component": "Text", "variant": "caption",
+                       "text": {"@path": "/assistant/disclosure"}},
+    }
+    # Only the lines this state has (D1c): an empty line would leave a gap, and A2UI refuses a
+    # component that nothing reaches. The panel is rebuilt for every state anyway.
     components = [
         {"id": "root", "component": "Card", "child": "body"},
-        {"id": "body", "component": "Column", "children": ["title", "state", "summary", "disclosure"]},
-        {"id": "title", "component": "Text", "text": "Assistant: summary"},
-        {"id": "state", "component": "Text", "text": {"@path": "/assistant/stateText"}},
-        {"id": "summary", "component": "Text", "text": {"@path": "/assistant/summary"}},
-        {"id": "disclosure", "component": "Text", "variant": "caption", "text": {"@path": "/assistant/disclosure"}},
+        {"id": "body", "component": "Column", "children": ["title", *lines]},
+        {"id": "title", "component": "Heading", "level": 2, "text": "Assistant summary"},
+        *(every[line] for line in lines),
     ]
     return [
         {"version": VERSION, "deleteSurface": {"surfaceId": sid}},

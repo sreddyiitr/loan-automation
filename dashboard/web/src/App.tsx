@@ -35,14 +35,27 @@ function apply(p: MessageProcessor, messages: Message[]): string[] {
   return created;
 }
 
+function Brand() {
+  return (
+    <span className="brand">
+      <span className="brand-mark" aria-hidden="true">F</span>
+      <span className="brand-name">Funder dashboard</span>
+    </span>
+  );
+}
+
 function SignIn({error}: {error?: string}) {
   return (
-    <section className="sign-in">
-      <h1>Funder dashboard</h1>
-      <p>Sign in to work your deals.</p>
-      {error && <p role="alert">{error}</p>}
-      <button type="button" onClick={() => void signIn()}>Sign in</button>
-    </section>
+    <div className="sign-in-page">
+      <section className="sign-in">
+        <Brand />
+        <h1>Sign in to work your deals</h1>
+        <p className="muted">Review funding exceptions, clear stips and decide, with every change audited under your name.</p>
+        {error && <p role="alert" className="alert">{error}</p>}
+        <button type="button" className="btn btn-primary btn-block" onClick={() => void signIn()}>Sign in</button>
+        <p className="fine-print">Local development: the sign-in page takes any user id from the directory, with no password.</p>
+      </section>
+    </div>
   );
 }
 
@@ -109,29 +122,58 @@ export default function App() {
     const s = processor.model.surfacesMap.get(id);
     return s ? [s] : [];
   });
+  // D1c: the assistant's panel sits beside the deal on wide screens; everything else is the main column.
+  const side = surfaces.filter((s) => s.id.endsWith('_assistant'));
+  const mainSurfaces = surfaces.filter((s) => !s.id.endsWith('_assistant'));
 
   return (
-    <main>
-      <header className="shell-header">
-        <strong>Funder dashboard</strong>
-        <span>
-          Signed in as <span data-testid="user">{user}</span>{' '}
-          <button type="button" onClick={() => void signOut().then(() => { setUser(undefined); setVisible([]); })}>Sign out</button>
-        </span>
+    <div className="app">
+      <header className="topbar">
+        <Brand />
+        <div className="topbar-user">
+          <span className="user-chip">
+            <span className="avatar" aria-hidden="true">{user.slice(0, 1).toUpperCase()}</span>
+            <span>Signed in as <span data-testid="user">{user}</span></span>
+          </span>
+          <button type="button" className="btn btn-ghost" onClick={() => void signOut().then(() => { setUser(undefined); setVisible([]); })}>Sign out</button>
+        </div>
       </header>
-      <form className="open-deal" onSubmit={open}>
-        <label htmlFor="loan-id">Loan id</label>
-        <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="LA-1006" autoComplete="off" />
-        <button type="submit">Open</button>
-      </form>
-      {error && <p role="alert">{error}</p>}
-      {surfaces.map((s) => (
-        <A2uiSurface key={s.id} surface={s as never} />
-      ))}
-      <details>
-        <summary>Events sent back to the agent</summary>
-        <pre data-testid="events">{events.join('\n') || '(none yet)'}</pre>
-      </details>
-    </main>
+      <section className="hero">
+        <div className="hero-inner">
+          <div className="hero-text">
+            <p className="hero-kicker">Funding exceptions</p>
+            <h1 className="hero-title">Open a deal</h1>
+          </div>
+          <form className="open-deal" onSubmit={open}>
+            <label htmlFor="loan-id">Loan id</label>
+            <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="e.g. LA-1006" autoComplete="off" />
+            <button type="submit" className="btn btn-primary">Open</button>
+          </form>
+        </div>
+      </section>
+      <main className="page">
+        {error && <p role="alert" className="alert">{error}</p>}
+        {surfaces.length === 0 && !error && (
+          <section className="empty-state">
+            <h2>No deal open yet</h2>
+            <p className="muted">Type a loan id above to see its overview, take it, or ask the assistant to summarize it.</p>
+          </section>
+        )}
+        <div className={side.length ? 'workspace has-side' : 'workspace'}>
+          <div className="workspace-main">
+            {mainSurfaces.map((s) => <A2uiSurface key={s.id} surface={s as never} />)}
+          </div>
+          {side.length > 0 && (
+            <aside className="workspace-side">
+              {side.map((s) => <A2uiSurface key={s.id} surface={s as never} />)}
+            </aside>
+          )}
+        </div>
+        <details className="debug">
+          <summary>Events sent back to the agent</summary>
+          <pre data-testid="events">{events.join('\n') || '(none yet)'}</pre>
+        </details>
+      </main>
+    </div>
   );
 }

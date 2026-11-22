@@ -28,6 +28,13 @@ The project is **spec-driven**: read [`specs/constitution.md`](specs/constitutio
 [`learnings/implementation_summary.md`](learnings/implementation_summary.md), and the dashboard is summarized in
 [`learnings/ui_summary.md`](learnings/ui_summary.md).
 
+## See it in action
+
+![The funder dashboard in 38 seconds: sign in, open a deal, see every check and why it passed or failed, open a passed check's evidence, ask the local AI assistant for a summary, and open a funded deal](learnings/demo.webp)
+
+A deal that needs a funder, from sign-in to the assistant's summary (local Gemma, live), then a
+funded deal. Re-record it with `make demo` (see [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional)).
+
 ## Architecture
 
 ![How funding-automation fits together today: the funder's browser (React + A2UI) talks A2A to a Python agent, which builds screens in code, runs Summarize through ADK on local Gemma, and calls the Java funding app's funder API with the user's token; the funding app uses Postgres, Temporal, the AWS Emulator's SQS and WireMock, all on one laptop](Architecture.svg)
@@ -148,7 +155,7 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **121 agent tests** (pytest) and **13 browser tests**
+Spec 002 (the funder dashboard) adds **160 agent tests** (pytest) and **17 browser tests**
 (Playwright), counted separately; its Java tests are in the 411. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
@@ -527,10 +534,11 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 121 agent tests, no services and no model needed
+make test-dashboard        # 160 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 13 browser tests: their own agent and web app, make dashboard's API and sign-in
+make test-dashboard-e2e    # 17 browser tests: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
+make demo                  # record the demo to target/demo: demo.mp4, demo.webp, demo.srt (needs ffmpeg)
 ```
 
 `make dashboard` reuses each part that's already running (including an app from `make run`),
@@ -544,6 +552,8 @@ from it.
 
 Then, at http://localhost:5173:
 
+![The funder dashboard: a deal's overview and the assistant's summary](learnings/screenshots/Funder%20dashboard.png)
+
 1. Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
    `supervisor-1`), leave the claims box empty, and click **Sign-in**. There's no password.
 2. Type a loan id, say `LA-1007`, and click **Open**.
@@ -553,6 +563,14 @@ Then, at http://localhost:5173:
 4. Click **Summarize**. The panel says "Summarizing…", then shows the explanation. Good ones to
    try: `LA-1006` (price 1¢ off), `LA-1012` (income over by 33%), `LA-1016` (income API down),
    `LA-1030` (payment outcome unknown) and `LA-1001` (funded).
+
+**The demo (`make demo`)** records the dashboard with Playwright: six scenes, each with an on-screen
+caption and a visible pointer, then ffmpeg writes `target/demo/demo.mp4` (about 0.8 MB),
+`demo.webp` (a silent loop, about 0.6 MB; the README's copy is `learnings/demo.webp`) and `demo.srt`.
+For a voice-over, point `DEMO_VOICE_DIR` at a folder of `line-1.wav` … `line-6.wav`: each scene then
+lasts as long as its line, and the voice is laid at each scene's start. The narration is in
+`dashboard/web/demo/narration.json`. The MP4 and the voice clips stay local (`target/` is ignored);
+only the WebP is committed.
 
 The browser tests start their own agent (replaying recorded answers) and web app, so they always
 test the current code; they need `make dashboard`'s funding API and sign-in. More, including how

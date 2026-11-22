@@ -160,6 +160,21 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
   - `onRowAction`: an optional `Action` per row, carrying `context.rowKey`.
 - **`StatusBadge`:** `status`, with a label and an icon so it doesn't rely on color (NFR-04).
 - **`ConfidenceTag`:** `value` and `threshold`, showing a "low" text when below the threshold.
+- **`Heading`** (D1c): `text` and `level` (1–3). The basic `Text` allows only `caption` and
+  `body`, so titles need their own component.
+- **`FactList`** (D1c): `items`, a `@path` to a list of `{label, value}`, drawn as a two-column
+  label/value grid. It replaces "Label: value" lines.
+- **`CheckList`** (D1c, AS-2.7): `items`, a `@path` to `{check, outcome, label, detail, reason,
+  open, comparisons[{what, expected, found, ok}]}`; one row per check with an icon and a word, so
+  the outcome never relies on colour (NFR-04). A row opens and closes in the browser (local UI
+  state, no round trip to the agent); `open` is only where it starts. The agent words the
+  comparison names (`BUYERS_ORDER` → "Buyer's Order", underscores → spaces).
+- **`Timeline`** (D1c, AS-2.7): `items`, a `@path` to `{when, title, actor, tone}`, newest first; a
+  dot per event, its tone (`done`, `waiting`, `refused`, `neutral`) only groups. The agent builds
+  both from the funder API's results and audit trail; no API change.
+- **The look (D1c, D-18):** styling is the renderer's job in A2UI v1.0 (themes left the protocol),
+  so it lives in `web/src/index.css`: design tokens on `:root`, the renderer's `--a2ui-*`
+  variables set from them, and our components' classes. The agent sends structure, never style.
 - **Basic Catalog** for everything else: Tabs, Card, Row/Column, List, Text, Button, Modal,
   TextField, ChoicePicker, Divider, Icon.
 - The React implementations live in `web/src/catalog/` (`createComponentImplementation` with a Zod

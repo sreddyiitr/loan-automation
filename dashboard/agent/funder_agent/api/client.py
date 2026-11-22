@@ -70,6 +70,9 @@ class FunderApi:
     def validation_results(self, version_id: int) -> list[dict[str, Any]]:
         return self._call("GET", f"/versions/{version_id}/validation-results")
 
+    def audit(self, version_id: int) -> list[dict[str, Any]]:
+        return self._call("GET", f"/versions/{version_id}/audit")
+
     # ------------------------------------------------------------------ writes
 
     def take(self, version_id: int) -> dict[str, Any]:

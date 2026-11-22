@@ -287,6 +287,84 @@ doesn't wait for D2.
   further. Observed in T153–T155: **0.7–2.1 s warm**, **8.9 s cold** (Ollama unloads the model after
   5 idle minutes), all within 15 s. No `keep_alive` tuning.
 
+## D1c: Look and feel (D-18)
+
+**Proves:** the dashboard looks like a real product, with no protocol or API change: the theme
+lives in the web app, and the overview's layout is still built by agent code.
+**Exit:** AS-2.1, AS-2.3, AS-2.5, AS-2.6 and AS-8.1 still pass on the new layout; AS-2.7; NFR-04, NFR-05.
+
+- [x] **T161** Theme: design tokens on `:root` (light, with a dark mode that follows the OS), the
+  renderer's `--a2ui-*` variables set from them, and styles for the shell, `DataTable` and
+  `StatusBadge`. Replaces Vite's starter stylesheet.
+- [x] **T162** Two catalog components, on both sides (web and agent validation): `Heading` and
+  `FactList` (plan §6).
+- [x] **T163** The overview's new layout: a header (title, dealer and submitted date, status
+  badge), the facts as a `FactList`, an action bar, and the version history with its own
+  heading. The assistant's panel gets a heading too, and sits beside the overview on wide screens.
+- [x] **T164** Tests follow the layout: agent surface tests, and Playwright reads facts by label.
+  A screenshot of the new look goes into `learnings/screenshots/`.
+  **Notes (done 2026-11-21):**
+  - The theme is CSS only: design tokens, a dark mode, and the renderer's `--a2ui-*` variables (it
+    has 139). Vite's starter stylesheet, which centred everything, is gone.
+  - **Pitfalls:**
+    - The renderer wraps a caption in `<em>`, so `.a2ui-text-caption em` is what un-italicises
+      it.
+    - Strict A2UI refuses a component nothing reaches, so the assistant's panel sends only the
+      lines its state uses.
+  - The overview's header row aligns to the top, and its action row to the centre. The shell has a
+    top bar, a toolbar, a two-column workspace with the assistant beside the deal, an empty state
+    and a sign-in card.
+  - Tests: 122 agent tests (1 new: the facts are a `FactList` built from the deal's own fields) and
+    13 Playwright tests, which now read facts by label (`fact(page, label)` in `e2e/support.ts`).
+    The no-buttons check on the assistant's panel stays strict: only Card, Column, Heading and Text.
+  - Screenshot: `learnings/screenshots/Funder dashboard.png`, also shown in the README and
+    `ui_summary.md`.
+  - **Made richer** at the owner's request ("too light"): a navy top bar and a hero band holding
+    the loan search, with the cards lifted over it; a blue edge on the deal card; the first three
+    facts in tinted tiles; a tinted table header; gradient primary buttons; and the assistant in
+    its own indigo colour with a ✦. Dark mode checked too: section titles got their own colour
+    there, because navy had no contrast.
+
+- [x] **T165** Spec first: AS-2.7 ("What's been done"), `CheckList` and `Timeline` in plan §6.
+- [x] **T166** Agent: the overview reads the results and the audit trail; `checks` (one per check,
+  current outcome in words) and `activity` (milestones in plain words, newest first, back-to-back
+  assignment changes collapsed, at most 8) in the deal model; the section on the overview.
+  `CheckList` and `Timeline` on both sides. Unit tests for every audit action's wording and the
+  collapsing.
+- [x] **T167** Playwright `AS_2_7_…`: a funded deal (LA-1001) shows five passed checks, the payment
+  and "funded"; a stipulated one (LA-1006) shows PRICE failed and the stip raised by the system.
+  **Notes (T166–T167, done 2026-11-21):**
+  - `funder_agent/surfaces/activity.py` turns the results and the audit trail into words: every
+    audit action has its wording (status changes by reason, stips raised and resolved with the
+    note, assignments, re-runs, payment), with an unknown action still read as words. The actor is a
+    person's id, "System" (`system:…`) or "Dealer submission" (`dev:…`).
+  - Back-to-back assignment changes collapse into the last one, "(after N changes)". The test runs
+    made 81 of them on LA-1006, which show as one line.
+  - The overview reads two more endpoints (results and audit); no API change.
+  - The facts grid is three columns now: nine facts fill it, so no empty cell (one column on
+    phones).
+  - Tests: 150 agent tests (28 new), 15 Playwright tests (2 new: `AS_2_7_…`). Playwright's server
+    start limit is 120 s: the first run after a code change once took longer than 60 s.
+
+- [x] **T168** Spec first: AS-2.7's checks say why and open to show what they compared.
+- [x] **T169** Agent: each check's one-line reason and its comparisons in words (from the results'
+  details: comparisons, flagged fields, the error's message); `CheckList` opens and closes in the
+  browser, checks that didn't pass start open; the checks take the section's full width. Unit
+  tests for the wording; Playwright: a passed check opens to show its matching comparisons, a
+  failed one is open and shows the mismatch, a needs-review one names the field.
+  **Notes (done 2026-11-21):**
+  - Each check says why in one line: "All 13 comparisons match", "1 of 3 comparisons doesn't
+    match", "Low-confidence field: RISC cash price", "Couldn't finish: income API: server error
+    (503)". The results' details already held every comparison, passes included; no API change.
+  - Comparison names are worded in code: `BUYERS_ORDER` → "Buyer's Order", underscores → spaces,
+    `|variance| <= threshold` → "variance within the threshold". The error's message is taken out
+    of its technical wrapper.
+  - A check opens and closes in the browser (`useState` in `CheckList`); what didn't pass starts
+    open. A mismatch is highlighted, with the value found in red.
+  - Two older tests needed narrower locators, because open checks add tables to the page: the
+    version history is `.data-table`, and the attempt line is inside an opened check.
+  - Tests: 160 agent tests (10 new), 17 Playwright tests (2 new).
+
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 
 **Proves:** each deal's kinds of work route it to one specialist (or the income specialist when it
@@ -303,8 +381,9 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
 - [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
-  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README and
-  `learnings/oidc_authn_authz_summary.md` move off `funder-1` and `funder-2`.
+  `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README,
+  `learnings/oidc_authn_authz_summary.md` and the demo (`DEMO_USER` in `dashboard/web/demo/record.mjs`)
+  move off `funder-1` and `funder-2`.
 - [ ] **T204** `FunderService` checks `Permissions` before the existing guards (including Take
   from T106) and returns 403 problem+json with a reason. The role goes into the audit
   `after_state` (AS-11.4).

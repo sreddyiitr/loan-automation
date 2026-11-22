@@ -14,12 +14,12 @@ export default defineConfig({
     {
       command: `cd ../agent && ASSISTANT_REPLAY=recordings AGENT_PORT=${AGENT_PORT} uv run python main.py`,
       url: `http://localhost:${AGENT_PORT}/.well-known/agent-card.json`,
-      reuseExistingServer: false, timeout: 60_000, stdout: 'ignore', stderr: 'pipe',
+      reuseExistingServer: false, timeout: 120_000, stdout: 'ignore', stderr: 'pipe',
     },
     {
       command: `AGENT_URL=http://localhost:${AGENT_PORT} npm run dev -- --port ${WEB_PORT} --strictPort`,
       url: `http://localhost:${WEB_PORT}`,
-      reuseExistingServer: false, timeout: 60_000,
+      reuseExistingServer: false, timeout: 120_000,
     },
   ],
 });

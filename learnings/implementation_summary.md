@@ -343,6 +343,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   override with `TEMPORAL_DB`), so runs survive a restart. Plain `start-dev` is in memory: a
   restart left Postgres deals pointing at runs that no longer existed (dashboard links 404'd).
   The scripts still never start Temporal themselves.
+- **`make demo`** (`scripts/demo.sh`, `scripts/demo_assemble.py`, `dashboard/web/demo/`) records
+  the dashboard demo with Playwright (captions and a visible pointer in the page) and writes
+  `target/demo/demo.mp4`, `demo.webp` and `demo.srt` with ffmpeg; `DEMO_VOICE_DIR` adds a voice-over
+  timed scene by scene. Only the WebP is committed (`learnings/demo.webp`, shown in the README).
 - **`scripts/dashboard-preflight.sh`** (spec 002, AS-10.2) names each missing prerequisite with
   its install command and exits 1. Ollama with `gemma4:e4b` is only a warning (AS-10.4).
 - **`scripts/dashboard-run.sh`** (`make dashboard`, AS-10.1/10.3): preflight, then reuse or start
@@ -367,7 +371,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
   - With no token, or when the funder API refuses, it returns a `notice` surface with a plain
     message from `messages.yaml` (FR-06).
 - **`dashboard/web`** (React 19, Vite, `@a2ui/react` 0.15.0): renders v1.0 surfaces with our
-  catalog, which extends the Basic Catalog with a custom `DataTable`. It talks plain A2A JSON-RPC
+  catalog, which extends the Basic Catalog with `DataTable`, `StatusBadge`, `Heading`,
+  `FactList`, `CheckList` and `Timeline`, styled by its own theme (D1c, D-18: design tokens and the renderer's `--a2ui-*`
+  variables in `src/index.css`; the agent sends no style). It talks plain A2A JSON-RPC
   through a Vite proxy (`/agent` → port 8091), sends the user's token (held in memory by
   `src/auth.ts`), and shows the actions it sent, for the test.
 - **The assistant** (`funder_agent/assistant`, D1b, D-14):
@@ -403,10 +409,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 121 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 13 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers | nothing (a fake funder API, scripted or recorded model answers) | 160 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 17 | ✅ |
 
-**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 121 agent tests and 13 Playwright tests. Test names trace to the
+**Total: 411 tests** (342 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 15 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 160 agent tests and 17 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:

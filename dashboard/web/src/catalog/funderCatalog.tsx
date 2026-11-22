@@ -1,6 +1,7 @@
-// Our custom catalog (plan §6): the Basic Catalog has no table or status badge, so we add them.
+// Our custom catalog (plan §6): the Basic Catalog has no table, status badge, heading or fact list, so we add them.
 // Keep it in step with dashboard/agent/funder_agent/catalog.py.
 // A component = an API (Zod schema built from CommonSchemas, so bindings resolve) + a React implementation.
+import {useState} from 'react';
 import {z} from 'zod';
 import {Catalog, CommonSchemas} from '@a2ui/web_core/v1_0';
 import {createComponentImplementation} from '@a2ui/react';
@@ -13,25 +14,63 @@ export const DataTableApi = {
   schema: z.object({
     columns: z.array(z.object({key: z.string(), title: z.string()})),
     rows: CommonSchemas.DynamicValue, // usually {"@path": "/deal/versions"}: resolved to the list itself
+    title: CommonSchemas.DynamicString.optional(),
     emptyText: CommonSchemas.DynamicString.optional(),
   }),
 };
 
 const DataTable = createComponentImplementation(DataTableApi as never, ({props}) => {
-  const p = props as {columns: {key: string; title: string}[]; rows?: unknown; emptyText?: string};
+  const p = props as {columns: {key: string; title: string}[]; rows?: unknown; title?: string; emptyText?: string};
   const rows = Array.isArray(p.rows) ? (p.rows as Record<string, unknown>[]) : [];
-  if (rows.length === 0) return <p>{p.emptyText ?? 'Nothing to show'}</p>;
   return (
-    <table style={{borderCollapse: 'collapse', width: '100%'}}>
-      <thead>
-        <tr>{p.columns.map((c) => <th key={c.key} style={{textAlign: 'left', borderBottom: '1px solid #ccc'}}>{c.title}</th>)}</tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}>{p.columns.map((c) => <td key={c.key}>{String(r[c.key] ?? '')}</td>)}</tr>
-        ))}
-      </tbody>
-    </table>
+    <section className="data-table">
+      {p.title && <h3 className="section-title">{p.title}</h3>}
+      {rows.length === 0 ? <p className="muted">{p.emptyText ?? 'Nothing to show'}</p> : (
+        <table>
+          <thead>
+            <tr>{p.columns.map((c) => <th key={c.key}>{c.title}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>{p.columns.map((c) => <td key={c.key}>{String(r[c.key] ?? '')}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+});
+
+// Heading (D1c): the basic Text allows only caption and body, so titles need their own component.
+export const HeadingApi = {
+  name: 'Heading',
+  schema: z.object({text: CommonSchemas.DynamicString, level: z.number().int().min(1).max(3).optional()}),
+};
+
+const Heading = createComponentImplementation(HeadingApi as never, ({props}) => {
+  const p = props as {text?: unknown; level?: number};
+  const Tag = (['h1', 'h2', 'h3'] as const)[(p.level ?? 2) - 1];
+  return <Tag className={`heading heading-${p.level ?? 2}`}>{String(p.text ?? '')}</Tag>;
+});
+
+// FactList (D1c): label/value pairs as a two-column grid, from a list of {label, value}.
+export const FactListApi = {
+  name: 'FactList',
+  schema: z.object({items: CommonSchemas.DynamicValue}),
+};
+
+const FactList = createComponentImplementation(FactListApi as never, ({props}) => {
+  const items = Array.isArray((props as {items?: unknown}).items)
+    ? ((props as {items: {label: string; value: string}[]}).items) : [];
+  return (
+    <dl className="fact-list">
+      {items.map((f) => (
+        <div className="fact" key={f.label} data-label={f.label}>
+          <dt>{f.label}</dt>
+          <dd>{f.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 });
 
@@ -50,7 +89,101 @@ const TONE: Record<string, string> = {
 const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({props}) => {
   const status = String((props as {status?: unknown}).status ?? '');
   const label = status.replaceAll('_', ' ').toLowerCase();
-  return <span className={`status-badge status-${TONE[status] ?? 'neutral'}`} data-status={status}>Status: {label}</span>;
+  return (
+    <span className={`status-badge status-${TONE[status] ?? 'neutral'}`} data-status={status}>
+      <span className="status-dot" aria-hidden="true" />Status: {label}
+    </span>
+  );
+});
+
+// CheckList and Timeline (AS-2.7, "What's been done"): what the system and people already handled.
+// The outcome or tone is always written out; colour and icon only group (NFR-04).
+const listSchema = z.object({
+  title: CommonSchemas.DynamicString.optional(),
+  items: CommonSchemas.DynamicValue,
+  emptyText: CommonSchemas.DynamicString.optional(),
+});
+const asList = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const ICON: Record<string, string> = {done: '✓', refused: '✕', waiting: '!', neutral: '•'};
+
+export const CheckListApi = {name: 'CheckList', schema: listSchema};
+
+type Comparison = {what: string; expected: string; found: string; ok: boolean};
+type CheckItem = {check: string; outcome: string; label: string; detail: string; reason?: string; open?: boolean;
+  comparisons?: Comparison[]};
+
+// One check: a button that opens and closes what it compared. Opening is local UI state (no round
+// trip to the agent); `open` is only where it starts (checks that didn't pass start open).
+function CheckRow({c}: {c: CheckItem}) {
+  const [open, setOpen] = useState(Boolean(c.open));
+  const comparisons = c.comparisons ?? [];
+  const canOpen = comparisons.length > 0 || Boolean(c.reason);
+  return (
+    <li className={`check tone-${c.outcome}${open ? ' is-open' : ''}`} data-check={c.check}>
+      <button type="button" className="check-head" aria-expanded={open} disabled={!canOpen}
+              onClick={() => setOpen((o) => !o)}>
+        <span className="check-icon" aria-hidden="true">{ICON[c.outcome] ?? '•'}</span>
+        <span className="check-text">
+          <span className="check-name">{c.check}</span>
+          {c.reason && <span className="check-reason">{c.reason}</span>}
+        </span>
+        <span className="check-label">{c.label}</span>
+        {canOpen && <span className="check-chevron" aria-hidden="true" />}
+      </button>
+      {open && (
+        <div className="check-body">
+          {comparisons.length > 0 && (
+            <table className="comparisons">
+              <thead><tr><th aria-label="Matched" /><th>What was compared</th><th>Expected</th><th>Found</th></tr></thead>
+              <tbody>
+                {comparisons.map((x, i) => (
+                  <tr key={i} className={x.ok ? 'ok' : 'bad'}>
+                    <td className="cmp-mark">{x.ok ? '✓' : '✕'}<span className="sr-only">{x.ok ? 'matches' : "doesn't match"}</span></td>
+                    <td>{x.what}</td><td className="num">{x.expected}</td><td className="num">{x.found}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {c.detail && <p className="check-detail">{c.detail}</p>}
+        </div>
+      )}
+    </li>
+  );
+}
+
+const CheckList = createComponentImplementation(CheckListApi as never, ({props}) => {
+  const p = props as {title?: string; items?: unknown};
+  const items = asList<CheckItem>(p.items);
+  return (
+    <section className="check-list">
+      {p.title && <h4 className="mini-title">{p.title}</h4>}
+      <ul>{items.map((c) => <CheckRow key={c.check} c={c} />)}</ul>
+    </section>
+  );
+});
+
+export const TimelineApi = {name: 'Timeline', schema: listSchema};
+
+const Timeline = createComponentImplementation(TimelineApi as never, ({props}) => {
+  const p = props as {title?: string; items?: unknown; emptyText?: string};
+  const items = asList<{when: string; title: string; actor: string; tone: string}>(p.items);
+  return (
+    <section className="timeline">
+      {p.title && <h4 className="mini-title">{p.title}</h4>}
+      {items.length === 0 ? <p className="muted">{p.emptyText ?? 'Nothing yet'}</p> : (
+        <ol>
+          {items.map((e, i) => (
+            <li key={i} className={`event tone-${e.tone}`}>
+              <span className="event-dot" aria-hidden="true" />
+              <span className="event-title">{e.title}</span>
+              <span className="event-meta">{e.actor} · {e.when}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
 });
 
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
@@ -59,6 +192,6 @@ const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({pro
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline] as never,
   [...basicCatalog.functions.values()] as never,
 );
