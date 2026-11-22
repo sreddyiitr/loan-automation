@@ -393,9 +393,23 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
     LA-1027 has three kinds, so it goes to the income specialist. The seeds cover every specialist;
     `GENERAL` isn't seeded, so the unit tests and T204 cover it.
   - Unit tests: 390 (48 new); the seed gates pass (no rule fingerprint changed).
-- [ ] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
+- [x] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
+  **Notes (done 2026-11-21):**
+  - `Permissions` (`com.funding.domain.routing`): `check(role, user, action, deal, assignee)`
+    returns allowed, or refused with `ROLE_NOT_ALLOWED`, `NOT_YOUR_SPECIALTY` or
+    `NOT_ASSIGNED_TO_YOU`. `all(...)` returns every action's decision, for the overview (T205).
+    `needsReassignment(deal, assigneeRole)` serves AS-11.5.
+  - The order of checks matters:
+    - Reading is always allowed, and so is anything the supervisor does.
+    - Supervisor-only actions refuse everyone else with `ROLE_NOT_ALLOWED`.
+    - Routing comes before assignment, so a specialist who still holds a deal that has been
+      re-routed gets `NOT_YOUR_SPECIALTY`, not `NOT_ASSIGNED_TO_YOU`.
+    - Take checks only the routing; `ALREADY_ASSIGNED` stays the API's own guard.
+  - The deprecated `FUNDER` role may only read.
+  - `PermissionsTest`: 101 cases, one per cell of AS-11.2 for every specialist and the supervisor,
+    plus the AS-11.5 and AS-11.6 examples.
 - [ ] **T203** The new user directory (AS-11.7): `gap-1`, `income-1`, `risc-1`, `docs-1`,
   `payment-1`, `general-1` (catch-all), `supervisor-1`. Spec 001's tests, the agent's tests, Playwright, the README,
   `learnings/oidc_authn_authz_summary.md` and the demo (`DEMO_USER` in `dashboard/web/demo/record.mjs`)
