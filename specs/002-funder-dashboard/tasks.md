@@ -371,12 +371,28 @@ lives in the web app, and the overview's layout is still built by agent code.
 has two or more), the API enforces AS-11.2, and the overview offers only the actions it allows.
 **Exit:** AS-11.1–11.7; D-17.
 
-- [ ] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
+- [x] **T201** Test first: `WorkRoutingTest` walks the kinds-of-work table (spec §3) cell by cell:
   each stip by its check, a field review by its field's document, a manual stip, a check in ERROR,
   `RISC_INCOMPLETE`, a failed or unknown payment, and `GENERAL` (a manual stip with no check, an
   unmapped stip code); then routing for one kind, two or more kinds
   (LA-1027: RISC + documents + income → the income specialist) and none. It also checks every
   seeded scenario's routing (e.g. LA-1006 → documents, LA-1023 → RISC, LA-1030 → payment).
+  **Notes (done 2026-11-21):**
+  - `WorkRouting` (with `WorkKind`) is in `funding-domain` (`com.funding.domain.routing`), pure and
+    table-driven: `kinds(deal)` and `route(kinds)`. The `Role` enum gains the five specialists and
+    `GENERAL_FUNDER`; `FUNDER` stays, deprecated, until T203.
+  - **Two cases the spec left open, decided here:**
+    - A stip code the table doesn't map but that names a check (a manual stip) takes that check's
+      kind. With no check, it's `GENERAL`.
+    - Check results route only while a deal is under review or stipulated, so a deal approved over
+      an INCOME error doesn't route back to income. Payment routes only when the deal is approved.
+  - `WorkRoutingTest`: 46 cases.
+  - `ScenarioRoutingTest` (funding-seed) runs every seeded scenario through the real rule engine
+    and generated fixtures, then checks the routing of all 35. Two examples: LA-1023 and LA-1033 are
+    raised by PRICE, but their flagged field is on the RISC, so they go to the RISC specialist.
+    LA-1027 has three kinds, so it goes to the income specialist. The seeds cover every specialist;
+    `GENERAL` isn't seeded, so the unit tests and T204 cover it.
+  - Unit tests: 390 (48 new); the seed gates pass (no rule fingerprint changed).
 - [ ] **T202** `WorkRouting` and `Permissions` in `funding-domain` (plan §4). `PermissionsTest`
   covers every cell of AS-11.2 plus `NOT_ASSIGNED_TO_YOU`, `NOT_YOUR_SPECIALTY`,
   `ROLE_NOT_ALLOWED`, and AS-11.5 (routing changes, the assignee keeps the deal but can't act).
