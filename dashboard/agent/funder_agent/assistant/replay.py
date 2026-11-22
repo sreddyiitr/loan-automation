@@ -28,17 +28,19 @@ def load_recording(directory: str | Path, loan_id: str, feature: str = "summary"
 
 
 class ReplayConversation:
-    """Plays one recording back: the first message names the deal, each send returns the next reply."""
+    """Plays one recording back. For the summary, the first message names the deal; for a feature
+    recorded once (assignment suggestions), ``key`` names the file. Each send returns the next reply."""
 
-    def __init__(self, directory: str | Path):
-        self.directory, self.replies = directory, None
+    def __init__(self, directory: str | Path, feature: str = "summary", key: str | None = None):
+        self.directory, self.replies, self.feature, self.key = directory, None, feature, key
 
     async def send(self, text: str) -> str:
         if self.replies is None:
-            m = LOAN_ID.search(text)
-            recording = load_recording(self.directory, m.group(1)) if m else None
+            m = None if self.key else LOAN_ID.search(text)
+            name = self.key or (m.group(1) if m else None)
+            recording = load_recording(self.directory, name, self.feature) if name else None
             if recording is None:
-                raise ModelUnavailable(f"no recording for {m.group(1) if m else 'this deal'} (replay mode)")
+                raise ModelUnavailable(f"no {self.feature} recording for {name or 'this deal'} (replay mode)")
             self.replies = list(recording["replies"])
         if not self.replies:
             raise ModelUnavailable("the recording has no more replies (replay mode)")

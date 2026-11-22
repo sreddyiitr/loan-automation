@@ -350,3 +350,74 @@ p { margin: 0; }
 .event-title { font-size: 14px; font-weight: 600; color: var(--text); }
 .event-meta { font-size: 12px; color: var(--text-muted); }
 .check-list + * .timeline, .timeline { margin-top: 18px; }
+
+/* ---------- My work (AS-1.8) ---------- */
+.hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.btn-hero { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.24); color: #fff; box-shadow: none; }
+.btn-hero:hover { background: rgba(255, 255, 255, 0.24); }
+.workspace-main > .a2ui-surface, .workspace-main > * { min-width: 0; }
+.work-list { margin: 0 0 26px; }
+.work-list .section-title { display: flex; align-items: center; gap: 8px; color: var(--ink-strong); }
+.work-list .count {
+  font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent);
+  letter-spacing: 0;
+}
+.work-list ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.work-empty {
+  padding: 18px; border-radius: var(--radius); background: var(--surface); color: var(--text-muted);
+  border: 1.5px dashed var(--border-strong);
+}
+.work-card {
+  width: 100%; height: 100%; display: grid; gap: 8px; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+  padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius); box-shadow: var(--shadow); transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+.work-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(16, 24, 40, 0.08), 0 10px 24px rgba(16, 24, 40, 0.10); }
+.work-card:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+.work-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.work-id { font-size: 18px; font-weight: 750; letter-spacing: -0.01em; }
+.work-version { font-weight: 500; color: var(--text-muted); }
+.work-status {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700;
+  text-transform: capitalize; border: 1px solid color-mix(in srgb, currentColor 28%, transparent); white-space: nowrap;
+}
+.work-dealer { font-size: 13px; color: var(--text-muted); }
+.work-missing { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.work-missing-label { width: 100%; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.work-chip {
+  font-size: 12.5px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
+  background: var(--tone-waiting-bg); color: var(--tone-waiting);
+}
+.work-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+.work-open { font-weight: 700; color: var(--accent); }
+/* the My work card: no blue edge (that marks a deal), a little more room */
+.workspace-main div.a2ui-card:has(.work-list) { border-top: 0; padding: 22px 22px 4px; }
+.work-list .work-card { box-shadow: var(--shadow-sm); }
+
+/* Assignment suggestions (US-12): the indigo AI panel's rows, each with its own confirmed Assign */
+.suggestion-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.suggestion {
+  display: flex; align-items: center; gap: 16px; justify-content: space-between;
+  padding: 12px 14px; border-radius: 12px; background: var(--surface, #fff);
+  border: 1px solid var(--line, #e4e7ec); border-left: 4px solid var(--ai, #5b5bd6); box-shadow: var(--shadow-sm);
+}
+.suggestion[data-source="plan"] { border-left-color: var(--ink-muted, #667085); }
+.suggestion-main { display: grid; gap: 4px; min-width: 0; }
+.suggestion-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.suggestion-arrow { color: var(--ink-muted, #667085); }
+.suggestion-assignee { font-weight: 700; color: var(--ink-strong, #101828); }
+.suggestion-role, .suggestion-days { font-size: 0.8rem; color: var(--ink-muted, #667085); }
+.suggestion-reason { font-size: 0.9rem; color: var(--ink, #344054); }
+.suggestion-source {
+  display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+  background: var(--ai-soft, #eef0ff); color: var(--ai, #4b4bc4);
+}
+.suggestion-source.source-plan { background: #f2f4f7; color: #475467; }
+.suggestion-assign, .suggestion-yes, .suggestion-no {
+  border-radius: 8px; padding: 7px 14px; font-weight: 600; cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+}
+.suggestion-assign, .suggestion-yes { background: var(--ai, #5b5bd6); color: #fff; }
+.suggestion-no { background: transparent; border-color: var(--line, #d0d5dd); color: var(--ink, #344054); }
+.suggestion-confirm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.9rem; }
+@media (max-width: 640px) { .suggestion { flex-direction: column; align-items: stretch; } }
+.suggestion-sent { color: var(--ok, #067647); font-weight: 600; white-space: nowrap; }

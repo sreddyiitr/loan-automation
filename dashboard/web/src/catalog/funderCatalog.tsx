@@ -186,12 +186,119 @@ const Timeline = createComponentImplementation(TimelineApi as never, ({props}) =
   );
 });
 
+// WorkList (AS-1.8, "My work"): deals as clickable cards. A click sends the A2UI action named by
+// openAction, with the row's loan id, through the component's context, the same path a Button takes.
+export const WorkListApi = {
+  name: 'WorkList',
+  schema: z.object({
+    title: CommonSchemas.DynamicString.optional(),
+    items: CommonSchemas.DynamicValue,
+    emptyText: CommonSchemas.DynamicString.optional(),
+    openAction: z.string(),
+  }),
+};
+
+type WorkItem = {loanApplicationId: string; versionNumber?: number; dealer: string; status: string; missing: string[];
+  routedTo: string; expiry: string};
+
+const WorkList = createComponentImplementation(WorkListApi as never, ({props, context}) => {
+  const p = props as {title?: string; items?: unknown; emptyText?: string; openAction: string};
+  const items = asList<WorkItem>(p.items);
+  const open = (loanApplicationId: string) =>
+    void (context as {dispatchAction: (a: unknown) => Promise<void>}).dispatchAction(
+      {event: {name: p.openAction, context: {loanApplicationId}}});
+  return (
+    <section className="work-list">
+      {p.title && <h3 className="section-title">{p.title} <span className="count">{items.length}</span></h3>}
+      {items.length === 0 ? <p className="work-empty">{p.emptyText ?? 'Nothing here'}</p> : (
+        <ul>
+          {items.map((w) => (
+            <li key={w.loanApplicationId}>
+              <button type="button" className="work-card" data-loan={w.loanApplicationId}
+                      aria-label={`Open ${w.loanApplicationId}`} onClick={() => open(w.loanApplicationId)}>
+                <span className="work-head">
+                  <span className="work-id">{w.loanApplicationId}{w.versionNumber ? <span className="work-version"> · v{w.versionNumber}</span> : null}</span>
+                  <span className={`work-status status-${TONE[w.status] ?? 'neutral'}`} data-status={w.status}>
+                    <span className="status-dot" aria-hidden="true" />{w.status.replaceAll('_', ' ').toLowerCase()}
+                  </span>
+                </span>
+                <span className="work-dealer">{w.dealer} · {w.expiry}</span>
+                <span className="work-missing">
+                  <span className="work-missing-label">What's missing</span>
+                  {w.missing.map((m, i) => <span key={i} className="work-chip">{m}</span>)}
+                </span>
+                <span className="work-foot">Routed to {w.routedTo}<span className="work-open" aria-hidden="true">Open →</span></span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+});
+
+// SuggestionList (US-12): the assistant's assignment suggestions for the supervisor. Each row has its
+// own Assign, confirmed in place (AS-12.4): nothing is assigned without that second click, and there is
+// no "assign all". Confirming sends assignAction with the loan, its version and the assignee.
+export const SuggestionListApi = {
+  name: 'SuggestionList',
+  schema: z.object({
+    items: CommonSchemas.DynamicValue,
+    emptyText: CommonSchemas.DynamicString.optional(),
+    assignAction: z.string(),
+  }),
+};
+
+type Suggestion = {loanApplicationId: string; applicationVersionId: number; assignee: string; assigneeRole: string;
+  reason: string; source: string; sourceText: string; daysToExpiry?: number | null};
+
+const SuggestionList = createComponentImplementation(SuggestionListApi as never, ({props, context}) => {
+  const p = props as {items?: unknown; emptyText?: string; assignAction: string};
+  const items = asList<Suggestion>(p.items);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [sent, setSent] = useState<string[]>([]);       // assigned from this panel: the notice says how it went
+  const assign = (s: Suggestion) =>
+    void (context as {dispatchAction: (a: unknown) => Promise<void>}).dispatchAction({event: {name: p.assignAction,
+      context: {loanApplicationId: s.loanApplicationId, applicationVersionId: s.applicationVersionId, assignee: s.assignee}}});
+  if (items.length === 0) return p.emptyText ? <p className="work-empty">{p.emptyText}</p> : null;
+  return (
+    <ul className="suggestion-list">
+      {items.map((s) => (
+        <li key={s.loanApplicationId} className="suggestion" data-loan={s.loanApplicationId} data-source={s.source}>
+          <div className="suggestion-main">
+            <span className="suggestion-head">
+              <span className="work-id">{s.loanApplicationId}</span>
+              <span className="suggestion-arrow" aria-hidden="true">→</span>
+              <span className="suggestion-assignee">{s.assignee}</span>
+              {s.assigneeRole && <span className="suggestion-role">{s.assigneeRole}</span>}
+              {s.daysToExpiry != null && <span className="suggestion-days">{s.daysToExpiry} days left</span>}
+            </span>
+            <span className="suggestion-reason"><span className={`suggestion-source source-${s.source}`}>{s.sourceText}</span>{s.reason}</span>
+          </div>
+          {sent.includes(s.loanApplicationId) ? (
+            <span className="suggestion-sent">Assigned ✓</span>
+          ) : confirming === s.loanApplicationId ? (
+            <span className="suggestion-confirm" role="group" aria-label={`Confirm assigning ${s.loanApplicationId}`}>
+              <span>Assign {s.loanApplicationId} to {s.assignee}?</span>
+              <button type="button" className="suggestion-yes" onClick={() => { setConfirming(null); setSent((d) => [...d, s.loanApplicationId]); assign(s); }}>Yes, assign</button>
+              <button type="button" className="suggestion-no" onClick={() => setConfirming(null)}>Cancel</button>
+            </span>
+          ) : (
+            <button type="button" className="suggestion-assign" aria-label={`Assign ${s.loanApplicationId} to ${s.assignee}`}
+                    onClick={() => setConfirming(s.loanApplicationId)}>Assign</button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+});
+
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
 // catalog. Our catalog therefore EXTENDS the Basic Catalog: all 18 basic components and 15 functions,
 // plus ours. Surfaces are created with this catalog's id.
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline, WorkList, SuggestionList] as never,
   [...basicCatalog.functions.values()] as never,
 );

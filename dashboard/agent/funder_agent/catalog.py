@@ -97,7 +97,34 @@ CHECK_LIST = _list_component(
 TIMELINE = _list_component(
     "Timeline", "Events, newest first, each with when, what and who (AS-2.7). items: a list of {when, title, actor, tone}.")
 
-FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE]
+WORK_LIST = ComponentApi("WorkList", {
+    "type": "object",
+    "description": "Deals as clickable cards (AS-1.8). items: a list of {loanApplicationId, dealer, status, missing, "
+                   "routedTo, expiry}; clicking a card sends openAction with the row's loanApplicationId.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"}, "component": {"const": "WorkList"},
+        "title": _DYNAMIC, "items": _DYNAMIC, "emptyText": _DYNAMIC,
+        "openAction": {"type": "string"},
+        "weight": {"type": "number"}, "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "items", "openAction"],
+})
+
+SUGGESTION_LIST = ComponentApi("SuggestionList", {
+    "type": "object",
+    "description": "Assignment suggestions (US-12): each row has its own Assign, confirmed in place, which sends "
+                   "assignAction with {loanApplicationId, applicationVersionId, assignee}.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"}, "component": {"const": "SuggestionList"},
+        "items": _DYNAMIC, "emptyText": _DYNAMIC, "assignAction": {"type": "string"},
+        "weight": {"type": "number"}, "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "items", "assignAction"],
+})
+
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE, WORK_LIST, SUGGESTION_LIST]
 
 
 @lru_cache(maxsize=1)

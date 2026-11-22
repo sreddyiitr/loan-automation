@@ -59,6 +59,9 @@ class FakeFunderApi:
         self.stips: list[dict[str, Any]] = []
         self.results: list[dict[str, Any]] = []
         self.audit: list[dict[str, Any]] = []
+        self.queues: dict[str, list[dict[str, Any]]] = {"mine": [], "ready": []}
+        self.role = "DOCUMENTS_SPECIALIST"
+        self.users: list[dict[str, Any]] = []
         self.requests: list[httpx.Request] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -69,6 +72,15 @@ class FakeFunderApi:
         path = request.url.path.removeprefix("/api/v1")
         if request.method == "GET" and path == f"/applications/{self.overview['loanApplicationId']}":
             return httpx.Response(200, json=self.overview)
+        if request.method == "GET" and path == "/me":
+            sub = json.loads(base64.urlsafe_b64decode(request.headers["Authorization"].split(".")[1] + "=="))["sub"]
+            return httpx.Response(200, json={"id": sub, "role": self.role})
+        if request.method == "GET" and path == "/users":                # US-12, supervisor only
+            if self.role != "SUPERVISOR":
+                return httpx.Response(403, json={"reason": "ROLE_NOT_ALLOWED", "detail": "supervisor only"})
+            return httpx.Response(200, json=self.users)
+        if request.method == "GET" and path == "/applications":       # AS-1.8 My work
+            return httpx.Response(200, json=self.queues.get(request.url.params.get("queue"), []))
         if request.method == "GET" and path.endswith("/versions"):
             return httpx.Response(200, json=VERSIONS)
         if request.method == "GET" and path.endswith("/stipulations"):

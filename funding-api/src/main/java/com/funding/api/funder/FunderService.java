@@ -154,6 +154,63 @@ public class FunderService {
         return p;
     }
 
+    /**
+     * Spec 002 AS-1.8 "My work": {@code mine} is every open deal assigned to the viewer; {@code ready}
+     * is every unassigned open deal routed to the viewer's role (for the supervisor, every unassigned
+     * deal that needs someone). Each row carries what's holding it, from the same routing facts the
+     * permissions use. Most urgent first.
+     */
+    public List<Map<String, Object>> worklist(String queue, Actor viewer) {
+        if (!"mine".equals(queue) && !"ready".equals(queue)) {
+            throw new ApiProblem(HttpStatus.BAD_REQUEST, "INVALID_QUEUE", "queue must be mine or ready, not " + queue);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (long id : queries.openLatestVersionIds()) {
+            VersionRow v = version(id);
+            boolean mine = viewer.id().equals(v.assignedFunder());
+            if ("mine".equals(queue) != mine || ("ready".equals(queue) && v.assignedFunder() != null)) {
+                continue;
+            }
+            WorkRouting.Deal deal = routingFacts(v);
+            Optional<Role> routed = WorkRouting.route(deal);
+            if ("ready".equals(queue) && (routed.isEmpty() || (viewer.role() != Role.SUPERVISOR && routed.get() != viewer.role()))) {
+                continue;
+            }
+            rows.add(worklistRow(v, deal, routed));
+        }
+        rows.sort(java.util.Comparator.comparing((Map<String, Object> r) -> (OffsetDateTime) r.get("expiresAt"),
+                java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(r -> (String) r.get("loanApplicationId")));
+        return rows;
+    }
+
+    private Map<String, Object> worklistRow(VersionRow v, WorkRouting.Deal deal, Optional<Role> routed) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("loanApplicationId", v.loanApplicationId());
+        r.put("applicationVersionId", v.applicationVersionId());
+        r.put("versionNumber", v.versionNumber());
+        r.put("status", v.status());
+        r.put("dealershipName", v.dealershipName());
+        r.put("assignedFunder", v.assignedFunder());
+        r.put("expiresAt", expiresAt(v));
+        r.put("workKinds", WorkRouting.kinds(deal).stream().map(Enum::name).toList());
+        r.put("routedTo", routed.map(Enum::name).orElse(null));
+        r.put("earlierAssignees", queries.earlierAssignees(v.loanApplicationId(), v.versionNumber()));   // AS-12.3
+        // what's holding it (AS-1.8): pending stips, checks that couldn't finish or need review, the RISC, the payment
+        r.put("pendingStips", deal.pendingStips().stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("code", s.code());
+            m.put("check", s.check() == null ? null : s.check().name());
+            return m;
+        }).toList());
+        r.put("checksNotPassed", deal.results().stream()
+                .filter(x -> x.outcome() == Outcome.ERROR || (x.check() == Check.INCOME && x.outcome() == Outcome.NEEDS_REVIEW))
+                .map(x -> Map.of("check", x.check().name(), "outcome", x.outcome().name())).toList());
+        r.put("riscIncomplete", deal.riscIncomplete());
+        r.put("payment", deal.payment().name());
+        return r;
+    }
+
     public List<Map<String, Object>> versions(String loanApplicationId) {
         List<Map<String, Object>> rows = queries.versions(loanApplicationId);
         if (rows.isEmpty()) {

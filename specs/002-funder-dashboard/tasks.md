@@ -467,6 +467,42 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
     19 (2 new: the right specialist may take; another kind's specialist isn't offered Take).
   - **D2 is done.** The README screenshot and demo are refreshed for the new fact.
 
+## D6a: My work, on sign-in (AS-1.8; part of D6, moved up by the owner)
+
+**Proves:** a funder signs in and sees their work: what's assigned to them and what's ready for them
+to take, with what's missing on each, and opens a deal with a click.
+**Exit:** AS-1.2 (assigned to you), AS-1.5, AS-1.7 (ready to take), AS-1.8.
+
+- [x] **T611** Spec first: AS-1.8, plan §5 (the two queues) and §6 (`WorkList`).
+- [x] **T612** API: `GET /api/v1/applications?queue=mine|ready`: open latest versions, each with its
+  routing facts (the same `WorkRouting` as everything else), most urgent first. Java tests.
+  **Notes (done 2026-11-21):** `FunderService.worklist` walks the open latest versions
+  (`FunderQueries.openLatestVersionIds`) and reads each one's routing facts. Rows carry
+  `pendingStips` ({code, check}), `checksNotPassed` (ERROR, or INCOME needing review), `riscIncomplete`,
+  `payment`, `workKinds`, `routedTo` and `expiresAt`, sorted by expiry. `queue` is required; anything
+  else gets 400 `INVALID_QUEUE`. The contract was regenerated (`-Dwrite.contract=true`, only the new
+  path added). Tests: 3 in `FunderApiTest` (67 in the API module).
+- [x] **T613** Agent: the `worklist` surface ("my work" text request) with "what's missing" in plain
+  words; `deal.open` opens a deal. Web: `WorkList` (clickable rows), sign-in lands on My work, and a
+  My work button. Agent tests.
+- [x] **T614** Playwright: `AS_1_8_…` (a specialist sees their assigned deal and what's ready, opens one
+  with a click, comes back), and a supervisor's ready list.
+  **Notes (T613–T614, done 2026-11-21):**
+  - Agent: `surfaces/worklist.py` words what's holding each deal (each stip in a short phrase; a
+    check that couldn't finish or needs review; "RISC incomplete"; a failed or unknown payment;
+    "Nothing missing: waiting on the system"). The surface is one card with two `WorkList`s,
+    rebuilt each time (`deleteSurface` first). "my work" (or no text) shows it, and `deal.open`
+    opens a deal.
+  - Web: `WorkList` draws each deal as a card. A click dispatches `deal.open` through the
+    component's `ComponentContext.dispatchAction`, the same path a Button takes. Sign-in loads My
+    work. Opening a deal replaces the lists, and the hero's **My work** button brings them back,
+    refreshed.
+  - Tests: 15 agent (183 in all); Playwright `e2e/my-work.spec.ts` (2) on LA-1032, so it can't race
+    the files that use LA-1006 (21 in all, twice). A `unassigned(loan)` helper is in `support.ts`.
+  - Seen live: `docs-1` gets 5 deals ready to take; the supervisor 20.
+  - Not in this slice (D6): filters, sorting choices, expiring soon, needs reassignment, paging,
+    the in-progress marker per row.
+
 ## D2b: Assignment suggestions for the supervisor (US-12)
 
 **Proves:** an ADK agent with read-only tools proposes assignments, code decides who's eligible,
@@ -474,20 +510,67 @@ and nothing is assigned without the supervisor's click.
 **Exit:** AS-12.1–12.7; FR-13.
 
 - [x] **T251** Spec first: US-12, D-15, D-16, D-17, FR-13 and plan §7 (the spec PR, 2026-11-21).
-- [ ] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
+- [x] **T252** API: the unassigned part of the worklist (enough for US-12; D6 adds the rest), with
   `workKinds`, `routedTo` and earlier assignees per row; `GET /api/v1/users` (supervisor only)
   with role and open-deal count (FR-12, FR-13). Java tests.
-- [ ] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
+  **Notes (done 2026-11-22):**
+  - The unassigned list already exists: D6a's `queue=ready` for the supervisor. Its rows gain
+    `earlierAssignees`, the users assigned to earlier versions of the deal.
+  - `TeamController`: `GET /api/v1/me` (who's signed in, and their role) and `GET /api/v1/users`
+    (supervisor only, `ROLE_NOT_ALLOWED` otherwise): each user's role and `openDeals`. Both paths
+    are token-protected (`SecurityConfig`).
+  - The contract test now loads `TeamController` too, and the contract was regenerated with the
+    two paths. Before, it only saw `FunderController`, so a new controller's endpoints would have
+    gone unchecked.
+  - **Checked before building T254:** local Gemma calls ADK tools. A throwaway agent with
+    `unassigned_deals()` and `users()` called both and returned valid, eligible, most-urgent-first
+    suggestions: 1.9 s with thinking off, 7.4 s with it on, the latter with better reasons. So
+    T254 is a real tool-using agent, thinking on.
+  - Tests: 3 in `FunderApiTest` (70 in the API module).
+- [x] **T253** Code's own plan (AS-12.5) as a pure function: most urgent first, each deal to the
   eligible user with the fewest open deals. Unit tests.
-- [ ] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
+- [x] **T254** The agent: an ADK `LlmAgent` with read-only tools (`unassigned_deals`, `users`,
   `eligible`) on the `assign` model in `models.yaml`; code drops ineligible suggestions (one
   retry) and fills the rest from T253's plan; the model sees no names, amounts or documents
   (AS-12.6).
-- [ ] **T255** The supervisor's surface: **Suggest assignments** on the unassigned list, one row
+- [x] **T255** The supervisor's surface: **Suggest assignments** on the unassigned list, one row
   per suggestion with its reason and an **Assign** button behind a confirmation (the normal
   reassign, AS-12.4). Not offered to specialists.
-- [ ] **T256** Recorded answers (as T155) and tests: an ineligible suggestion is dropped, no model
+- [x] **T256** Recorded answers (as T155) and tests: an ineligible suggestion is dropped, no model
   shows code's plan, the prompt holds no names; Playwright `AS_12_1_…`, `AS_12_4_…`.
+  **Notes on T253–T256 (done 2026-11-22):**
+  - `assistant/assign.py`, all in one place:
+    - `deal_facts`: what the model sees per deal: loan id, kinds of work, routed role, eligible ids,
+      days to expiry, earlier assignees. No dealer, borrower, amounts or documents (AS-12.6).
+    - `eligible_for`: the users with the routed role, or the supervisors when the team has none.
+    - `code_plan` (T253): most urgent first, then the eligible user with the fewest open deals,
+      counting what the plan has already handed out. On a tie, someone who worked an earlier
+      version, then by id.
+    - `tools_for` (T254): three read-only tools (`unassigned_deals`, `users`, `eligible`) over data
+      the agent read with the supervisor's token. Nothing in them writes.
+    - `parse` and `keep_eligible`: JSON (fenced or not), one retry on an unusable reply; a
+      suggestion for a deal not listed, for someone not eligible, or a second one for a deal is
+      dropped (AS-12.2). Any deal left without a suggestion gets code's plan, marked as such.
+  - `AdkConversation` takes `tools`; `AssignService` gives each request a fresh agent on the
+    `assign` model (`models.yaml`, thinking off since the owner chose it).
+  - `GET /api/v1/me` lets My work show **Suggest assignments** to the supervisor only.
+  - The panel (`surfaces/assign.py`, `SuggestionList`): a row per deal with assignee, role, days
+    left, reason and whether it came from the assistant or code's plan; **Assign** asks "Assign
+    LA-… to …?" in place (AS-12.4). Confirming is the normal audited reassign; the row then shows
+    **Assigned ✓** and My work refreshes. There's no "assign all".
+  - Reasons: the first live run gave thin reasons ("Only eligible user available"), so the
+    instruction now asks for the kind of work, the days left and the assignee's open deals, with an
+    example. Codes the model echoes (`DOCUMENTS_SPECIALIST`) are shown as words.
+  - Live, on the 18 seeded unassigned deals: 23–29 s with thinking on, 6–13 s with it off, all 18
+    from the model and none dropped either way, with equally specific reasons. The owner chose
+    thinking off (2026-11-22). Recorded as `recordings/assign/supervisor.json` (`make record-assistant`, or
+    `record --assign`).
+  - Tests: 18 agent tests in `test_assign.py` (201 in all), including one that drives the real
+    ADK runner with a scripted model that calls a tool. Playwright `assign.spec.ts`: AS_12_1,
+    AS_12_4 (Cancel leaves it unassigned; confirm assigns only that deal) and AS_12_6 (a specialist
+    isn't offered it). 24 in all.
+  - Fixed on the way: `AS_1_8_theSupervisorSees…` assumed four deals were unassigned, but
+    `make demo` takes LA-1002. The test now unassigns them first, like the others.
 
 ## D3: Stipulations tab
 

@@ -12,7 +12,7 @@ import yaml
 
 from funder_agent import config
 
-FEATURES = ("summary", "suggest", "draft_stip", "generated_view")
+FEATURES = ("summary", "suggest", "draft_stip", "generated_view", "assign")
 
 
 class RegistryError(ValueError):

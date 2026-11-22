@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.funding.api.ProblemHandler;
 import com.funding.api.auth.Actor;
 import com.funding.api.auth.ActorArgumentResolver;
+import com.funding.api.auth.UserDirectory;
 import com.funding.api.seed.SeedDataLoader;
 import com.funding.domain.Check;
 import com.funding.domain.CheckOutcome;
@@ -114,7 +115,10 @@ class FunderApiTest {
         activities = new FundingActivitiesImpl(ENV, jdbc, tx, RulesConfig::defaults, EXPIRE_AFTER);
 
         FunderService service = new FunderService(ENV, jdbc, tx, temporal.getWorkflowClient(), RulesConfig.defaults(), EXPIRE_AFTER);
-        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service)).setControllerAdvice(new ProblemHandler())
+        UserDirectory team = new UserDirectory(Map.of("docs-1", Role.DOCUMENTS_SPECIALIST, "gap-1", Role.GAP_SPECIALIST,
+                "supervisor-1", Role.SUPERVISOR));
+        mvc = MockMvcBuilders.standaloneSetup(new FunderController(service), new TeamController(team, jdbc))
+                .setControllerAdvice(new ProblemHandler())
                 .setCustomArgumentResolvers(new SupervisorByDefault()).build();
     }
 
@@ -731,5 +735,77 @@ class FunderApiTest {
                 .andExpect(jsonPath("$.routedTo").value(org.hamcrest.Matchers.nullValue()))
                 .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
                         .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
+    }
+
+    // ------------------------------------------------------------------ spec 002 D6a: My work (AS-1.8)
+
+    private ResultActions myWork(String user, Role role, String queue) throws Exception {
+        return writeAs(user, role, get("/api/v1/applications").param("queue", queue), null);
+    }
+
+    @Test
+    void AS_1_8_readyForYouListsUnassignedDealsRoutedToYourSpecialty() throws Exception {
+        settled("LA-1006");                                                   // documents work
+        settled("LA-1018");                                                   // GAP work
+        settled("LA-1001");                                                   // nothing to do
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "ready").andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.contains("LA-1006")));
+        myWork("gap-1", Role.GAP_SPECIALIST, "ready")
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.contains("LA-1018")));
+        myWork("supervisor-1", Role.SUPERVISOR, "ready")                    // every unassigned deal that needs someone
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.containsInAnyOrder("LA-1006", "LA-1018")));
+    }
+
+    @Test
+    void AS_1_8_assignedToYouListsYourDealsWithWhatsMissing() throws Exception {
+        long id = settled("LA-1006");
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "mine").andExpect(jsonPath("$").isEmpty());
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "mine")
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].loanApplicationId").value("LA-1006"))
+                .andExpect(jsonPath("$[0].status").value("STIPULATED"))
+                .andExpect(jsonPath("$[0].dealershipName").value("Lone Star Motors"))
+                .andExpect(jsonPath("$[0].routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$[0].pendingStips[0].code").value("STIP_PRICE_MISMATCH"))
+                .andExpect(jsonPath("$[0].pendingStips[0].check").value("PRICE"))
+                .andExpect(jsonPath("$[0].expiresAt").isNotEmpty());
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "ready").andExpect(jsonPath("$").isEmpty());   // taken: not ready any more
+        myWork("gap-1", Role.GAP_SPECIALIST, "mine").andExpect(jsonPath("$").isEmpty());           // someone else's
+    }
+
+    @Test
+    void AS_1_8_anUnknownQueueIsABadRequest() throws Exception {
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "everything").andExpect(problem(400, "INVALID_QUEUE"));
+    }
+
+    // ------------------------------------------------------------------ spec 002 D2b: the team (US-12, FR-13)
+
+    @Test
+    void FR_13_meSaysWhoIsSignedIn() throws Exception {
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/me"), null)
+                .andExpect(jsonPath("$.id").value("docs-1")).andExpect(jsonPath("$.role").value("DOCUMENTS_SPECIALIST"));
+    }
+
+    @Test
+    void AS_12_6_onlyTheSupervisorGetsTheTeamWithEachUsersWorkload() throws Exception {
+        long id = settled("LA-1006");
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, get("/api/v1/users"), null).andExpect(problem(403, "ROLE_NOT_ALLOWED"));
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        writeAs("supervisor-1", Role.SUPERVISOR, get("/api/v1/users"), null).andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].id").value(org.hamcrest.Matchers.contains("docs-1", "gap-1", "supervisor-1")))
+                .andExpect(jsonPath("$[0].role").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$[0].openDeals").value(1))                // LA-1006, just taken
+                .andExpect(jsonPath("$[1].openDeals").value(0));
+    }
+
+    @Test
+    void AS_12_3_earlierAssigneesComeFromTheDealsEarlierVersions() throws Exception {
+        long v1 = settled("LA-1006");
+        write(put("/api/v1/versions/{v}/assignee", v1), """
+                {"funderId":"docs-1"}""").andExpect(status().isOk());
+        superseded("LA-1006");                                                // a v2 arrives
+        assertThat(new com.funding.persistence.FunderQueries(jdbc).earlierAssignees("LA-1006", 2)).containsExactly("docs-1");
+        assertThat(new com.funding.persistence.FunderQueries(jdbc).earlierAssignees("LA-1006", 1)).isEmpty();
     }
 }

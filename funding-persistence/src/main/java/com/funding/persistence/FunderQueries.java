@@ -24,6 +24,36 @@ public class FunderQueries {
                 .param(loanApplicationId).query().listOfRows();
     }
 
+    /** Spec 002 AS-1.8: the latest version of every deal that's open (not DRAFT, not finished; AS-1.6). */
+    public List<Long> openLatestVersionIds() {
+        return jdbc.sql("""
+                SELECT application_version_id FROM application_versions
+                 WHERE is_latest_version AND version_status IN ('PENDING_REVIEW', 'STIPULATED', 'APPROVED')
+                 ORDER BY application_version_id""")
+                .query(Long.class).list();
+    }
+
+    /** Spec 002 US-12: how many open deals each user has assigned (their workload). */
+    public Map<String, Long> openDealCounts() {
+        Map<String, Long> counts = new java.util.LinkedHashMap<>();
+        jdbc.sql("""
+                SELECT assigned_funder, COUNT(*) AS n FROM application_versions
+                 WHERE is_latest_version AND assigned_funder IS NOT NULL
+                   AND version_status IN ('PENDING_REVIEW', 'STIPULATED', 'APPROVED')
+                 GROUP BY assigned_funder ORDER BY assigned_funder""")
+                .query((rs, n) -> counts.put(rs.getString("assigned_funder"), rs.getLong("n"))).list();
+        return counts;
+    }
+
+    /** Spec 002 AS-12.3: who was assigned an earlier version of this deal, oldest first. */
+    public List<String> earlierAssignees(String loanApplicationId, int versionNumber) {
+        return jdbc.sql("""
+                SELECT assigned_funder FROM application_versions
+                 WHERE loan_application_id = ? AND version_number < ? AND assigned_funder IS NOT NULL
+                 ORDER BY version_number""")
+                .params(loanApplicationId, versionNumber).query(String.class).list().stream().distinct().toList();
+    }
+
     /** AS-10.2: stips with their resolution. */
     public List<Map<String, Object>> stips(long versionId) {
         return jdbc.sql("""

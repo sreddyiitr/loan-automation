@@ -5,14 +5,14 @@ It is built on the spec 001 funder API and uses **A2UI** for the UI and **ADK** 
 Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md) and
 [`a2ui-notes.md`](../specs/002-funder-dashboard/a2ui-notes.md).
 
-## Status (2026-11-21)
+## Status (2026-11-22)
 
 **Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11), **D1b,
 Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
-A 38-second walkthrough is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
+A 70-second walkthrough (My work, a deal, Summarize, and the supervisor's suggestions) is at the top of the README ([`demo.webp`](demo.webp)); `make demo` records it
 again after UI changes.
 
 **The look (D1c, D-18):** clean fintech, light, with dark mode following the OS: a navy top bar and
@@ -24,6 +24,21 @@ The overview has a header (loan id, dealer, status badge), the facts as a label/
 action bar, **What's been done** (AS-2.7: each check's outcome and why, opening to show every comparison
 it made, expected against found; and the deal's milestones newest first, with who did each), and the version history; the assistant's panel sits beside it on wide
 screens.
+
+**Signing in lands on My work** (D6a): the deals assigned to you and the ones ready for you to
+take, each a card with its status, what's missing in plain words, who it's routed to and days to
+expiry. Click a card to open the deal; **My work** brings you back.
+
+**Assignment suggestions for the supervisor** (D2b, US-12): on the supervisor's My work, **✦ Suggest
+assignments** opens an indigo panel beside the lists. One row per unassigned deal: loan → assignee,
+their role, days left, the reason, and a tag saying whether it came from the **Assistant** or
+**Code's plan**. **Assign** asks "Assign LA-… to …?" in the row itself; **Yes, assign** makes the
+normal audited reassign, marks the row **Assigned ✓** and refreshes My work. There's no "assign all".
+Specialists don't get the button.
+
+![Assignment suggestions: the supervisor's panel beside My work, one row confirming](screenshots/Assignment%20suggestions.png)
+
+![My work, as docs-1](screenshots/My%20work.png)
 
 What works end to end today:
 
@@ -45,7 +60,7 @@ its own read-only panel under the overview: "Summarizing…" at once, then two o
 with a note that the assistant wrote them from this deal's data only. With no model running, the
 panel says the assistant is unavailable and everything else works.
 
-Not yet built: the worklist, the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
+Not yet built: the rest of the worklist (filters, expiring soon, needs reassignment), the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
 and "draft stip text" (D8).
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -88,7 +103,7 @@ Funding API (Java, spec 001): the only thing that writes
 | **Documents** | Document versions, extracted fields with confidence, compare v1 vs v2. *A page viewer with highlighted fields comes later (it needs document storage)* |
 | **Decisions** | Approve, reject, re-run checks, retry a failed payment; only the actions the status allows are shown |
 | **Audit** | Who did what and when, with before and after values; a link to the run in the Temporal UI |
-| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (D2b, planned: code decides who's eligible, the AI ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
+| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (**built**, D2b: code decides who's eligible, an AI agent with read-only tools ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
 
 ## What's fixed and what's dynamic
 
@@ -97,6 +112,7 @@ Funding API (Java, spec 001): the only thing that writes
 | The screens: worklist and the five tabs | **Code** → A2UI JSON (no LLM) | Predictable, fast, testable like spec 001 |
 | Every write (waive, approve, reject, …) | **Code**, after the funder's click → funder API | The model never acts on its own |
 | Assistant answers | **LLM** → small JSON, which code checks and renders as plain text in a fixed panel | Works on small local models; the model can't add buttons or actions |
+| Assignment suggestions | **LLM agent** calls read-only tools and answers JSON; **code** drops ineligible picks and fills gaps from its own plan; the panel and its Assign buttons are **code** | The model ranks and explains; it can't assign or widen who's eligible |
 | One "ask for a view" feature (e.g. "show the income history as a card") | **LLM writes the A2UI itself** | The generative-UI learning piece |
 
 ## Components
@@ -104,7 +120,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), `WorkList` (D6a, My work's clickable cards), `SuggestionList` (D2b: suggestion rows, each with an in-place confirmed Assign), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -123,6 +139,16 @@ Funding API (Java, spec 001): the only thing that writes
   - The panel is streamed over A2A `message/stream`: "Summarizing…", then the answer.
 - **Speed:** about 1–2 s warm, ~9 s when Ollama has to load the model first; the target is 15 s
   (NFR-02, owner).
+- **How Suggest assignments runs** (D2b):
+  - An **ADK `LlmAgent` with three read-only tools**: `unassigned_deals` (loan id, kinds of work,
+    eligible user ids, days to expiry, earlier assignees), `users` (id, role, open deals) and
+    `eligible(loan_id)`. Local Gemma calls them itself. No names, dealers, amounts or documents.
+  - The `assign` model in `models.yaml`, **thinking off**: 6–13 s for the 18 seeded deals (thinking
+    on took 23–29 s with no better answers; owner's call). The panel shows "Asking the assistant…"
+    first.
+  - Code checks the JSON answer (one retry), drops any suggestion for someone not eligible, and
+    fills any gap from **code's own plan** (most urgent first, to the eligible person with the
+    fewest open deals). With no model, the whole panel is code's plan, and says so.
 - With no model running, the assistant is shown as unavailable and everything else works.
 
 ## Run the spike (today)
@@ -153,14 +179,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 168 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 183 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     19 tests, each signing in on the real login page and named for its acceptance scenario.
+     21 tests, each signing in on the real login page and named for its acceptance scenario.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -177,6 +203,8 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
        holds on a fresh database; a deal changed by hand (say, LA-1006 waived) fails it, by name;
      - `AS_11_2`, `AS_11_6`: the right specialist sees the deal is theirs and may take it; a
        specialist for another kind of work isn't offered Take and sees who it's for;
+     - `AS_1_8` (`e2e/my-work.spec.ts`): a specialist lands on their work, opens a deal with a
+       click, takes it and finds it assigned; the supervisor sees every unassigned deal needing someone;
      - `FR_11`: signed out shows only the sign-in screen;
      - `AS_8_1`: Summarize shows the recorded summary, read-only, and the overview stays; a
        finished deal is summarized by how it ended;

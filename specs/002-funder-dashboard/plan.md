@@ -134,7 +134,7 @@ browser ◀── createSurface / updateComponents / updateDataModel (agent_to_r
 
 | Addition | Shape | Notes |
 |---|---|---|
-| Worklist | `GET /api/v1/applications?queue=mine\|unassigned\|specialty\|needs-reassignment\|all&workKind=&status=&stipCode=&holdReason=&dealer=&expiresWithinDays=&sort=expiry\|age&page=` | Latest, non-terminal versions only (AS-1.6). Each row: loan id, version id, status, dealer, assignee, earlier assignees, hold reasons, pending stip codes, `workKinds`, `routedTo`, `expiresAt`, `inProgress` |
+| Worklist | D6a builds `queue=mine` (assigned to the viewer) and `queue=ready` (unassigned and routed to the viewer; all unassigned with work for the supervisor), each row with `pendingStips`, `checksNotPassed`, `riscIncomplete`, `payment`, `workKinds`, `routedTo` and `expiresAt`. D6 adds the rest: `GET /api/v1/applications?queue=mine\|unassigned\|specialty\|needs-reassignment\|all&workKind=&status=&stipCode=&holdReason=&dealer=&expiresWithinDays=&sort=expiry\|age&page=` | Latest, non-terminal versions only (AS-1.6). Each row: loan id, version id, status, dealer, assignee, earlier assignees, hold reasons, pending stip codes, `workKinds`, `routedTo`, `expiresAt`, `inProgress` |
 | Hold reasons | Derived in SQL from stips, current results, the disbursement row and status | `STIPS_PENDING`, `CHECK_ERROR`, `RISC_INCOMPLETE` (from the last `RISC_INCOMPLETE` status audit), `PAYMENT_FAILED`, `PAYMENT_UNKNOWN`; not stored |
 | Overview fields | `expiresAt`, `workflowId`, `workflowStep`, `inProgress`, `payment` {state, reference, amount}, `allowedActions[]` {action, allowed, reason} | T103 (D1) adds all but `allowedActions` (D2, from `Permissions`). **`expiresAt`** = `submittedAt` + `funding.workflow.expire-after` (the workflow's own deadline, AS-8.6); `null` before submission and once FUNDED or REJECTED. **`workflowStep`** is the workflow query's `step` (`null` with no run). **`inProgress`** is true for every step except `WAITING_FOR_FUNDER` and `DONE` (AS-2.2). **`payment.state`** is `NOT_STARTED` (no disbursement row), `IN_FLIGHT` (REQUESTED while the step is `DISBURSING`), `PAID` (COMPLETED, with `reference` and `amount`), `FAILED` (the API refused it), or `UNKNOWN` (REQUESTED with no call running: retries exhausted, C-8). **`workflowId`** builds the Temporal UI link (AS-2.5) |
 | Stip codes | `GET /api/v1/stip-codes` | From `StipCodes`, with descriptions and `waivable` |
@@ -161,6 +161,10 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
 - **`ConfidenceTag`:** `value` and `threshold`, showing a "low" text when below the threshold.
 - **`Heading`** (D1c): `text` and `level` (1–3). The basic `Text` allows only `caption` and
   `body`, so titles need their own component.
+- **`WorkList`** (D6a, AS-1.8): `title`, `items` (a `@path` to rows of {loanApplicationId, dealer,
+  status, missing, routedTo, expiry}), `emptyText`, `openAction` (an event name). Each row is a
+  card; clicking it dispatches `openAction` with the row's `loanApplicationId` through the
+  component's `ComponentContext.dispatchAction`, the same path a Button takes.
 - **`FactList`** (D1c): `items`, a `@path` to a list of `{label, value}`, drawn as a two-column
   label/value grid. It replaces "Label: value" lines.
 - **`CheckList`** (D1c, AS-2.7): `items`, a `@path` to `{check, outcome, label, detail, reason,
@@ -227,8 +231,9 @@ The contract is regenerated (`-Dwrite.contract=true`) and `FunderOpenApiTest` ke
   retry.
 - **No model available:** `/api/tags` on Ollama fails, so the assistant shows "unavailable"
   (AS-8.4).
-- **Assignment suggestions (US-12, slice D2b):** the `assign` feature in `models.yaml`, thinking on
-  (it ranks). An ADK `LlmAgent` with **read-only function tools**, each calling the funder API with
+- **Assignment suggestions (US-12, slice D2b):** the `assign` feature in `models.yaml`, thinking
+  **off** (owner, 2026-11-22: measured on the 18 seeded deals, thinking on took 23–29 s and off
+  6–13 s, with the same validity and equally specific reasons). An ADK `LlmAgent` with **read-only function tools**, each calling the funder API with
   the supervisor's token: `unassigned_deals()` (loan id, kinds, routing, days to expiry, earlier
   assignees), `users()` (id, role, open deals) and `eligible(loan_id)`. It returns JSON
   `{suggestions[{loanId, assignee, reason}]}`; code drops any suggestion whose assignee isn't

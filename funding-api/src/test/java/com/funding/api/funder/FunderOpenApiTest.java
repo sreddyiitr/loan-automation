@@ -21,8 +21,8 @@ import org.springframework.test.web.servlet.MockMvc;
         org.springdoc.core.properties.SpringDocConfigProperties.class,
         org.springdoc.webmvc.core.configuration.SpringDocWebMvcConfiguration.class})
 @org.springframework.context.annotation.Import(com.funding.api.auth.SecurityConfig.class)
-@WebMvcTest(controllers = FunderController.class, properties = {
-        "springdoc.paths-to-match=/api/v1/applications/**,/api/v1/versions/**",
+@WebMvcTest(controllers = {FunderController.class, TeamController.class}, properties = {
+        "springdoc.paths-to-match=/api/v1/applications/**,/api/v1/versions/**,/api/v1/me,/api/v1/users",
         "springdoc.writer-with-order-by-keys=true"})
 class FunderOpenApiTest {
 
@@ -30,6 +30,7 @@ class FunderOpenApiTest {
 
     @Autowired private MockMvc mvc;
     @MockBean private FunderService service;
+    @MockBean private org.springframework.jdbc.core.simple.JdbcClient jdbc;
 
     @Test
     void FR_17_funderContractIsCheckedInAndCurrent() throws Exception {

@@ -14,6 +14,21 @@ const NARRATION = JSON.parse(readFileSync(new URL('./narration.json', import.met
 const CAPTIONS = Object.fromEntries(NARRATION.map((l) => [l.n, l.caption]));
 const BASE = process.env.DEMO_URL ?? 'http://localhost:5173';
 const USER = process.env.DEMO_USER ?? 'risc-1';   // LA-1002, the demo's main deal, is RISC work
+const ASSIGN_LOAN = 'LA-1002';                    // the supervisor assigns it back to risc-1 in scene 8
+const ISSUER = process.env.OIDC_ISSUER_URI ?? 'http://127.0.0.1:8090/funding';
+const API = process.env.FUNDER_API_URL ?? 'http://localhost:8080/api/v1';
+
+/** Starts from a known state: LA-1002 unassigned, so it's "ready to take" for risc-1 and gets a suggestion. */
+async function unassign(loan) {
+  const t = await fetch(`${ISSUER}/token`, {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({grant_type: 'client_credentials', client_id: 'supervisor-1', client_secret: 'unused', scope: 'funding-api'})});
+  const auth = {Authorization: `Bearer ${(await t.json()).access_token}`};
+  const o = await (await fetch(`${API}/applications/${loan}`, {headers: auth})).json();
+  const r = await fetch(`${API}/versions/${o.applicationVersionId}/assignee`, {method: 'PUT',
+    headers: {...auth, 'Content-Type': 'application/json'}, body: JSON.stringify({funderId: null})});
+  if (!r.ok) throw new Error(`unassign ${loan}: ${r.status}`);
+}
+await unassign(ASSIGN_LOAN);
 
 // A visible cursor, a click ripple and a caption bar, on every page (the app and the login page).
 const overlay = () => {
@@ -68,7 +83,9 @@ async function caption(n) {
 }
 
 /** Runs a scene: caption, the actions, then holds until the narration line (plus a breath) is over. */
+let currentLine = 1;
 async function scene(n, actions) {
+  currentLine = n;
   const start = Date.now();
   timeline.push({line: n, at: (start - t0) / 1000, caption: CAPTIONS[n]});
   await caption(n);
@@ -95,23 +112,36 @@ await scene(1, async () => {
   await glideTo(page.getByRole('button', {name: 'Sign in'}));
 });
 
-await scene(2, async () => {
+async function signInAs(user) {
   await click(page.getByRole('button', {name: 'Sign in'}));
-  const user = page.locator('input[name="username"]');
-  await user.waitFor();
-  await caption(2);
-  await click(user);
-  await page.keyboard.type(USER, {delay: 70});
+  const field = page.locator('input[name="username"]');
+  await field.waitFor();
+  await caption(currentLine);
+  await click(field);
+  await page.keyboard.type(user, {delay: 70});
   await click(page.getByRole('button', {name: 'Sign-in'}));
   await page.getByTestId('user').waitFor();
-  await caption(2);
-  await click(page.getByLabel('Loan id'));
-  await page.keyboard.type('LA-1002', {delay: 70});
-  await click(page.getByRole('button', {name: 'Open', exact: true}));
-  await page.getByText("What's been done").waitFor();
+  await caption(currentLine);
+}
+
+await scene(2, async () => {
+  await signInAs(USER);
+  await page.locator('.work-list').first().waitFor();
+  await sleep(1500);
+  const ready = page.locator('.work-list').filter({hasText: 'Ready for you to take'});
+  const y = await ready.evaluate((el) => el.getBoundingClientRect().top + window.scrollY - 120);
+  await smoothScroll(y);
+  await glideTo(page.locator('.work-card[data-loan="LA-1002"] .work-chip').first());
 });
 
 await scene(3, async () => {
+  await glideTo(page.locator('.work-card[data-loan="LA-1002"] .work-foot'));
+  await sleep(1600);
+  await click(page.locator('.work-card[data-loan="LA-1002"]'));
+  await page.getByText("What's been done").waitFor();
+});
+
+await scene(4, async () => {
   await sleep(800);
   const checks = page.locator('.check-list');
   const y = await checks.evaluate((el) => el.getBoundingClientRect().top + window.scrollY - 90);
@@ -119,7 +149,7 @@ await scene(3, async () => {
   await glideTo(page.locator('.check[data-check="TILA math"] .comparisons tr.bad').first());
 });
 
-await scene(4, async () => {
+await scene(5, async () => {
   await click(page.locator('.check[data-check="Income"] .check-head'));
   await sleep(1400);
   const t = page.locator('.timeline');
@@ -127,21 +157,33 @@ await scene(4, async () => {
   await smoothScroll(y);
 });
 
-await scene(5, async () => {
+await scene(6, async () => {
   await smoothScroll(0);
   await click(page.getByRole('button', {name: 'Summarize'}));
   await page.getByText(/^Written by the assistant/).waitFor({timeout: 30000});
 });
 
-await scene(6, async () => {
-  await click(page.getByLabel('Loan id'));
-  await page.keyboard.press('Meta+A');
-  await page.keyboard.type('LA-1001', {delay: 70});
-  await click(page.getByRole('button', {name: 'Open', exact: true}));
-  await page.getByText(/^LA-1001 · v/).waitFor();
-  await sleep(700);
-  const y = await page.locator('.check-list').evaluate((el) => el.getBoundingClientRect().top + window.scrollY - 160);
-  await smoothScroll(y);
+await scene(7, async () => {
+  await click(page.getByRole('button', {name: 'Sign out'}));
+  await signInAs('supervisor-1');
+  await page.locator('.work-list').first().waitFor();
+  await click(page.getByRole('button', {name: 'Suggest assignments'}));
+  await page.locator('.suggestion').first().waitFor({timeout: 90000});
+  await sleep(600);
+  await glideTo(page.locator(`.suggestion[data-loan="${ASSIGN_LOAN}"] .suggestion-reason`));
+});
+
+await scene(8, async () => {
+  const row = page.locator(`.suggestion[data-loan="${ASSIGN_LOAN}"]`);
+  await click(row.getByRole('button', {name: /^Assign /}));
+  await sleep(1200);
+  await click(row.getByRole('button', {name: 'Yes, assign'}));
+  await row.getByText('Assigned ✓').waitFor();
+});
+
+await scene(9, async () => {
+  await sleep(800);
+  await smoothScroll(0);
 });
 
 await sleep(1200);
