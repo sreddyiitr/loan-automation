@@ -1,4 +1,4 @@
-// Our custom catalog (plan §6): the Basic Catalog has no table or status badge, so we add them.
+// Our custom catalog (plan §6): the Basic Catalog has no table, status badge, heading or fact list, so we add them.
 // Keep it in step with dashboard/agent/funder_agent/catalog.py.
 // A component = an API (Zod schema built from CommonSchemas, so bindings resolve) + a React implementation.
 import {z} from 'zod';
@@ -13,25 +13,63 @@ export const DataTableApi = {
   schema: z.object({
     columns: z.array(z.object({key: z.string(), title: z.string()})),
     rows: CommonSchemas.DynamicValue, // usually {"@path": "/deal/versions"}: resolved to the list itself
+    title: CommonSchemas.DynamicString.optional(),
     emptyText: CommonSchemas.DynamicString.optional(),
   }),
 };
 
 const DataTable = createComponentImplementation(DataTableApi as never, ({props}) => {
-  const p = props as {columns: {key: string; title: string}[]; rows?: unknown; emptyText?: string};
+  const p = props as {columns: {key: string; title: string}[]; rows?: unknown; title?: string; emptyText?: string};
   const rows = Array.isArray(p.rows) ? (p.rows as Record<string, unknown>[]) : [];
-  if (rows.length === 0) return <p>{p.emptyText ?? 'Nothing to show'}</p>;
   return (
-    <table style={{borderCollapse: 'collapse', width: '100%'}}>
-      <thead>
-        <tr>{p.columns.map((c) => <th key={c.key} style={{textAlign: 'left', borderBottom: '1px solid #ccc'}}>{c.title}</th>)}</tr>
-      </thead>
-      <tbody>
-        {rows.map((r, i) => (
-          <tr key={i}>{p.columns.map((c) => <td key={c.key}>{String(r[c.key] ?? '')}</td>)}</tr>
-        ))}
-      </tbody>
-    </table>
+    <section className="data-table">
+      {p.title && <h3 className="section-title">{p.title}</h3>}
+      {rows.length === 0 ? <p className="muted">{p.emptyText ?? 'Nothing to show'}</p> : (
+        <table>
+          <thead>
+            <tr>{p.columns.map((c) => <th key={c.key}>{c.title}</th>)}</tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>{p.columns.map((c) => <td key={c.key}>{String(r[c.key] ?? '')}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+});
+
+// Heading (D1c): the basic Text allows only caption and body, so titles need their own component.
+export const HeadingApi = {
+  name: 'Heading',
+  schema: z.object({text: CommonSchemas.DynamicString, level: z.number().int().min(1).max(3).optional()}),
+};
+
+const Heading = createComponentImplementation(HeadingApi as never, ({props}) => {
+  const p = props as {text?: unknown; level?: number};
+  const Tag = (['h1', 'h2', 'h3'] as const)[(p.level ?? 2) - 1];
+  return <Tag className={`heading heading-${p.level ?? 2}`}>{String(p.text ?? '')}</Tag>;
+});
+
+// FactList (D1c): label/value pairs as a two-column grid, from a list of {label, value}.
+export const FactListApi = {
+  name: 'FactList',
+  schema: z.object({items: CommonSchemas.DynamicValue}),
+};
+
+const FactList = createComponentImplementation(FactListApi as never, ({props}) => {
+  const items = Array.isArray((props as {items?: unknown}).items)
+    ? ((props as {items: {label: string; value: string}[]}).items) : [];
+  return (
+    <dl className="fact-list">
+      {items.map((f) => (
+        <div className="fact" key={f.label} data-label={f.label}>
+          <dt>{f.label}</dt>
+          <dd>{f.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 });
 
@@ -50,7 +88,11 @@ const TONE: Record<string, string> = {
 const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({props}) => {
   const status = String((props as {status?: unknown}).status ?? '');
   const label = status.replaceAll('_', ' ').toLowerCase();
-  return <span className={`status-badge status-${TONE[status] ?? 'neutral'}`} data-status={status}>Status: {label}</span>;
+  return (
+    <span className={`status-badge status-${TONE[status] ?? 'neutral'}`} data-status={status}>
+      <span className="status-dot" aria-hidden="true" />Status: {label}
+    </span>
+  );
 });
 
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
@@ -59,6 +101,6 @@ const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({pro
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList] as never,
   [...basicCatalog.functions.values()] as never,
 );

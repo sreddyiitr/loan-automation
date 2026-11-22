@@ -60,3 +60,8 @@ export function watchErrors(page: Page): string[] {
   page.on('pageerror', (e) => errors.push(e.message));
   return errors;
 }
+
+/** D1c: a fact on the overview is a label/value pair in the FactList; this is its value. */
+export function fact(page: Page, label: string) {
+  return page.locator(`.fact[data-label="${label}"] dd`);
+}

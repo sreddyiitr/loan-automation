@@ -148,7 +148,7 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **121 agent tests** (pytest) and **13 browser tests**
+Spec 002 (the funder dashboard) adds **122 agent tests** (pytest) and **13 browser tests**
 (Playwright), counted separately; its Java tests are in the 411. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
@@ -527,7 +527,7 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 121 agent tests, no services and no model needed
+make test-dashboard        # 122 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
 make test-dashboard-e2e    # 13 browser tests: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
@@ -543,6 +543,8 @@ about 1–2 s, or up to ~10 s when the model has to load first. The model is set
 from it.
 
 Then, at http://localhost:5173:
+
+![The funder dashboard: a deal's overview and the assistant's summary](learnings/screenshots/Funder%20dashboard.png)
 
 1. Click **Sign in**. On the provider's page, type `funder-1` (or `funder-2`, `income-1`,
    `supervisor-1`), leave the claims box empty, and click **Sign-in**. There's no password.

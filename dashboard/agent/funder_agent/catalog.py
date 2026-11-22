@@ -28,6 +28,7 @@ DATA_TABLE = ComponentApi("DataTable", {
         "columns": {"type": "array", "minItems": 1, "items": {
             "type": "object", "additionalProperties": False, "required": ["key", "title"],
             "properties": {"key": {"type": "string"}, "title": {"type": "string"}}}},
+        "title": _DYNAMIC,
         "rows": _DYNAMIC,
         "emptyText": _DYNAMIC,
         "weight": {"type": "number"},
@@ -50,7 +51,36 @@ STATUS_BADGE = ComponentApi("StatusBadge", {
     "required": ["id", "component", "status"],
 })
 
-FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE]
+HEADING = ComponentApi("Heading", {
+    "type": "object",
+    "description": "A title (D1c). The basic Text allows only caption and body, so titles need their own component.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"},
+        "component": {"const": "Heading"},
+        "text": _DYNAMIC,
+        "level": {"type": "integer", "minimum": 1, "maximum": 3},
+        "weight": {"type": "number"},
+        "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "text"],
+})
+
+FACT_LIST = ComponentApi("FactList", {
+    "type": "object",
+    "description": "Label/value pairs as a two-column grid (D1c). items is usually bound to a list of {label, value}.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"},
+        "component": {"const": "FactList"},
+        "items": _DYNAMIC,
+        "weight": {"type": "number"},
+        "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "items"],
+})
+
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST]
 
 
 @lru_cache(maxsize=1)

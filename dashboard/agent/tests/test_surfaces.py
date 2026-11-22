@@ -70,7 +70,7 @@ def test_NFR_05_noticeSurfaceIsValidA2ui():
 def test_NFR_05_theValidatorReallyRejects(break_it):
     messages = overview_surface(deal_model(OVERVIEW, VERSIONS, NOW))
     bad = copy.deepcopy(messages)
-    title = next(c for c in bad[1]["updateComponents"]["components"] if c["id"] == "title")
+    title = next(c for c in bad[1]["updateComponents"]["components"] if c["id"] == "subtitle")
     break_it(title)
     with pytest.raises(A2uiValidationError):
         validate(bad)
@@ -133,3 +133,17 @@ def test_AS_2_5_temporalLink():
     deal = deal_model(OVERVIEW, VERSIONS, NOW)
     assert deal["temporalUrl"] == "http://localhost:8233/namespaces/default/workflows/funding-local-12"
     assert deal_model({**OVERVIEW, "workflowId": None}, VERSIONS, NOW)["temporalUrl"] == ""
+
+
+def test_AS_2_1_theFactsAreALabelValueListFromTheDealsOwnFields():
+    """D1c: the facts are one FactList bound to /deal/facts, built from the same fields as before."""
+    deal = deal_model(OVERVIEW, VERSIONS, NOW)
+    assert [f["label"] for f in deal["facts"]] == ["Assigned to", "Expiry", "Payment", "Dealer", "Borrower",
+                                                   "Co-borrower", "Stated income", "VIN", "Submitted"]
+    facts = {f["label"]: f["value"] for f in deal["facts"]}
+    assert facts["Dealer"] == "Lone Star Motors" and facts["Stated income"] == "$85,000.00"
+    assert facts["Assigned to"] == "Unassigned" and facts["Co-borrower"] == "None"
+    components = overview_surface(deal)[1]["updateComponents"]["components"]
+    assert next(c for c in components if c["id"] == "facts") == \
+        {"id": "facts", "component": "FactList", "items": {"@path": "/deal/facts"}}
+    assert next(c for c in components if c["id"] == "title")["component"] == "Heading"

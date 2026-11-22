@@ -81,7 +81,7 @@ def test_D_1_theModelsTextIsOnlyDataNeverComponentsOrActions():
     messages = assistant_surface(12, "ok", tricky)
     validate(messages)
     comps = next(m["updateComponents"]["components"] for m in messages if "updateComponents" in m)
-    assert {c["component"] for c in comps} == {"Card", "Column", "Text"}       # no buttons, ever
+    assert {c["component"] for c in comps} == {"Card", "Column", "Heading", "Text"}   # display only: no buttons, ever
     assert all(tricky not in json.dumps(c) for c in comps)                     # the text never reaches the layout
     assert panel(messages)["summary"] == tricky                               # it's shown as plain text
 

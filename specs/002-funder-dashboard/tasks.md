@@ -293,16 +293,32 @@ doesn't wait for D2.
 lives in the web app, and the overview's layout is still built by agent code.
 **Exit:** AS-2.1, AS-2.3, AS-2.5, AS-2.6 and AS-8.1 still pass on the new layout; NFR-04, NFR-05.
 
-- [ ] **T161** Theme: design tokens on `:root` (light, with a dark mode that follows the OS), the
+- [x] **T161** Theme: design tokens on `:root` (light, with a dark mode that follows the OS), the
   renderer's `--a2ui-*` variables set from them, and styles for the shell, `DataTable` and
   `StatusBadge`. Replaces Vite's starter stylesheet.
-- [ ] **T162** Two catalog components, on both sides (web and agent validation): `Heading` and
+- [x] **T162** Two catalog components, on both sides (web and agent validation): `Heading` and
   `FactList` (plan §6).
-- [ ] **T163** The overview's new layout: a header (title, dealer and submitted date, status
+- [x] **T163** The overview's new layout: a header (title, dealer and submitted date, status
   badge), the facts as a `FactList`, an action bar, and the version history with its own
   heading. The assistant's panel gets a heading too, and sits beside the overview on wide screens.
-- [ ] **T164** Tests follow the layout: agent surface tests, and Playwright reads facts by label.
+- [x] **T164** Tests follow the layout: agent surface tests, and Playwright reads facts by label.
   A screenshot of the new look goes into `learnings/screenshots/`.
+  **Notes (done 2026-11-21):**
+  - The theme is CSS only: design tokens, a dark mode, and the renderer's `--a2ui-*` variables (it
+    has 139). Vite's starter stylesheet, which centred everything, is gone.
+  - **Pitfalls:**
+    - The renderer wraps a caption in `<em>`, so `.a2ui-text-caption em` is what un-italicises
+      it.
+    - Strict A2UI refuses a component nothing reaches, so the assistant's panel sends only the
+      lines its state uses.
+  - The overview's header row aligns to the top, and its action row to the centre. The shell has a
+    top bar, a toolbar, a two-column workspace with the assistant beside the deal, an empty state
+    and a sign-in card.
+  - Tests: 122 agent tests (1 new: the facts are a `FactList` built from the deal's own fields) and
+    13 Playwright tests, which now read facts by label (`fact(page, label)` in `e2e/support.ts`).
+    The no-buttons check on the assistant's panel stays strict: only Card, Column, Heading and Text.
+  - Screenshot: `learnings/screenshots/Funder dashboard.png`, also shown in the README and
+    `ui_summary.md`.
 
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 

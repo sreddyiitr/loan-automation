@@ -7,8 +7,18 @@ Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md
 
 ## Status (2026-11-21)
 
-**Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11) and **D1b,
-Summarize** (T151–T157) are done. What works end to end today:
+**Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11), **D1b,
+Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
+
+![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
+
+**The look (D1c, D-18):** clean fintech, light, with dark mode following the OS. A2UI v1.0 has no
+themes, so the look lives in the web app (`web/src/index.css`): design tokens, the renderer's
+`--a2ui-*` variables set from them, and our components' styles. The agent sends only structure.
+The overview has a header (loan id, dealer, status badge), the facts as a label/value grid, an
+action bar and the version history; the assistant's panel sits beside it on wide screens.
+
+What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
 2. The agent replies with A2UI v1.0, built by code with no LLM.
@@ -88,7 +98,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0) and `StatusBadge` (**built** in T105; the status is always written out, never colour alone), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading` and `FactList` (**built** in D1c: the basic `Text` has no title style, and facts read better as a label/value grid), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -137,7 +147,7 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 121 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 122 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).

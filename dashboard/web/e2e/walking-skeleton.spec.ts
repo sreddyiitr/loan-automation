@@ -2,7 +2,7 @@ import {readdirSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {expect, test} from '@playwright/test';
-import {api, openDeal, signInAs, takeAs, unassignedLa1006, watchErrors} from './support';
+import {api, fact, openDeal, signInAs, takeAs, unassignedLa1006, watchErrors} from './support';
 
 // Spec 002 D1, the walking skeleton through the real stack: sign in on the OIDC provider's login
 // page (Authorization Code + PKCE), open a deal by loan id, see the overview the agent builds in code
@@ -32,7 +32,7 @@ test('AS_1_1_signsInOnTheProviderPageAndEveryWriteIsMadeAsThatUser', async ({pag
   await openDeal(page, 'LA-1006');
   await page.getByRole('button', {name: 'Take this deal'}).click();
   await page.getByRole('dialog').getByRole('button', {name: 'Yes, take it'}).click();
-  await expect(page.getByText('Assigned to: funder-1 (you)')).toBeVisible();
+  await expect(fact(page, 'Assigned to')).toHaveText('funder-1 (you)');
 
   const audit = await (await api('supervisor-1', `/versions/${deal.applicationVersionId}/audit`)).json();
   const last = audit.at(-1);
@@ -67,18 +67,19 @@ test('AS_2_1_theOverviewShowsTheDealFactsExpiryAndPayment', async ({page}) => {
   await expect(page.getByText(`LA-1006 · v${deal.latestVersionNumber}`, {exact: true})).toBeVisible();
   await expect(page.locator('.status-badge')).toHaveAttribute('data-status', deal.status);
   await expect(page.locator('.status-badge')).toHaveText(`Status: ${deal.status.replaceAll('_', ' ').toLowerCase()}`);
-  for (const fact of [
-    `Dealer: ${deal.dealershipName}`,
-    `Borrower: ${deal.borrowerName}`,
-    `Co-borrower: ${deal.coBorrowerName ?? 'None'}`,
-    `Stated income: ${money(deal.statedIncomeAnnual)}`,
-    `VIN: ${deal.vehicleVin}`,
-    'Assigned to: Unassigned',
-    `Submitted: ${deal.submittedAt.slice(0, 10)}`,
-  ]) await expect(page.getByText(fact, {exact: true})).toBeVisible();
-  await expect(page.getByText(new RegExp(`^Expiry: (\\d+ days? left|Expires today) \\(${deal.expiresAt.slice(0, 10)}\\)$`))).toBeVisible();
+  for (const [label, value] of [
+    ['Dealer', deal.dealershipName],
+    ['Borrower', deal.borrowerName],
+    ['Co-borrower', deal.coBorrowerName ?? 'None'],
+    ['Stated income', money(deal.statedIncomeAnnual)],
+    ['VIN', deal.vehicleVin],
+    ['Assigned to', 'Unassigned'],
+    ['Submitted', deal.submittedAt.slice(0, 10)],
+  ]) await expect(fact(page, label), label).toHaveText(value);
+  await expect(fact(page, 'Expiry')).toHaveText(new RegExp(`^(\\d+ days? left|Expires today) \\(${deal.expiresAt.slice(0, 10)}\\)$`));
   expect(deal.payment.state).toBe('NOT_STARTED');                      // LA-1006 is STIPULATED: nothing paid yet
-  await expect(page.getByText('Payment: Not started', {exact: true})).toBeVisible();
+  await expect(fact(page, 'Payment')).toHaveText('Not started');
+  await expect(page.getByText(`${deal.dealershipName} · submitted ${deal.submittedAt.slice(0, 10)}`)).toBeVisible();   // the header
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
@@ -118,10 +119,10 @@ test('AS_2_6_takeAsksForConfirmationThenTheDealIsYoursAndTakeIsGone', async ({pa
   await page.getByRole('button', {name: 'Take this deal'}).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText(/Take LA-1006 v\d+\? It will be assigned to you\./);
-  await expect(page.getByText('Assigned to: Unassigned')).toBeVisible();     // nothing happens before confirming
+  await expect(fact(page, 'Assigned to')).toHaveText('Unassigned');     // nothing happens before confirming
   await dialog.getByRole('button', {name: 'Yes, take it'}).click();
 
-  await expect(page.getByText('Assigned to: funder-1 (you)')).toBeVisible(); // written as the token's user, then re-read
+  await expect(fact(page, 'Assigned to')).toHaveText('funder-1 (you)'); // written as the token's user, then re-read
   await expect(page.getByRole('dialog')).toHaveCount(0);                     // the rebuilt surface closed it
   await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
   await expect(page.getByTestId('events')).toContainText('deal.take');
@@ -138,7 +139,7 @@ test('AS_2_6_ifSomeoneElseTookItFirstNothingChangesAndTheOverviewSaysWhoHasIt', 
   await page.getByRole('button', {name: 'Take this deal'}).click();
   await page.getByRole('dialog').getByRole('button', {name: 'Yes, take it'}).click();
   await expect(page.getByText('Someone else took this deal first. The overview now shows who has it.')).toBeVisible();
-  await expect(page.getByText('Assigned to: funder-2')).toBeVisible();
+  await expect(fact(page, 'Assigned to')).toHaveText('funder-2');
   await expect(page.getByRole('button', {name: 'Take this deal'})).toHaveCount(0);
 });
 
