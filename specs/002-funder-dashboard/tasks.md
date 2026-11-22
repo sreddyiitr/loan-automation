@@ -467,6 +467,21 @@ has two or more), the API enforces AS-11.2, and the overview offers only the act
     19 (2 new: the right specialist may take; another kind's specialist isn't offered Take).
   - **D2 is done.** The README screenshot and demo are refreshed for the new fact.
 
+## D6a: My work, on sign-in (AS-1.8; part of D6, moved up by the owner)
+
+**Proves:** a funder signs in and sees their work: what's assigned to them and what's ready for them
+to take, with what's missing on each, and opens a deal with a click.
+**Exit:** AS-1.2 (assigned to you), AS-1.5, AS-1.7 (ready to take), AS-1.8.
+
+- [x] **T611** Spec first: AS-1.8, plan §5 (the two queues) and §6 (`WorkList`).
+- [ ] **T612** API: `GET /api/v1/applications?queue=mine|ready`: open latest versions, each with its
+  routing facts (the same `WorkRouting` as everything else), most urgent first. Java tests.
+- [ ] **T613** Agent: the `worklist` surface ("my work" text request) with "what's missing" in plain
+  words; `deal.open` opens a deal. Web: `WorkList` (clickable rows), sign-in lands on My work, and a
+  My work button. Agent tests.
+- [ ] **T614** Playwright: `AS_1_8_…` (a specialist sees their assigned deal and what's ready, opens one
+  with a click, comes back), and a supervisor's ready list.
+
 ## D2b: Assignment suggestions for the supervisor (US-12)
 
 **Proves:** an ADK agent with read-only tools proposes assignments, code decides who's eligible,
