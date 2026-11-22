@@ -732,4 +732,46 @@ class FunderApiTest {
                 .andExpect(jsonPath("$.allowedActions[?(@.action == 'TAKE')].reason")
                         .value(org.hamcrest.Matchers.contains("NOT_YOUR_SPECIALTY")));
     }
+
+    // ------------------------------------------------------------------ spec 002 D6a: My work (AS-1.8)
+
+    private ResultActions myWork(String user, Role role, String queue) throws Exception {
+        return writeAs(user, role, get("/api/v1/applications").param("queue", queue), null);
+    }
+
+    @Test
+    void AS_1_8_readyForYouListsUnassignedDealsRoutedToYourSpecialty() throws Exception {
+        settled("LA-1006");                                                   // documents work
+        settled("LA-1018");                                                   // GAP work
+        settled("LA-1001");                                                   // nothing to do
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "ready").andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.contains("LA-1006")));
+        myWork("gap-1", Role.GAP_SPECIALIST, "ready")
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.contains("LA-1018")));
+        myWork("supervisor-1", Role.SUPERVISOR, "ready")                    // every unassigned deal that needs someone
+                .andExpect(jsonPath("$[*].loanApplicationId").value(org.hamcrest.Matchers.containsInAnyOrder("LA-1006", "LA-1018")));
+    }
+
+    @Test
+    void AS_1_8_assignedToYouListsYourDealsWithWhatsMissing() throws Exception {
+        long id = settled("LA-1006");
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "mine").andExpect(jsonPath("$").isEmpty());
+        writeAs("docs-1", Role.DOCUMENTS_SPECIALIST, post("/api/v1/versions/{v}/take", id), null).andExpect(status().isOk());
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "mine")
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].loanApplicationId").value("LA-1006"))
+                .andExpect(jsonPath("$[0].status").value("STIPULATED"))
+                .andExpect(jsonPath("$[0].dealershipName").value("Lone Star Motors"))
+                .andExpect(jsonPath("$[0].routedTo").value("DOCUMENTS_SPECIALIST"))
+                .andExpect(jsonPath("$[0].pendingStips[0].code").value("STIP_PRICE_MISMATCH"))
+                .andExpect(jsonPath("$[0].pendingStips[0].check").value("PRICE"))
+                .andExpect(jsonPath("$[0].expiresAt").isNotEmpty());
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "ready").andExpect(jsonPath("$").isEmpty());   // taken: not ready any more
+        myWork("gap-1", Role.GAP_SPECIALIST, "mine").andExpect(jsonPath("$").isEmpty());           // someone else's
+    }
+
+    @Test
+    void AS_1_8_anUnknownQueueIsABadRequest() throws Exception {
+        myWork("docs-1", Role.DOCUMENTS_SPECIALIST, "everything").andExpect(problem(400, "INVALID_QUEUE"));
+    }
 }

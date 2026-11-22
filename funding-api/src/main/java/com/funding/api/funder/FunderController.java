@@ -57,6 +57,13 @@ public class FunderController {
 
     // ------------------------------------------------------------------ reads
 
+    @GetMapping("/applications")
+    @Operation(summary = "My work: deals assigned to you, or ready for you to take",
+            description = "Spec 002 AS-1.8: queue=mine (assigned to the caller) or queue=ready (unassigned, routed to the caller's role; all for a supervisor)")
+    public List<Map<String, Object>> worklist(@RequestParam String queue, @Parameter(hidden = true) Actor actor) {
+        return funder.worklist(queue, actor);
+    }
+
     @GetMapping("/applications/{loanApplicationId}")
     @Operation(summary = "Application overview (latest version)", description = "AS-10.1")
     public Map<String, Object> overview(@PathVariable String loanApplicationId, @Parameter(hidden = true) Actor actor) {
