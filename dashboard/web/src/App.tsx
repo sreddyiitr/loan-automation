@@ -138,16 +138,24 @@ export default function App() {
           <button type="button" className="btn btn-ghost" onClick={() => void signOut().then(() => { setUser(undefined); setVisible([]); })}>Sign out</button>
         </div>
       </header>
+      <section className="hero">
+        <div className="hero-inner">
+          <div className="hero-text">
+            <p className="hero-kicker">Funding exceptions</p>
+            <h1 className="hero-title">Open a deal</h1>
+          </div>
+          <form className="open-deal" onSubmit={open}>
+            <label htmlFor="loan-id">Loan id</label>
+            <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="e.g. LA-1006" autoComplete="off" />
+            <button type="submit" className="btn btn-primary">Open</button>
+          </form>
+        </div>
+      </section>
       <main className="page">
-        <form className="open-deal" onSubmit={open}>
-          <label htmlFor="loan-id">Loan id</label>
-          <input id="loan-id" value={loanId} onChange={(e) => setLoanId(e.target.value)} placeholder="e.g. LA-1006" autoComplete="off" />
-          <button type="submit" className="btn btn-primary">Open</button>
-        </form>
         {error && <p role="alert" className="alert">{error}</p>}
         {surfaces.length === 0 && !error && (
           <section className="empty-state">
-            <h2>Open a deal</h2>
+            <h2>No deal open yet</h2>
             <p className="muted">Type a loan id above to see its overview, take it, or ask the assistant to summarize it.</p>
           </section>
         )}

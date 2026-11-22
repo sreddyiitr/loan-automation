@@ -12,7 +12,9 @@ Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
-**The look (D1c, D-18):** clean fintech, light, with dark mode following the OS. A2UI v1.0 has no
+**The look (D1c, D-18):** clean fintech, light, with dark mode following the OS: a navy top bar and
+hero band with the loan search, white cards lifted over it, key facts (assignee, expiry, payment) in
+tinted tiles, and the assistant in its own indigo colour, so what the AI wrote is easy to spot. A2UI v1.0 has no
 themes, so the look lives in the web app (`web/src/index.css`): design tokens, the renderer's
 `--a2ui-*` variables set from them, and our components' styles. The agent sends only structure.
 The overview has a header (loan id, dealer, status badge), the facts as a label/value grid, an

@@ -319,6 +319,11 @@ lives in the web app, and the overview's layout is still built by agent code.
     The no-buttons check on the assistant's panel stays strict: only Card, Column, Heading and Text.
   - Screenshot: `learnings/screenshots/Funder dashboard.png`, also shown in the README and
     `ui_summary.md`.
+  - **Made richer** at the owner's request ("too light"): a navy top bar and a hero band holding
+    the loan search, with the cards lifted over it; a blue edge on the deal card; the first three
+    facts in tinted tiles; a tinted table header; gradient primary buttons; and the assistant in
+    its own indigo colour with a ✦. Dark mode checked too: section titles got their own colour
+    there, because navy had no contrast.
 
 ## D2: Roles and permissions (five specialists and a supervisor, D-15)
 
