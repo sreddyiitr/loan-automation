@@ -61,6 +61,10 @@ class FunderApi:
     def overview(self, loan_id: str) -> dict[str, Any]:
         return self._call("GET", f"/applications/{loan_id}")
 
+    def worklist(self, queue: str) -> list[dict[str, Any]]:
+        """Spec 002 AS-1.8: ``mine`` (assigned to me) or ``ready`` (routed to me, nobody has it)."""
+        return self._call("GET", "/applications", params={"queue": queue})
+
     def versions(self, loan_id: str) -> list[dict[str, Any]]:
         return self._call("GET", f"/applications/{loan_id}/versions")
 

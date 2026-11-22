@@ -59,6 +59,7 @@ class FakeFunderApi:
         self.stips: list[dict[str, Any]] = []
         self.results: list[dict[str, Any]] = []
         self.audit: list[dict[str, Any]] = []
+        self.queues: dict[str, list[dict[str, Any]]] = {"mine": [], "ready": []}
         self.requests: list[httpx.Request] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -69,6 +70,8 @@ class FakeFunderApi:
         path = request.url.path.removeprefix("/api/v1")
         if request.method == "GET" and path == f"/applications/{self.overview['loanApplicationId']}":
             return httpx.Response(200, json=self.overview)
+        if request.method == "GET" and path == "/applications":       # AS-1.8 My work
+            return httpx.Response(200, json=self.queues.get(request.url.params.get("queue"), []))
         if request.method == "GET" and path.endswith("/versions"):
             return httpx.Response(200, json=VERSIONS)
         if request.method == "GET" and path.endswith("/stipulations"):

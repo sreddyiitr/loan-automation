@@ -65,3 +65,13 @@ export function watchErrors(page: Page): string[] {
 export function fact(page: Page, label: string) {
   return page.locator(`.fact[data-label="${label}"] dd`);
 }
+
+/** Any deal's latest version, unassigned by the supervisor (AS-2.4), so a test starts from "nobody has it". */
+export async function unassigned(loan: string): Promise<Record<string, any>> {
+  const overview = await (await api('supervisor-1', `/applications/${loan}`)).json();
+  const res = await api('supervisor-1', `/versions/${overview.applicationVersionId}/assignee`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({funderId: null}),
+  });
+  expect(res.ok, `unassign ${loan}: ${res.status}`).toBeTruthy();
+  return {...overview, assignedFunder: null};
+}

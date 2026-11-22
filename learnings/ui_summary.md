@@ -25,6 +25,12 @@ action bar, **What's been done** (AS-2.7: each check's outcome and why, opening 
 it made, expected against found; and the deal's milestones newest first, with who did each), and the version history; the assistant's panel sits beside it on wide
 screens.
 
+**Signing in lands on My work** (D6a): the deals assigned to you and the ones ready for you to
+take, each a card with its status, what's missing in plain words, who it's routed to and days to
+expiry. Click a card to open the deal; **My work** brings you back.
+
+![My work, as docs-1](screenshots/My%20work.png)
+
 What works end to end today:
 
 1. The browser asks the agent over A2A, with the user's OIDC bearer token.
@@ -45,7 +51,7 @@ its own read-only panel under the overview: "Summarizing…" at once, then two o
 with a note that the assistant wrote them from this deal's data only. With no model running, the
 panel says the assistant is unavailable and everything else works.
 
-Not yet built: the worklist, the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
+Not yet built: the rest of the worklist (filters, expiring soon, needs reassignment), the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
 and "draft stip text" (D8).
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -153,14 +159,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 168 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 183 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     19 tests, each signing in on the real login page and named for its acceptance scenario.
+     21 tests, each signing in on the real login page and named for its acceptance scenario.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -177,6 +183,8 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
        holds on a fresh database; a deal changed by hand (say, LA-1006 waived) fails it, by name;
      - `AS_11_2`, `AS_11_6`: the right specialist sees the deal is theirs and may take it; a
        specialist for another kind of work isn't offered Take and sees who it's for;
+     - `AS_1_8` (`e2e/my-work.spec.ts`): a specialist lands on their work, opens a deal with a
+       click, takes it and finds it assigned; the supervisor sees every unassigned deal needing someone;
      - `FR_11`: signed out shows only the sign-in screen;
      - `AS_8_1`: Summarize shows the recorded summary, read-only, and the overview stays; a
        finished deal is summarized by how it ended;
