@@ -9,6 +9,32 @@ tags:
 - description: Funder operations on loan application versions (US-10)
   name: Funder
 paths:
+  /api/v1/applications:
+    get:
+      description: "Spec 002 AS-1.8: queue=mine (assigned to the caller) or queue=ready\
+        \ (unassigned, routed to the caller's role; all for a supervisor)"
+      operationId: worklist
+      parameters:
+      - in: query
+        name: queue
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      security:
+      - bearerAuth: []
+      summary: "My work: deals assigned to you, or ready for you to take"
+      tags:
+      - Funder
   /api/v1/applications/{loanApplicationId}:
     get:
       description: AS-10.1

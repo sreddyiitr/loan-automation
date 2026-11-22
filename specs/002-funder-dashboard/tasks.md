@@ -474,8 +474,14 @@ to take, with what's missing on each, and opens a deal with a click.
 **Exit:** AS-1.2 (assigned to you), AS-1.5, AS-1.7 (ready to take), AS-1.8.
 
 - [x] **T611** Spec first: AS-1.8, plan §5 (the two queues) and §6 (`WorkList`).
-- [ ] **T612** API: `GET /api/v1/applications?queue=mine|ready`: open latest versions, each with its
+- [x] **T612** API: `GET /api/v1/applications?queue=mine|ready`: open latest versions, each with its
   routing facts (the same `WorkRouting` as everything else), most urgent first. Java tests.
+  **Notes (done 2026-11-21):** `FunderService.worklist` walks the open latest versions
+  (`FunderQueries.openLatestVersionIds`) and reads each one's routing facts. Rows carry
+  `pendingStips` ({code, check}), `checksNotPassed` (ERROR, or INCOME needing review), `riscIncomplete`,
+  `payment`, `workKinds`, `routedTo` and `expiresAt`, sorted by expiry. `queue` is required; anything
+  else gets 400 `INVALID_QUEUE`. The contract was regenerated (`-Dwrite.contract=true`, only the new
+  path added). Tests: 3 in `FunderApiTest` (67 in the API module).
 - [ ] **T613** Agent: the `worklist` surface ("my work" text request) with "what's missing" in plain
   words; `deal.open` opens a deal. Web: `WorkList` (clickable rows), sign-in lands on My work, and a
   My work button. Agent tests.
