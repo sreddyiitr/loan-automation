@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import config
 from .activity import activity_model, checks_model
+from .stips import stip_list, stips_model
 from ..catalog import FUNDER_CATALOG_ID, VERSION
 
 TERMINAL = {"FUNDED", "REJECTED", "EXPIRED"}
@@ -79,7 +80,8 @@ def temporal_url(workflow_id: str) -> str:
 
 def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: datetime | None = None,
                me: str | None = None, results: list[dict[str, Any]] | None = None,
-               audit: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+               audit: list[dict[str, Any]] | None = None, stips: list[dict[str, Any]] | None = None,
+               stip_codes: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """``me`` is the signed-in user (the token's sub): their own deal reads "you". ``results`` and
     ``audit`` give AS-2.7's "What's been done"."""
     now = now or datetime.now(timezone.utc)
@@ -107,6 +109,7 @@ def deal_model(overview: dict[str, Any], versions: list[dict[str, Any]], now: da
         "versions": version_rows(versions),
         "checks": checks_model(results or [], bool(overview.get("inProgress"))),
     }
+    deal |= stips_model(overview, stips or [], stip_codes or [])
     activity = activity_model(audit or [])
     deal["activity"] = activity["items"]
     deal["activityNote"] = (f"{activity['older']} earlier event{'s' if activity['older'] != 1 else ''} "
@@ -186,7 +189,8 @@ def overview_surface(deal: dict[str, Any], replace: bool = False) -> list[dict[s
     components = [
         {"id": "root", "component": "Card", "child": "body"},
         {"id": "body", "component": "Column",
-         "children": ["header", "progress", "facts", "actions", "done", "history"]},
+         "children": ["header", "progress", "facts", "actions", "stips", "done", "history"]},
+        stip_list("deal.resolve_stip", "deal.add_stip"),       # D3, AS-3.1–3.5
         # D1c: a header with the deal's name, where it's from, and its status.
         {"id": "header", "component": "Row", "justify": "spaceBetween", "align": "start",
          "children": ["header_text", "status"]},

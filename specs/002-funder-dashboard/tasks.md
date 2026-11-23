@@ -578,7 +578,8 @@ and nothing is assigned without the supervisor's click.
 
 - [x] **T301** `GET /api/v1/stip-codes`, with a test.
   **Notes (done 2026-11-22):** D-19 (owner): a fixed list, `StipCodes.catalog()`, of the 8 checks' codes plus manual-only `STIP_DEALER_LETTER` and `STIP_OTHER` (GENERAL work). Adding any other code → 400 `UNKNOWN_STIP_CODE` (spec 001 AS-10.8 updated). Each stip row now carries `waivable`. Tests: `StipCodesTest` (24), FunderApiTest +3.
-- [ ] **T302** The stips surface (`DataTable`), satisfy and waive with a reason, Waive hidden when not waivable, add stip from the code list.
+- [x] **T302** The stips surface (`DataTable`), satisfy and waive with a reason, Waive hidden when not waivable, add stip from the code list.
+  **Notes (done 2026-11-22):** A custom `StipList` rather than `DataTable`, which is read-only. It's a section on the deal page, with reasons asked in place like `SuggestionList`. `deal.resolve_stip` and `deal.add_stip` re-read the deal, so its status refreshes, and a refusal becomes a notice. Satisfy, Waive and Add follow `allowedActions` (`RESOLVE_STIP`, `ADD_STIP`). New messages: `ALREADY_RESOLVED`, `RISC_STIP_NOT_WAIVABLE`. Tests: `test_stips.py` (7); agent total 208.
 - [ ] **T303** `messages.yaml` covering every funder API reason (FR-06), and a unit test that fails when a known reason has no message.
 - [ ] **T304** Playwright: `AS_3_2_…` (waive LA-1006 → FUNDED), `AS_3_3_…`, `AS_3_4_…` (two browsers race), `AS_3_5_…`.
 

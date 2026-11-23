@@ -15,7 +15,8 @@ def load(api: FunderApi, loan_id: str) -> dict[str, Any]:
     overview = api.overview(loan_id)
     version = overview["applicationVersionId"]
     return deal_model(overview, api.versions(loan_id), me=api.me,
-                      results=api.validation_results(version), audit=api.audit(version))
+                      results=api.validation_results(version), audit=api.audit(version),
+                      stips=api.stipulations(version), stip_codes=api.stip_codes())
 
 
 def open_deal(api: FunderApi, loan_id: str) -> list[dict[str, Any]]:
@@ -59,4 +60,30 @@ def assign(api: FunderApi, context: dict[str, Any]) -> list[dict[str, Any]]:
     return my_work(api) + notice_surface(f"{context.get('loanApplicationId', 'The deal')} is assigned to {context['assignee']}.")
 
 
-HANDLERS = {"deal.take": take, "deal.open": open_from_list, "deal.assign": assign}
+def _write_then_reload(api: FunderApi, context: dict[str, Any], write, done: str) -> list[dict[str, Any]]:
+    """Do the write, then rebuild the overview from a re-read (the stip's new status and the deal's,
+    e.g. FUNDED, AS-3.2). A refusal (e.g. 409 ALREADY_RESOLVED, AS-3.4) still refreshes, with a notice."""
+    try:
+        write()
+        note = done
+    except ApiError as e:
+        note = message_for(e.reason)
+    return overview_surface(load(api, str(context["loanApplicationId"])), replace=True) + notice_surface(note)
+
+
+def resolve_stip(api: FunderApi, context: dict[str, Any]) -> list[dict[str, Any]]:
+    """``deal.resolve_stip`` (AS-3.2): SATISFIED or WAIVED, with the funder's reason."""
+    status = str(context["status"])
+    return _write_then_reload(api, context, lambda: api.resolve_stip(
+        int(context["applicationVersionId"]), int(context["stipId"]), status, str(context.get("reason", "")).strip()),
+        f"Stip {status.lower()}.")
+
+
+def add_stip(api: FunderApi, context: dict[str, Any]) -> list[dict[str, Any]]:
+    """``deal.add_stip`` (AS-3.5): a code from GET /stip-codes and the funder's description."""
+    return _write_then_reload(api, context, lambda: api.add_stip(
+        int(context["applicationVersionId"]), str(context["code"]), str(context.get("description", "")).strip()),
+        "Stip added.")
+
+
+HANDLERS = {"deal.take": take, "deal.resolve_stip": resolve_stip, "deal.add_stip": add_stip, "deal.open": open_from_list, "deal.assign": assign}

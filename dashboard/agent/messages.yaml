@@ -16,3 +16,5 @@ reasons:
   ROLE_NOT_ALLOWED: Only a supervisor can do that.
   # spec 002 D3: stips (D-19)
   UNKNOWN_STIP_CODE: That stip code isn't on the list. Pick one from the list.
+  ALREADY_RESOLVED: Someone else resolved this stip first. The list now shows who, when and why.
+  RISC_STIP_NOT_WAIVABLE: This stip can't be waived. The dealer has to send a corrected RISC.

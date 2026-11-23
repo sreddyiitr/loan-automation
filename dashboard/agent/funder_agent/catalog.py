@@ -111,6 +111,21 @@ WORK_LIST = ComponentApi("WorkList", {
     "required": ["id", "component", "items", "openAction"],
 })
 
+STIP_LIST = ComponentApi("StipList", {
+    "type": "object",
+    "description": "The deal's stips (D3). Each row offers Satisfy and, when waivable, Waive, each needing a reason; "
+                   "each action gets the deal's ids; resolveAction adds {stipId, status, reason}. Add stip picks from codes; addAction gets {code, description}.",
+    "additionalProperties": False,
+    "properties": {
+        "id": {"type": "string"}, "component": {"const": "StipList"},
+        "title": _DYNAMIC, "items": _DYNAMIC, "codes": _DYNAMIC, "canAdd": _DYNAMIC, "addReason": _DYNAMIC,
+        "emptyText": _DYNAMIC, "loanApplicationId": _DYNAMIC, "applicationVersionId": _DYNAMIC,
+        "resolveAction": {"type": "string"}, "addAction": {"type": "string"},
+        "weight": {"type": "number"}, "accessibility": {"type": "object"},
+    },
+    "required": ["id", "component", "items", "resolveAction", "addAction"],
+})
+
 SUGGESTION_LIST = ComponentApi("SuggestionList", {
     "type": "object",
     "description": "Assignment suggestions (US-12): each row has its own Assign, confirmed in place, which sends "
@@ -124,7 +139,7 @@ SUGGESTION_LIST = ComponentApi("SuggestionList", {
     "required": ["id", "component", "items", "assignAction"],
 })
 
-FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE, WORK_LIST, SUGGESTION_LIST]
+FUNDER_COMPONENTS = [DATA_TABLE, STATUS_BADGE, HEADING, FACT_LIST, CHECK_LIST, TIMELINE, WORK_LIST, SUGGESTION_LIST, STIP_LIST]
 
 
 @lru_cache(maxsize=1)
