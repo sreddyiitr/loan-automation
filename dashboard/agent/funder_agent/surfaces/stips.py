@@ -21,6 +21,7 @@ def allowed(overview: dict[str, Any], action: str) -> tuple[bool, str]:
 
 def stip_row(s: dict[str, Any], words: dict[str, str], can_resolve: bool) -> dict[str, Any]:
     pending = s.get("status") == "PENDING"
+    waivable = bool(s.get("waivable", True))
     by = s.get("resolvedBy")
     system = s.get("resolutionNote") == SYSTEM_NOTE
     doc = s.get("triggeredByDocumentType")
@@ -37,9 +38,11 @@ def stip_row(s: dict[str, Any], words: dict[str, str], can_resolve: bool) -> dic
             f"Satisfied by the system after a passing re-run · {(s.get('resolvedAt') or '')[:10]}" if system else
             f"{s['status'].capitalize()} by {by or 'someone'} · {(s.get('resolvedAt') or '')[:10]}"
             + (f" · “{s['resolutionNote']}”" if s.get("resolutionNote") else "")),
-        "canSatisfy": pending and can_resolve,
-        "canWaive": pending and can_resolve and bool(s.get("waivable", True)),
-        "note": NOT_WAIVABLE if pending and not s.get("waivable", True) else "",
+        # AS-3.3, spec 001 AS-8.10: a RISC stip is resolved only by a corrected RISC that passes, so the
+        # API refuses Satisfy as well as Waive for it; neither is offered.
+        "canSatisfy": pending and can_resolve and waivable,
+        "canWaive": pending and can_resolve and waivable,
+        "note": NOT_WAIVABLE if pending and not waivable else "",
     }
 
 

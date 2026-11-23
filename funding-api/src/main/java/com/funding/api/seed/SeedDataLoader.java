@@ -92,16 +92,8 @@ public class SeedDataLoader implements ApplicationRunner {
                 unchanged++;
                 continue;
             }
-            boolean exists = stored.isPresent() || jdbc.sql("SELECT count(*) FROM loan_applications WHERE loan_application_id = ?")
-                    .param(f.loanApplicationId()).query(Integer.class).single() > 0;
-            tx.executeWithoutResult(s -> {
-                if (exists) {
-                    delete(f.loanApplicationId());
-                }
-                FixtureRows.insert(jdbc, gates, f); // earlier versions get their own result and stip rows (S5)
-                jdbc.sql("INSERT INTO seed_scenarios (loan_application_id, scenario_id, fingerprint) VALUES (?, ?, ?)")
-                        .params(f.loanApplicationId(), f.scenarioId(), fingerprint).update();
-            });
+            boolean exists = stored.isPresent() || exists(f.loanApplicationId());
+            write(f, fingerprint, exists);
             if (exists) {
                 replaced++;
                 LOG.info("re-seeded {} (scenario intent, rules or config changed)", f.scenarioId());
@@ -111,6 +103,42 @@ public class SeedDataLoader implements ApplicationRunner {
         }
         LOG.info("seed data: {} inserted, {} replaced, {} unchanged", inserted, replaced, unchanged);
         return new Summary(inserted, replaced, unchanged);
+    }
+
+    /**
+     * Spec 002 T304: puts one seeded scenario back exactly as a fresh database has it (every
+     * version as seeded, the latest DRAFT), whatever happened to it since. The same gates guard it
+     * as {@link #load()}. Its runs must be stopped first (the dev endpoint does that).
+     *
+     * @throws IllegalArgumentException if no scenario seeds {@code loanApplicationId}
+     */
+    public void reseed(String loanApplicationId) {
+        List<GateResult> results = gates.verifyAll();
+        if (!SeedGates.allPassed(results)) {
+            throw new IllegalStateException("refusing to reseed: seed gates failed (constitution P-2.6)\n" + SeedGates.format(results));
+        }
+        SeedGates.Generated g = gates.generate();
+        Fixture f = g.fixtures().stream().filter(x -> x.loanApplicationId().equals(loanApplicationId)).findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("no seeded scenario is " + loanApplicationId));
+        write(f, fingerprint(f, g.baselineHash(), RuleFingerprints.fromClasspath()), exists(loanApplicationId));
+        LOG.info("re-seeded {} on request", f.scenarioId());
+    }
+
+    private boolean exists(String loanApplicationId) {
+        return jdbc.sql("SELECT count(*) FROM loan_applications WHERE loan_application_id = ?")
+                .param(loanApplicationId).query(Integer.class).single() > 0;
+    }
+
+    private void write(Fixture f, String fingerprint, boolean exists) {
+        tx.executeWithoutResult(s -> {
+            if (exists) {
+                delete(f.loanApplicationId());
+            }
+            jdbc.sql("DELETE FROM seed_scenarios WHERE loan_application_id = ?").param(f.loanApplicationId()).update();
+            FixtureRows.insert(jdbc, gates, f); // earlier versions get their own result and stip rows (S5)
+            jdbc.sql("INSERT INTO seed_scenarios (loan_application_id, scenario_id, fingerprint) VALUES (?, ?, ?)")
+                    .params(f.loanApplicationId(), f.scenarioId(), fingerprint).update();
+        });
     }
 
     private void delete(String loanApplicationId) {

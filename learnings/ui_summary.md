@@ -1,4 +1,4 @@
-# Funder dashboard: UI summary (spec 002: D0, D1 and D1b done)
+# Funder dashboard: UI summary (spec 002: D0–D2b, D6a and D3 done)
 
 A dashboard where funders (underwriters) handle the loans the automation couldn't fund on its own.
 It is built on the spec 001 funder API and uses **A2UI** for the UI and **ADK** for the agent.
@@ -8,7 +8,8 @@ Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md
 ## Status (2026-11-22)
 
 **Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11), **D1b,
-Summarize** (T151–T157) and **D1c, look and feel** (T161–T164) are done.
+Summarize** (T151–T157), **D1c, look and feel** (T161–T164), **D2, roles**, **D6a, My work**, **D2b,
+assignment suggestions** and **D3, stipulations** (T301–T304) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
@@ -36,6 +37,18 @@ their role, days left, the reason, and a tag saying whether it came from the **A
 normal audited reassign, marks the row **Assigned ✓** and refreshes My work. There's no "assign all".
 Specialists don't get the button.
 
+**Stipulations on the deal page** (D3, AS-3.1–3.5): a **Stipulations** section lists each stip in
+words: what it is, the check and document that raised it (or "Added by a funder"), its status, and
+who resolved it, when and why ("Satisfied by the system after a passing re-run" for the workflow's
+own). **Satisfy** and **Waive** each ask for a reason in the row itself; Confirm stays disabled until
+there is one. A RISC stip (TILA math, RISC fields) offers neither, since the API refuses both, and
+says the dealer has to send a corrected RISC. **Add stip** picks a code from the API's list
+(`GET /stip-codes`, D-19) and needs a description; an APPROVED deal moves to STIPULATED. When you
+can't add one, the button is disabled and the reason is written under it. After a stip write the
+page follows the deal while the workflow acts on it (FR-10), so a waive that funds the deal shows
+**FUNDED** a second or two later with no reload. If someone else resolved the stip first, a notice
+says so and the row shows who, when and why.
+
 ![Assignment suggestions: the supervisor's panel beside My work, one row confirming](screenshots/Assignment%20suggestions.png)
 
 ![My work, as docs-1](screenshots/My%20work.png)
@@ -60,7 +73,7 @@ its own read-only panel under the overview: "Summarizing…" at once, then two o
 with a note that the assistant wrote them from this deal's data only. With no model running, the
 panel says the assistant is unavailable and everything else works.
 
-Not yet built: the rest of the worklist (filters, expiring soon, needs reassignment), the other tabs, assignment suggestions for the supervisor (D2b), and the assistant's "suggest next step"
+Not yet built: the rest of the worklist (filters, expiring soon, needs reassignment), the other tabs (results, decisions, documents, audit), and the assistant's "suggest next step"
 and "draft stip text" (D8).
 
 The findings and pitfalls are in `a2ui-notes.md` §12d. New to A2UI?
@@ -98,7 +111,7 @@ Funding API (Java, spec 001): the only thing that writes
 | **Worklist** | My queue, unassigned, income queue, expiring soon; filter by status, stip type, hold reason (pending stips, check error, RISC incomplete, payment failed), dealer, days to expiry |
 | **Roles** | **Five specialists**, one per kind of work: GAP, income, RISC (TILA and RISC fields), documents (price and VIN) and payment, a **catch-all funder** for anything no specialist owns (e.g. a manual stip with no check), plus a **supervisor** who can do everything (all queues, reassigns). Each deal is routed by its kinds of work; one with two or more kinds goes to the income specialist. Enforced by the API, not just the UI, and shown on the deal page: "Routed to" says whose work it is ("(you)" when it's yours), and only the actions you may take are offered (D2) |
 | **Overview** | Deal details, status, days to expiry, payment status, version history, reassign the funder |
-| **Stipulations** | List, satisfy or waive (with a reason; contract stips can't be waived), add a manual stip |
+| **Stipulations** | List, satisfy or waive (with a reason; RISC stips can't be waived or satisfied by hand), add a manual stip from the API's code list (**built**, D3) |
 | **Mismatches** | Expected vs actual per check, side by side per document, re-run history, low-confidence fields highlighted |
 | **Documents** | Document versions, extracted fields with confidence, compare v1 vs v2. *A page viewer with highlighted fields comes later (it needs document storage)* |
 | **Decisions** | Approve, reject, re-run checks, retry a failed payment; only the actions the status allows are shown |
@@ -120,7 +133,7 @@ Funding API (Java, spec 001): the only thing that writes
 - **One catalog per surface:** ours *extends* the Basic Catalog, because `web_core` 0.15.0 rejects a
   per-component `@catalogId`.
 - **From A2UI's Basic Catalog:** Text, Row/Column, List, Card, Tabs, Modal, Button, TextField, ChoicePicker, CheckBox, Divider, Icon, Image.
-- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), `WorkList` (D6a, My work's clickable cards), `SuggestionList` (D2b: suggestion rows, each with an in-place confirmed Assign), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
+- **Our custom catalog**, for what the basic one lacks: `DataTable` (**built** in D0, with a title since D1c), `StatusBadge` (**built** in T105; the status is always written out, never colour alone), `Heading`, `FactList`, `CheckList` and `Timeline` (**built** in D1c: titles, the label/value grid, and "What's been done"), `WorkList` (D6a, My work's clickable cards), `SuggestionList` (D2b: suggestion rows, each with an in-place confirmed Assign), `StipList` (D3: stips with in-place reasons for Satisfy and Waive, and Add stip from the code list), then `ConfidenceTag`, and later `DocumentPageViewer` with bounding-box overlays.
 
 ## Model
 
@@ -179,14 +192,16 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 183 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 216 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     21 tests, each signing in on the real login page and named for its acceptance scenario.
+     29 tests, each signing in on the real login page and named for its acceptance scenario.
+     They run one file at a time (`workers: 1`), because the stip tests change seeded deals and put
+     them back (the dev reseed); beside the other files they'd race the tests that read those deals.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
      - `AS_1_1`: every write is made as the signed-in user (the audit's actor), and a user who
        isn't in the directory is told so;
@@ -208,7 +223,13 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
      - `FR_11`: signed out shows only the sign-in screen;
      - `AS_8_1`: Summarize shows the recorded summary, read-only, and the overview stays; a
        finished deal is summarized by how it ended;
-     - `AS_8_4`: with no model, the panel says so and everything else works.
+     - `AS_8_4`: with no model, the panel says so and everything else works;
+     - `e2e/stips.spec.ts` (D3): `AS_3_2` waives LA-1006's price stip with a reason and the page shows
+       FUNDED without a reload; `AS_3_3` a RISC stip offers no Waive or Satisfy and says why;
+       `AS_3_4` two browsers resolve the same stip and the second is told who won, with no raw
+       error; `AS_3_5` adds a stip from the code list to LA-1030 (APPROVED → STIPULATED), and the
+       button is disabled with the reason for someone who may not add one. Afterwards LA-1006 and
+       LA-1030 are put back as seeded (reseed, then submit).
      They start their own agent (port 8092, replaying recorded answers: `ASSISTANT_REPLAY`) and
      web app (5174), so they always run the current code. They use `make dashboard`'s funding API
      and OIDC provider. Install the browser once with `npx playwright install chromium`.

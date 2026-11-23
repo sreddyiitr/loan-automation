@@ -133,24 +133,28 @@ Behind that, in more detail (the spec 001 trigger path):
   drops anything that breaks the routing rules, and nothing is assigned until the supervisor
   confirms that one suggestion. With no model, code's own plan is shown instead.
   ![Assignment suggestions](learnings/screenshots/Assignment%20suggestions.png)
+- **Stipulations**: each stip says what raised it and who resolved it, when and why. Satisfy and
+  Waive ask for a reason; a RISC stip offers neither and says the dealer must send a corrected
+  RISC. Add stip picks a code from the API's list. After a waive that funds the deal, the page
+  shows FUNDED a moment later, with no reload.
 - **One command** (`make dashboard`) starts the funding API, the agent and the web app, and
   submits the seeded scenarios.
 
 Code builds every screen and makes every write; the AI only explains and suggests. Next: the
-stipulations tab and the other deal tabs (D3 on). See
+check results and the decisions (D4, D5). See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
 ---
 
 ## How we know it works
 
-**565 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
+**595 automated tests, all passing** (one skipped by design), plus eight data gates. The functional tests run against the
 **real** AWS Emulator, Postgres 18, WireMock and Temporal. The app starts, seeds, and handles each
 scenario through the full trigger path.
 
 | Suite | Tool | Runs against | Tests | Result |
 |---|---|---|---:|---|
-| Domain rules (incl. income, API classifier, status machine; spec 002's work routing and permissions) | JUnit 5, AssertJ | nothing (pure Java) | 273 | ✅ all pass |
+| Domain rules (incl. income, API classifier, status machine; spec 002's work routing and permissions, and its stip codes) | JUnit 5, AssertJ | nothing (pure Java) | 297 | ✅ all pass |
 | Persistence (incl. guarded status writes, document-added trigger, new versions) | JUnit 5, Testcontainers | `postgres:18` in Docker | 38 | ✅ all pass |
 | Seed and mock gates (incl. every seeded scenario's routing) | JUnit 5, swagger-request-validator | the repo's scenario, catalog and contract files | 39 | ✅ all pass |
 | Trigger Lambda | JUnit 5, WireMock | in-JVM WireMock as the start API | 9 | ✅ all pass |
@@ -161,12 +165,12 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **201 agent tests** (pytest) and **24 browser tests**
-(Playwright), counted separately; its Java tests are in the 565. None of them needs an AI model:
+Spec 002 (the funder dashboard) adds **216 agent tests** (pytest) and **29 browser tests**
+(Playwright), counted separately; its Java tests are in the 595. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
 
-<sub>Last full run: 2026-11-22 (unit; functional 2026-11-21; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
+<sub>Last full run: 2026-11-22 (unit and functional; volume last run 2026-11-20), macOS (Apple silicon), Java 21.0.13, Maven 3.9.10, Temporal CLI 1.10.1 (server 1.32.2), WireMock 3.13.2, Postgres 18.7, mock-oauth2-server 6.1.5, AWS CLI 2.40.0. Reproduce with `make test-unit`, `make seed-check` and `make test-functional`.</sub>
 
 ---
 
@@ -432,6 +436,14 @@ Other actions: `POST …/approve` (over an ERROR hold), `POST …/reject` with `
 and `PUT …/assignee` (reassign, or unassign with `{"funderId":null}`). RISC-related stips can't be
 waived or satisfied by hand; the dealer must send a corrected RISC (step 7).
 
+A funded deal can't be resubmitted, so to try the waive again put LA-1006 back as seeded (dev only;
+it stops the deal's runs first), then submit it:
+
+```bash
+curl -s -X POST localhost:8080/api/v1/dev/applications/LA-1006/reseed   # {"status":"DRAFT",…}
+curl -s -X POST localhost:8080/api/v1/dev/applications/LA-1006/submit   # STIPULATED again a second later
+```
+
 ### Step 7: Fix a document, or resubmit
 
 Two more dev endpoints play OCR's part. **Add a document** to the latest version: under review
@@ -543,9 +555,9 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 183 agent tests, no services and no model needed
+make test-dashboard        # 216 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 21 browser tests: their own agent and web app, make dashboard's API and sign-in
+make test-dashboard-e2e    # 29 browser tests, one file at a time: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
 make demo                  # record the demo to target/demo: demo.mp4, demo.webp, demo.srt (needs ffmpeg)
 ```
@@ -579,6 +591,9 @@ Then, at http://localhost:5173:
 4. Click **Summarize**. The panel says "Summarizing…", then shows the explanation. Good ones to
    try: `LA-1006` (price 1¢ off), `LA-1012` (income over by 33%), `LA-1016` (income API down),
    `LA-1030` (payment outcome unknown) and `LA-1001` (funded).
+5. **Stipulations**, on the deal page: as `docs-1`, take LA-1006, then **Waive** its price stip with
+   a reason. The status turns FUNDED a second or two later. To try it again, put LA-1006 back
+   (step 6 has the two `curl`s). On LA-1002 (`risc-1`) the TILA stip offers no Waive and says why.
 
 **The demo (`make demo`)** records the dashboard with Playwright: six scenes, each with an on-screen
 caption and a visible pointer, then ffmpeg writes `target/demo/demo.mp4` (about 0.8 MB),

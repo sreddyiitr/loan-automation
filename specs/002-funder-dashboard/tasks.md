@@ -582,7 +582,13 @@ and nothing is assigned without the supervisor's click.
   **Notes (done 2026-11-22):** A custom `StipList` rather than `DataTable`, which is read-only. It's a section on the deal page, with reasons asked in place like `SuggestionList`. `deal.resolve_stip` and `deal.add_stip` re-read the deal, so its status refreshes, and a refusal becomes a notice. Satisfy, Waive and Add follow `allowedActions` (`RESOLVE_STIP`, `ADD_STIP`). New messages: `ALREADY_RESOLVED`, `RISC_STIP_NOT_WAIVABLE`. Tests: `test_stips.py` (7); agent total 208.
 - [x] **T303** `messages.yaml` covering every funder API reason (FR-06), and a unit test that fails when a known reason has no message.
   **Notes (done 2026-11-22):** `messages.yaml` now has all 31 reasons the funder endpoints can return (16 added: approve, rerun and payment-retry refusals, `STIP_ALREADY_PENDING`, `DOCUMENTS_FROZEN`, and bad-input reasons such as `INVALID_QUEUE` and `MISSING_<FIELD>`). `test_messages.py` reads the reasons from the Java source: `ApiProblem` literals in `api/funder`, `api/auth` and `ProblemHandler`, the sign-in filter's problems, `requireText` fields → `MISSING_<FIELD>`, and the `Permissions` constants. A reason built at run time in any other form fails the test until the test learns where it comes from. It also fails on a `messages.yaml` key that matches no reason. Tests: `test_messages.py` (4); agent total 212.
-- [ ] **T304** Playwright: `AS_3_2_…` (waive LA-1006 → FUNDED), `AS_3_3_…`, `AS_3_4_…` (two browsers race), `AS_3_5_…`.
+- [x] **T304** Playwright: `AS_3_2_…` (waive LA-1006 → FUNDED), `AS_3_3_…`, `AS_3_4_…` (two browsers race), `AS_3_5_…`.
+  **Notes (done 2026-11-22):** `e2e/stips.spec.ts`, 5 tests; 29 Playwright tests in all, passing twice in a row.
+  - **Getting LA-1006 back:** a FUNDED deal can't be resubmitted (C-24), so T108's heads-up needed a new way back. `POST /api/v1/dev/applications/{id}/reseed` (local only, FR-16 updated; `DevReseedController`, `SeedDataLoader.reseed`) terminates each version's open run, then puts that one scenario back as seeded, behind the same gates. `afterAll` reseeds and submits LA-1006 unless it's still as seeded, and LA-1030 unless it's APPROVED. `DevReseedTest` (3).
+  - **One file at a time:** `workers: 1`. Beside other files, these tests would race `AS_10_3` (every seeded status), My work (LA-1030's card) and the assistant (LA-1006). The suite takes about 45 s instead of 14 s.
+  - **AS-3.2's "FUNDED without a reload"** needed FR-10, which was T502's. Pulled forward for stip writes only: `deal.resolve_stip` and `deal.add_stip` now reply at once, then `deal.settle` re-reads the deal every 2 s while `inProgress` (up to 60 s; the first re-read always happens, because the workflow may not have taken the signal yet) and streams data-only updates. Live, a waive reaches FUNDED about 0.3 s after the API answers. T502 still owns polling for the other writes and for a deal that's opened while it's busy.
+  - **AS-3.4's race** needs the deal to stay open: on LA-1006's only stip the loser would get `VERSION_TERMINAL` (funded) instead of `ALREADY_RESOLVED`. The test first adds a manual `STIP_VIN_MISMATCH` (documents work, so it stays docs-1's).
+  - **Fixed on the way (T302):** Satisfy was offered on a RISC stip, and the API always refuses it (`RISC_STIP_NOT_WAIVABLE`, spec 001 AS-8.10). Now neither Satisfy nor Waive is offered there. Agent tests: 216 (4 new: settle and the stream).
 
 ## D4: Results and mismatches tab
 
@@ -597,7 +603,7 @@ and nothing is assigned without the supervisor's click.
 **Exit:** AS-2.2, AS-6.1–6.4, FR-10.
 
 - [ ] **T501** Approve, reject, re-run (pick checks, ERROR by default) and retry payment, each with confirmation, from `allowedActions`.
-- [ ] **T502** Freshness: poll while `inProgress` and push `updateDataModel` until the deal settles.
+- [ ] **T502** Freshness: poll while `inProgress` and push `updateDataModel` until the deal settles. (Stip writes already do: `deal.settle`, T304. Left: the other writes, and a deal opened while it's busy.)
 - [ ] **T503** Playwright: approve LA-1016 over ERROR → FUNDED (as an income specialist); reject; retry payment on LA-1030; every refusal shown as a message.
 
 ## D6: Worklist and queues

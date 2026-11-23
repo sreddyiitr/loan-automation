@@ -314,6 +314,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
     409 `VERSION_FUNDED` / `DISBURSEMENT_STARTED` once the latest is paid or being paid (C-24).
   - `documents` (S5, AS-9.4): a new latest version of one document; 409 `DOCUMENTS_FROZEN` once
     the version is APPROVED or final (AS-9.7).
+  - `reseed` (spec 002 T304, `DevReseedController`): terminates each version's open run, then
+    `SeedDataLoader.reseed` puts that one scenario back as seeded (same gates; latest DRAFT). The
+    browser tests use it to put LA-1006 (funded) and LA-1030 (re-stipulated) back. 404 for an id no
+    scenario seeds, 409 `SEEDING_OFF` without `funding.seed-data`.
 - **Seeding** (S5): an earlier version (LA-1028 v1) is seeded non-latest with its status and with
   result and stip rows computed by the conformance gate's `outcomes()`.
 - **Observability:** JSON logs (logstash encoder) with MDC for `applicationVersionId` and
@@ -404,6 +408,21 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
     in-place confirmation, then My work refreshed.
   - Live result on the seeds: all 18 suggestions from the model, none dropped. Its first reasons
     were thin, so the instruction now asks for the work, days left and workload, with an example.
+- **Stipulations** (D3, AS-3.1–3.5, T301–T304):
+  - API: `GET /api/v1/stip-codes`, a fixed list (`StipCodes.catalog()`, D-19): the 8 codes the
+    checks raise plus manual-only `STIP_DEALER_LETTER` and `STIP_OTHER`; any other code is 400
+    `UNKNOWN_STIP_CODE`. Each stip row carries `waivable`.
+  - Agent: `surfaces/stips.py` and the web's `StipList`: what raised each stip, who resolved it and
+    why; Satisfy and Waive ask for a reason in place, neither is offered on a RISC stip (the API
+    refuses both, spec 001 AS-8.10); Add stip from the code list, disabled with the API's reason.
+  - Freshness for stip writes (FR-10, pulled forward from T502): `deal.resolve_stip` and
+    `deal.add_stip` reply at once, then `deal.settle` re-reads every 2 s while the deal is
+    `inProgress` (up to 60 s; the first re-read always happens) and streams data-only updates, so a
+    waive that funds the deal shows FUNDED without a reload.
+  - `messages.yaml` covers all 31 reasons the funder endpoints can return; `test_messages.py`
+    reads them from the Java source (T303).
+  - The browser tests put the deals they change back with the dev `reseed` (see `funding-api`),
+    and run one file at a time.
 - **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
   catalog per surface; versions pinned. Recorded in `specs/002-funder-dashboard/plan.md`, with the
   details and pitfalls in `a2ui-notes.md` §12d.
@@ -412,20 +431,20 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 
 | Suite | Runs against | Tests | Result |
 |---|---|---:|---|
-| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) plus spec 002's `WorkRouting` (46) and `Permissions` (91) | nothing (pure) | 273 | ✅ |
+| `funding-domain` unit (TILA, price, VIN, GAP, income, API classifier, confidence/parsing, RISC completeness, status machine, config) plus spec 002's `StipCodes` (24), `WorkRouting` (46) and `Permissions` (91) | nothing (pure) | 297 | ✅ |
 | `funding-persistence` (incl. document freeze, guarded status writes, document-added trigger, new version in one transaction and the concurrent-V2 race) | Testcontainers `postgres:18` | 38 | ✅ |
 | `funding-seed` (P-2 and P-5 gates incl. band oracle and flip guard, plus "each gate really fails" tests, the S5 history / prior-document / amend vocabulary, and the S6 volume set) plus `ScenarioRoutingTest`: every seed's routing (2) | repository data | 39 | ✅ |
 | `funding-trigger-lambda` | in-JVM WireMock as the start API | 9 | ✅ |
 | `funding-workflows` (incl. parallel fan-out, child isolation, AS-8.10, FR-07, income retries/timeouts/429, SSN never leaks, funder signals, 30-day expiry, continueAsNew, supersede, document re-runs, the AS-9.3 write race, replay suite, MDC interceptor) | Temporal `TestWorkflowEnvironment` (time-skipping); Postgres + generated stubs; history replay | 64 | ✅ (1 skipped: the history recorder, runs only on request) |
 | `funding-trigger` | nothing | 3 | ✅ |
-| `funding-api` unit (spec 002 role enforcement: each refusal reason, the role in the audit, re-routing and the catch-all; start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, take and unassign, dev endpoints, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 67 | ✅ |
+| `funding-api` unit (spec 002 role enforcement: each refusal reason, the role in the audit, re-routing and the catch-all; start API incl. supersede and document events, seed loader incl. history, funder API, bearer-token security (`FunderAuthTest`), spec 002 overview fields, take and unassign, dev endpoints incl. the reseed, stip codes, OpenAPI contract) | MockMvc + Temporal test env + Postgres | 76 | ✅ |
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers; assignment suggestions (`test_assign.py`: what the model sees, code's plan, eligibility, retry, an ADK runner whose scripted model calls a tool, the panel) | nothing (a fake funder API, scripted or recorded model answers) | 201 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4`; `e2e/my-work.spec.ts`: `AS_1_8` (twice); `e2e/assign.spec.ts`: `AS_12_1`, `AS_12_4`, `AS_12_6` | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted) and OIDC provider; Chromium | 24 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers; assignment suggestions (`test_assign.py`: what the model sees, code's plan, eligibility, retry, an ADK runner whose scripted model calls a tool, the panel); stips (`test_stips.py`: the list, satisfy, waive, add, refusals, settling after a write and its stream); every API reason has a message (`test_messages.py`) | nothing (a fake funder API, scripted or recorded model answers) | 216 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4`; `e2e/my-work.spec.ts`: `AS_1_8` (twice); `e2e/assign.spec.ts`: `AS_12_1`, `AS_12_4`, `AS_12_6`; `e2e/stips.spec.ts`: `AS_3_2` (waive LA-1006 → FUNDED, no reload), `AS_3_3`, `AS_3_4` (two browsers), `AS_3_5` (twice). One file at a time (`workers: 1`) | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted, with the dev reseed) and OIDC provider; Chromium | 29 | ✅ |
 
-**Total: 565 tests** (496 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002 adds 18 of them (5 `FunderAuthTest`, 9 overview, take and unassign tests and 3 team tests in `FunderApiTest`, 1 functional `AS_10_9_realTokensFromTheMockProvider`) plus 201 agent tests and 24 Playwright tests. Test names trace to the
+**Total: 595 tests** (526 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002's among them include 5 `FunderAuthTest`, 9 overview, take and unassign tests, 3 team tests and 3 stip-code tests in `FunderApiTest`, 24 `StipCodesTest`, 3 `DevReseedTest`, and 1 functional `AS_10_9_realTokensFromTheMockProvider`; it also has 216 agent tests and 29 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -484,7 +503,8 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | FR | FR-02 to FR-17 |
 | NFR | NFR-01 (volume p95 12.2 s with healthy APIs), NFR-02 (worker restart), NFR-03, 04, 06, 07 (replay suite), 08; NFR-05 for activities and the relay |
 | **Spec 002, D1b** | AS-8.1, 8.4, 8.5 (Summarize); FR-07, FR-08; NFR-02 (15 s, owner); AS-10.4, 10.5 for the assistant |
-| **Spec 002, D1** | AS-1.1, 1.5, 2.1, 2.3, 2.5, 2.6, 10.1–10.3 (2.2 in part: the in-progress note; disabling refused actions waits for D2) (10.3 without the waive, which is T304), 10.9; FR-11; NFR-04, NFR-05 |
+| **Spec 002, D1** | AS-1.1, 1.5, 2.1, 2.3, 2.5, 2.6, 10.1–10.3 (2.2 in part: the in-progress note; disabling refused actions waits for D2) (10.3's waive is T304's `AS_3_2`), 10.9; FR-11; NFR-04, NFR-05 |
+| **Spec 002, D3** | AS-3.1–3.5, AS-10.3's waive; FR-06 (every API reason has a message); FR-10 for stip writes |
 
 ---
 
@@ -630,5 +650,5 @@ Spec 001's slices are all done. What is still open:
 | First `make verify-emulator` run | Written and syntax-checked; needs the owner's go-ahead (it creates and deletes a Lambda and an RDS instance in the shared emulator). |
 | Confirm C-20 to C-22 and C-24 | Recorded in `spec.md`; C-23 is confirmed. |
 | NFR-05 beyond activities and the relay | Logs from workflow code use the SDK's own `WorkflowId` key; HTTP request logs in the start and funder APIs aren't correlated yet. |
-| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). AS-10.3's waive half waits for the stips tab (T304). D6a: My work on sign-in. D2b: assignment suggestions for the supervisor (an ADK agent with read-only tools; 6–13 s live for 18 deals, thinking off). Not yet: the rest of the worklist (filters, expiring soon, needs reassignment; D6), tabs, the assistant's suggest and draft stip (D8). D2 (roles) is done: five specialists, a catch-all and a supervisor, enforced by the API, with the overview showing who each deal is routed to and only the actions the viewer may take. A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
+| Spec 002 | The funder dashboard (ADK + A2UI): specified and planned in [`specs/002-funder-dashboard/`](../specs/002-funder-dashboard/) (`spec.md`, `plan.md`, `tasks.md`). Built so far: D1's walking skeleton (T101–T108): OIDC sign-in end to end, the overview, Take, and `make dashboard`; D1b: Summarize (T151–T157). D3: the stip list (satisfy, waive, add from the code list) with the deal following the workflow after a stip write. D6a: My work on sign-in. D2b: assignment suggestions for the supervisor (an ADK agent with read-only tools; 6–13 s live for 18 deals, thinking off). Not yet: the rest of the worklist (filters, expiring soon, needs reassignment; D6), the results, decisions, documents and audit tabs (D4, D5, D7), the assistant's suggest and draft stip (D8). D2 (roles) is done: five specialists, a catch-all and a supervisor, enforced by the API, with the overview showing who each deal is routed to and only the actions the viewer may take. A deal whose run is gone from Temporal still shows a link that 404s (parked by the owner). Overview in [`ui_summary.md`](ui_summary.md). |
 | Dashboard gaps | The token is in memory only, so a reload means signing in again (no silent renew yet). `npm audit` reports 4 high and 1 moderate findings, all in the A2UI packages pinned at D0 and in `zod`. The web app has no error boundary yet (one bad prop blanks the page, `a2ui-notes.md` §12d). The agent's catalog is defined in Python (`catalog.py`), not yet as the plan's `dashboard/catalog/funder_catalog.json`. |

@@ -137,7 +137,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 | FR-13 | Encrypted SSN/ITIN is excluded from logs and workflow payloads. Activities load it from the DB by version ID. |
 | FR-14 | A required field value that can't be parsed (money, APR, term, date, year), or a missing required application input (stated income, SSN/ITIN token), is treated like a missing field, so the result is NEEDS_REVIEW. Money must match `^-?\d+(\.\d{1,2})?$`. |
 | FR-15 | Ratios such as income variance are compared with exact decimals and are **not rounded** before comparison, so 15.00% passes and 15.01% fails. Values are rounded only for display (2 dp). |
-| FR-16 | Dev-only endpoints (`/api/v1/dev/**`: submit, add version or document) exist only under the `local` profile. Mock control goes through WireMock's admin API, restricted to generated intents. |
+| FR-16 | Dev-only endpoints (`/api/v1/dev/**`: submit, add version or document, and reseed one seeded deal back to its seed, stopping its runs first) exist only under the `local` profile. Mock control goes through WireMock's admin API, restricted to generated intents. |
 | FR-17 | The funder API is documented with OpenAPI (springdoc), because spec 002 (the dashboard) builds on it. |
 | FR-18 | When a rule changes, every mock response of the APIs it consumes is regenerated and re-verified. An expected-outcome flip needs explicit acceptance plus a `RULE-CHANGES.md` entry (constitution P-5). |
 

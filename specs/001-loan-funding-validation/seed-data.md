@@ -81,6 +81,7 @@ The catalog is code (`RuleCatalog` enum in `funding-domain`), and this table is 
 - **Seeded status:** latest versions are seeded in **`DRAFT`**, so nothing triggers at startup. *Historical* (non-latest) versions, such as LA-1028 v1, are seeded with their final status plus their result and stip rows, and never trigger.
   - `POST /api/v1/dev/applications/{loanApplicationId}/submit` (local only) flips the latest version to `PENDING_REVIEW`. That runs the real path: DB trigger → outbox → SQS → Lambda handler → start API → workflow.
   - `make seed-submit-all` submits every scenario.
+  - `POST /api/v1/dev/applications/{loanApplicationId}/reseed` (local only, spec 002 T304) puts one scenario back as a fresh database has it (every version as seeded, the latest DRAFT), after the same gates, and after terminating each of its versions' open runs. It is the only way back for a FUNDED deal, which can't be resubmitted (C-24). Submit it afterwards to run it again.
 - **Tests** use the same generator:
   - Rule unit tests are parameterized over the generated scenarios.
   - Functional tests submit and then assert each scenario's `expect`.

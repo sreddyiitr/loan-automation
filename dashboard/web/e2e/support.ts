@@ -75,3 +75,44 @@ export async function unassigned(loan: string): Promise<Record<string, any>> {
   expect(res.ok, `unassign ${loan}: ${res.status}`).toBeTruthy();
   return {...overview, assignedFunder: null};
 }
+
+type Overview = Record<string, any>;
+
+/** The deal's overview, read straight from the funder API (as the supervisor, who may read any deal). */
+export async function overviewOf(loan: string): Promise<Overview> {
+  return (await api('supervisor-1', `/applications/${loan}`)).json();
+}
+
+/** Polls the overview until `done` holds and the workflow has stopped acting (AS-2.2's `inProgress`). */
+export async function until(loan: string, done: (o: Overview) => boolean, what: string, timeoutMs = 60_000): Promise<Overview> {
+  const deadline = Date.now() + timeoutMs;
+  let o = await overviewOf(loan);
+  while (!(done(o) && !o.inProgress && o.workflowStep === 'WAITING_FOR_FUNDER')) {
+    if (Date.now() > deadline) throw new Error(`${loan} never became ${what}: ${o.status}, ${o.workflowStep}`);
+    await new Promise((r) => setTimeout(r, 500));
+    o = await overviewOf(loan);
+  }
+  return o;
+}
+
+/**
+ * T304: puts a seeded deal back as a fresh database has it (the dev reseed, local profile only),
+ * submits it, and waits until its run has settled at `status`. For tests that fund or re-stipulate
+ * a seeded deal: a FUNDED deal can't be resubmitted (C-24), and AS-10.3 needs it as seeded.
+ */
+export async function asSeeded(loan: string, status: string): Promise<Overview> {
+  const dev = `${FUNDER_API}/dev/applications/${loan}`;
+  const reseed = await fetch(`${dev}/reseed`, {method: 'POST'});
+  expect(reseed.ok, `reseed ${loan}: ${reseed.status} ${await reseed.clone().text()}`).toBeTruthy();
+  const submit = await fetch(`${dev}/submit`, {method: 'POST'});
+  expect(submit.ok, `submit ${loan}: ${submit.status}`).toBeTruthy();
+  return until(loan, (o) => o.status === status, status);
+}
+
+/** LA-1006 as seeded (STIPULATED, its price stip PENDING, nobody on it); reseeded only if it isn't. */
+export async function seededLa1006(): Promise<Overview> {
+  const o = await overviewOf('LA-1006');
+  const stips = o.status === 'STIPULATED' ? await (await api('supervisor-1', `/versions/${o.applicationVersionId}/stipulations`)).json() : [];
+  const pristine = stips.length === 1 && stips[0].stipCode === 'STIP_PRICE_MISMATCH' && stips[0].status === 'PENDING';
+  return pristine ? unassigned('LA-1006') : asSeeded('LA-1006', 'STIPULATED');
+}
