@@ -1,5 +1,6 @@
 # Spec 002 FR-06: each funder API reason -> the plain message a funder sees. A reason that's
-# missing here gets a generic message and a warning in the agent log. T303 covers every reason.
+# missing here gets a generic message and a warning in the agent log. tests/test_messages.py reads
+# every reason the funder API can return from its Java source and fails if one has no message here.
 reasons:
   UNAUTHORIZED: Your sign-in has expired or isn't valid. Sign in again.
   UNKNOWN_USER: You're signed in, but your user id isn't set up for the dashboard. Ask a supervisor to add you.
@@ -9,6 +10,7 @@ reasons:
   VERSION_TERMINAL: This deal is already closed (funded, rejected or expired), so it can't be changed.
   ALREADY_ASSIGNED: Someone else took this deal first. The overview now shows who has it.
   DISBURSEMENT_IN_PROGRESS: A payment for this deal is being made right now. Try again in a moment.
+  DOCUMENTS_FROZEN: This deal's documents are locked because it's approved or closed.
   MALFORMED: The dashboard sent a request the funder API didn't understand. This is a bug; please report it.
   # spec 002 D2: roles (AS-11.3)
   NOT_YOUR_SPECIALTY: This deal isn't routed to you. It needs a different specialist, or a supervisor can reassign it.
@@ -18,3 +20,20 @@ reasons:
   UNKNOWN_STIP_CODE: That stip code isn't on the list. Pick one from the list.
   ALREADY_RESOLVED: Someone else resolved this stip first. The list now shows who, when and why.
   RISC_STIP_NOT_WAIVABLE: This stip can't be waived. The dealer has to send a corrected RISC.
+  STIP_ALREADY_PENDING: That stip is already on the deal and still pending. Resolve that one instead.
+  # spec 001 FR-05: approve, rerun, payment retry
+  NOT_SUBMITTED: The dealer hasn't submitted this version yet, so it can't be worked.
+  ALREADY_APPROVED: This deal is already approved. The payment is on its way.
+  PENDING_STIPS: Some stips are still pending. Satisfy or waive them before approving.
+  RISC_INCOMPLETE: The RISC isn't complete, or the TILA check hasn't passed, so the deal can't be approved yet.
+  NOT_RERUNNABLE: Checks can only be re-run while the deal is in review or has stips.
+  NOTHING_TO_RERUN: No check is in error, so there's nothing to re-run. Pick the checks to re-run.
+  NOT_APPROVED: Only an approved deal has a payment to retry.
+  NOTHING_TO_RETRY: There's no failed payment to retry on this deal.
+  # bad input: the dashboard should never send these, so they read like MALFORMED
+  INVALID_QUEUE: The dashboard asked for a work list that doesn't exist. This is a bug; please report it.
+  INVALID_STATUS: A stip can only be satisfied or waived. This is a bug; please report it.
+  MISSING_REASON: A reason is needed. Type one and try again.
+  MISSING_CODE: Pick a stip code first.
+  MISSING_DESCRIPTION: A description is needed. Type one and try again.
+  MISSING_FUNDERID: Pick who the deal should go to.
