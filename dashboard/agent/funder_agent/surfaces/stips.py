@@ -54,6 +54,7 @@ def stips_model(overview: dict[str, Any], stips: list[dict[str, Any]], codes: li
         "stips": [stip_row(s, words, can_resolve) for s in stips],
         "stipCodes": [{"value": c["code"], "label": words[c["code"]]} for c in codes],
         "canAddStip": can_add,
+        "stipDraft": {"code": "", "state": "", "text": "", "message": ""},       # AS-8.3, filled by deal.draft_stip
         "addStipReason": "" if can_add else message_for(why) if why else "You can't add a stip to this deal.",
     }
 
@@ -64,4 +65,5 @@ def stip_list(resolve_action: str, add_action: str) -> dict[str, Any]:
             "addReason": {"@path": "/deal/addStipReason"}, "emptyText": "No stips on this version.",
             "loanApplicationId": {"@path": "/deal/loanApplicationId"},
             "applicationVersionId": {"@path": "/deal/applicationVersionId"},
-            "resolveAction": resolve_action, "addAction": add_action}
+            "resolveAction": resolve_action, "addAction": add_action,
+            "draft": {"@path": "/deal/stipDraft"}, "draftAction": "deal.draft_stip"}

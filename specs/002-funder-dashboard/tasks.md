@@ -590,6 +590,13 @@ and nothing is assigned without the supervisor's click.
   - **AS-3.4's race** needs the deal to stay open: on LA-1006's only stip the loser would get `VERSION_TERMINAL` (funded) instead of `ALREADY_RESOLVED`. The test first adds a manual `STIP_VIN_MISMATCH` (documents work, so it stays docs-1's).
   - **Fixed on the way (T302):** Satisfy was offered on a RISC stip, and the API always refuses it (`RISC_STIP_NOT_WAIVABLE`, spec 001 AS-8.10). Now neither Satisfy nor Waive is offered there. Agent tests: 216 (4 new: settle and the stream).
 
+## D3b: Draft stip text (AS-8.3, pulled forward by D-4's second exception)
+
+**Exit:** AS-8.3, with AS-8.4 and AS-8.5 for it.
+
+- [x] **T311** `deal.draft_stip`: the ✦ Draft button in Add stip, the `draft_stip` model (models.yaml), checked JSON with one retry, a recording, and tests.
+  **Notes (done 2026-11-23):** `assistant/draft_stip.py` reuses Summarize's trimmed deal data (plus the picked code), conversation, fence stripping and replay. The answer is written to `/deal/stipDraft` and fills the description once; the funder edits it, and nothing is added until Add. No model, or two invalid replies: a plain message, and the funder writes it. Live on LA-1030 + `STIP_DEALER_LETTER`: valid on the first try in 7.8 s, but generic ("A letter from the dealer is required to proceed with funding."); the prompt can be made more specific later (T804's eval). Tests: `test_draft_stip.py` (2; agent 218), Playwright `AS_8_3_…` (30 in all). Recorded by hand for now; `make record-assistant` doesn't cover it yet.
+
 ## D4: Results and mismatches tab
 
 **Exit:** AS-4.1–4.5.
@@ -629,7 +636,7 @@ and nothing is assigned without the supervisor's click.
 **Exit:** AS-8.2, AS-8.3, and AS-8.4–8.5 for them (AS-8.1 is D1b), NFR-02.
 
 - [x] **T801** Moved to D1b as T152.
-- [ ] **T802** Suggest and draft stip (the summary is D1b's T153): prompts, schemas, validate and one retry, suggestion filtering against `allowedActions`.
+- [ ] **T802** Suggest next step (the summary is D1b's T153, draft stip text is D3b's T311): prompts, schemas, validate and one retry, suggestion filtering against `allowedActions`.
 - [ ] **T803** Record and replay suggest and draft stip, on D1b's recorder (T155).
 - [ ] **T804** `make eval-assistant` (offline eval plus reference answers); suggestions within NFR-02's 15 s.
 

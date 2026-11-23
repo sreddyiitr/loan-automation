@@ -1,7 +1,7 @@
 // Our custom catalog (plan §6): the Basic Catalog has no table, status badge, heading or fact list, so we add them.
 // Keep it in step with dashboard/agent/funder_agent/catalog.py.
 // A component = an API (Zod schema built from CommonSchemas, so bindings resolve) + a React implementation.
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {z} from 'zod';
 import {Catalog, CommonSchemas} from '@a2ui/web_core/v1_0';
 import {createComponentImplementation} from '@a2ui/react';
@@ -310,6 +310,8 @@ export const StipListApi = {
     applicationVersionId: CommonSchemas.DynamicValue,
     resolveAction: z.string(),
     addAction: z.string(),
+    draft: CommonSchemas.DynamicValue.optional(),
+    draftAction: z.string().optional(),
   }),
 };
 
@@ -318,7 +320,8 @@ type Stip = {stipId: number; code: string; title: string; description: string; r
 
 const StipList = createComponentImplementation(StipListApi as never, ({props, context}) => {
   const p = props as {title?: string; items?: unknown; codes?: unknown; canAdd?: boolean; addReason?: string;
-    emptyText?: string; loanApplicationId: string; applicationVersionId: number; resolveAction: string; addAction: string};
+    emptyText?: string; loanApplicationId: string; applicationVersionId: number; resolveAction: string; addAction: string;
+    draft?: {code: string; state: string; text: string; message: string}; draftAction?: string};
   const items = asList<Stip>(p.items);
   const codes = asList<{value: string; label: string}>(p.codes);
   const [open, setOpen] = useState<{stipId: number; status: string} | null>(null);
@@ -328,6 +331,11 @@ const StipList = createComponentImplementation(StipListApi as never, ({props, co
   const send = (name: string, extra: Record<string, unknown>) =>
     void (context as {dispatchAction: (a: unknown) => Promise<void>}).dispatchAction({event: {name, context:
       {loanApplicationId: p.loanApplicationId, applicationVersionId: p.applicationVersionId, ...extra}}});
+  // AS-8.3: the assistant's draft fills the description once, for the code it was asked about; the funder edits it.
+  const draft = p.draft;
+  useEffect(() => {
+    if (adding && draft?.state === 'ok' && draft.code === code) setText(draft.text);
+  }, [draft?.state, draft?.text]);                                     // eslint-disable-line react-hooks/exhaustive-deps
   const done = () => { setOpen(null); setAdding(false); setText(''); setCode(''); };
   const reasonBox = (label: string, onYes: () => void) => (
     <span className="suggestion-confirm" role="group" aria-label={label}>
@@ -374,9 +382,13 @@ const StipList = createComponentImplementation(StipListApi as never, ({props, co
           </select>
           <input className="stip-reason" aria-label="Description" placeholder="Description (required)" value={text}
                  onChange={(e) => setText(e.target.value)} />
+          {p.draftAction && <button type="button" className="suggestion-assign" disabled={!code || draft?.state === 'working'}
+                  onClick={() => send(p.draftAction!, {code})}>✦ Draft</button>}
           <button type="button" className="suggestion-yes" disabled={!code || !text.trim()}
                   onClick={() => { send(p.addAction, {code, description: text.trim()}); done(); }}>Add</button>
           <button type="button" className="suggestion-no" onClick={done}>Cancel</button>
+          {draft?.code === code && draft.message && <span className="suggestion-reason" role="status">{draft.message}</span>}
+          {draft?.code === code && draft.state === 'ok' && <span className="suggestion-reason">Drafted by the assistant from this deal's data. Edit it before adding.</span>}
         </div>
       ) : (
         <button type="button" className="suggestion-assign" disabled={!p.canAdd} title={p.canAdd ? undefined : p.addReason}

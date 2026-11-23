@@ -10,7 +10,7 @@ import httpx
 from funder_agent import config
 
 from .models import FeatureModel, Registry
-from .summary import Answer, ConversationFactory, adk_conversations, summarize
+from .summary import AdkConversation, Answer, ConversationFactory, adk_conversations, summarize
 
 log = logging.getLogger("funder-agent.assistant")
 
@@ -71,3 +71,22 @@ class AssignService:
 
     def conversation(self, tools: list) -> Any:
         return self.conversations(tools) if self.conversations else None
+
+
+class DraftService(SummaryService):
+    """Draft stip text (AS-8.3): the ``draft_stip`` model, or its recordings in replay mode."""
+
+    @classmethod
+    def from_config(cls) -> "DraftService":
+        from .draft_stip import INSTRUCTION
+        if config.ASSISTANT_REPLAY:
+            from .replay import ReplayConversation
+            return cls(lambda: ReplayConversation(config.ASSISTANT_REPLAY, feature="draft_stip"))
+        feature: FeatureModel = Registry.load().for_feature("draft_stip")
+        return cls(lambda: AdkConversation(feature.llm(), instruction=INSTRUCTION, name="draft_stip"), feature.spec.health)
+
+    async def draft(self, data: dict[str, Any]) -> Answer:
+        from .draft_stip import draft
+        answer = await draft(self.conversations(), data)
+        log.info("draft_stip: %s after %d attempt(s)%s", answer.kind, answer.attempts, f" ({answer.error})" if answer.error else "")
+        return answer

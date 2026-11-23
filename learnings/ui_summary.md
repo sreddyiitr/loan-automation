@@ -9,7 +9,7 @@ Details are in [`capabilities.md`](../specs/002-funder-dashboard/capabilities.md
 
 **Spike D0** (T001–T006), **D1, the walking skeleton** (T101–T108, merged as PR #11), **D1b,
 Summarize** (T151–T157), **D1c, look and feel** (T161–T164), **D2, roles**, **D6a, My work**, **D2b,
-assignment suggestions** and **D3, stipulations** (T301–T304) are done.
+assignment suggestions** **D3, stipulations** (T301–T304) and **D3b, draft stip text** (T311) are done.
 
 ![The funder dashboard: a deal's overview with its facts, actions and version history, and the assistant's summary beside it](screenshots/Funder%20dashboard.png)
 
@@ -43,7 +43,7 @@ who resolved it, when and why ("Satisfied by the system after a passing re-run" 
 own). **Satisfy** and **Waive** each ask for a reason in the row itself; Confirm stays disabled until
 there is one. A RISC stip (TILA math, RISC fields) offers neither, since the API refuses both, and
 says the dealer has to send a corrected RISC. **Add stip** picks a code from the API's list
-(`GET /stip-codes`, D-19) and needs a description; an APPROVED deal moves to STIPULATED. When you
+(`GET /stip-codes`, D-19) and needs a description; **✦ Draft** (D3b, AS-8.3) asks the local model to propose one from this deal's data, which you edit before adding; an APPROVED deal moves to STIPULATED. When you
 can't add one, the button is disabled and the reason is written under it. After a stip write the
 page follows the deal while the workflow acts on it (FR-10), so a waive that funds the deal shows
 **FUNDED** a second or two later with no reload. If someone else resolved the stip first, a notice
@@ -116,7 +116,7 @@ Funding API (Java, spec 001): the only thing that writes
 | **Documents** | Document versions, extracted fields with confidence, compare v1 vs v2. *A page viewer with highlighted fields comes later (it needs document storage)* |
 | **Decisions** | Approve, reject, re-run checks, retry a failed payment; only the actions the status allows are shown |
 | **Audit** | Who did what and when, with before and after values; a link to the run in the Temporal UI |
-| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text, and **assignment suggestions for the supervisor** (**built**, D2b: code decides who's eligible, an AI agent with read-only tools ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
+| **Assistant** | Plain-language case summary (**built**, D1b), suggested next step, drafted stip text (**built**, D3b), and **assignment suggestions for the supervisor** (**built**, D2b: code decides who's eligible, an AI agent with read-only tools ranks and explains, the supervisor confirms each). It only *suggests*; the funder clicks to act |
 
 ## What's fixed and what's dynamic
 
@@ -192,14 +192,14 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
    - A user id that isn't in the directory signs in, but gets "your user id isn't set up for the
      dashboard".
 4. Tests:
-   - Agent: `make test-dashboard`. 216 tests, no services and no model needed. Every surface
+   - Agent: `make test-dashboard`. 218 tests, no services and no model needed. Every surface
      passes A2UI v1.0 strict validation against our catalog (NFR-05), including a rebuild applied
      on top of the first screen. A second check catches keys the web renderer rejects but the
      Python validator accepts (`@accessibility`, `@catalogId`).
      The assistant's tests cover the registry, the trimmed input, the checks and the retry, the
      panel and its stream (through the real A2A app), and the 7 recorded answers.
    - Browser: `make test-dashboard-e2e` (`e2e/walking-skeleton.spec.ts`, `e2e/assistant.spec.ts`).
-     29 tests, each signing in on the real login page and named for its acceptance scenario.
+     30 tests, each signing in on the real login page and named for its acceptance scenario.
      They run one file at a time (`workers: 1`), because the stip tests change seeded deals and put
      them back (the dev reseed); beside the other files they'd race the tests that read those deals.
      The ones that use LA-1006 start by unassigning it through the API, so no versions are added:
@@ -228,7 +228,7 @@ Needs Python 3.12 with `uv`, and Node 22 or newer (tested with 24). No model is 
        FUNDED without a reload; `AS_3_3` a RISC stip offers no Waive or Satisfy and says why;
        `AS_3_4` two browsers resolve the same stip and the second is told who won, with no raw
        error; `AS_3_5` adds a stip from the code list to LA-1030 (APPROVED → STIPULATED), and the
-       button is disabled with the reason for someone who may not add one. Afterwards LA-1006 and
+       button is disabled with the reason for someone who may not add one; `AS_8_3` ✦ Draft fills the description from the recorded answer, the funder edits it, and nothing is added. Afterwards LA-1006 and
        LA-1030 are put back as seeded (reseed, then submit).
      They start their own agent (port 8092, replaying recorded answers: `ASSISTANT_REPLAY`) and
      web app (5174), so they always run the current code. They use `make dashboard`'s funding API

@@ -421,6 +421,9 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
     waive that funds the deal shows FUNDED without a reload.
   - `messages.yaml` covers all 31 reasons the funder endpoints can return; `test_messages.py`
     reads them from the Java source (T303).
+  - **Draft stip text** (D3b, AS-8.3, D-4's second exception): ✦ Draft in Add stip streams
+    `deal.draft_stip`; `assistant/draft_stip.py` reuses Summarize's data, checks and replay, and the
+    answer fills the description for the funder to edit. Live: valid but generic, 7.8 s.
   - The browser tests put the deals they change back with the dev `reseed` (see `funding-api`),
     and run one file at a time.
 - **Decisions:** routing in our own `AgentExecutor`, not ADK's `before_agent_callback`; one
@@ -441,10 +444,10 @@ reports **0 unmatched requests**. The full table, generated from the intents, is
 | **Functional** `TriggerPathIT`, `ScenarioE2EIT`, `IncomeVerificationMatrixIT`, `MockControlIT`, `FunderActionsE2EIT`, `VersioningE2EIT`, `DisbursementMatrixIT`, `WorkerRestartIT`, `ObservabilityIT` | **real** AWS Emulator SQS, Postgres 18, WireMock, Temporal, mock OIDC provider | 68 | ✅ |
 | **Volume** `FundingVolumeIT` (`make test-functional-volume`) | the same, 252 applications at once | 1 | ✅ healthy-API p95 12.2 s |
 
-| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers; assignment suggestions (`test_assign.py`: what the model sees, code's plan, eligibility, retry, an ADK runner whose scripted model calls a tool, the panel); stips (`test_stips.py`: the list, satisfy, waive, add, refusals, settling after a write and its stream); every API reason has a message (`test_messages.py`) | nothing (a fake funder API, scripted or recorded model answers) | 216 | ✅ |
-| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4`; `e2e/my-work.spec.ts`: `AS_1_8` (twice); `e2e/assign.spec.ts`: `AS_12_1`, `AS_12_4`, `AS_12_6`; `e2e/stips.spec.ts`: `AS_3_2` (waive LA-1006 → FUNDED, no reload), `AS_3_3`, `AS_3_4` (two browsers), `AS_3_5` (twice). One file at a time (`workers: 1`) | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted, with the dev reseed) and OIDC provider; Chromium | 29 | ✅ |
+| **Spec 002 agent** `dashboard/agent/tests` (pytest): every surface through `a2ui-core` strict validation (NFR-05), overview text, token relay, reason messages, routing; the assistant: model registry, trimmed input, checks and retry, the ADK runner with a scripted model, the panel and its stream through the real A2A app, and the 7 recorded answers; assignment suggestions (`test_assign.py`: what the model sees, code's plan, eligibility, retry, an ADK runner whose scripted model calls a tool, the panel); stips (`test_stips.py`: the list, satisfy, waive, add, refusals, settling after a write and its stream); every API reason has a message (`test_messages.py`) | nothing (a fake funder API, scripted or recorded model answers) | 218 | ✅ |
+| **Spec 002 browser** `dashboard/web/e2e/walking-skeleton.spec.ts` (Playwright), each signing in on the real login page: `AS_1_1` (writes as the signed-in user; unknown user), `AS_1_5`, `AS_2_1`, `AS_2_3`, `AS_2_5`, `AS_2_6` (Take; someone else took it first), `AS_10_3` (every seeded scenario at its expected status), `FR_11`; `e2e/assistant.spec.ts`: `AS_8_1` (twice), `AS_8_4`; `e2e/my-work.spec.ts`: `AS_1_8` (twice); `e2e/assign.spec.ts`: `AS_12_1`, `AS_12_4`, `AS_12_6`; `e2e/stips.spec.ts`: `AS_3_2` (waive LA-1006 → FUNDED, no reload), `AS_3_3`, `AS_3_4` (two browsers), `AS_3_5` (twice), `AS_8_3` (draft stip text). One file at a time (`workers: 1`) | their own replaying agent and web app; `make dashboard`'s funding API (seeds submitted, with the dev reseed) and OIDC provider; Chromium | 30 | ✅ |
 
-**Total: 595 tests** (526 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002's among them include 5 `FunderAuthTest`, 9 overview, take and unassign tests, 3 team tests and 3 stip-code tests in `FunderApiTest`, 24 `StipCodesTest`, 3 `DevReseedTest`, and 1 functional `AS_10_9_realTokensFromTheMockProvider`; it also has 216 agent tests and 29 Playwright tests. Test names trace to the
+**Total: 595 tests** (526 unit, 1 of them skipped, 68 functional and 1 volume). Spec 002's among them include 5 `FunderAuthTest`, 9 overview, take and unassign tests, 3 team tests and 3 stip-code tests in `FunderApiTest`, 24 `StipCodesTest`, 3 `DevReseedTest`, and 1 functional `AS_10_9_realTokensFromTheMockProvider`; it also has 218 agent tests and 30 Playwright tests. Test names trace to the
 spec (`AS_1_5_…`, `FR_07_…`, `P_2_3_…`).
 
 What the functional tests check:
@@ -504,7 +507,7 @@ queues, workflow IDs and stubs, and removes them all afterwards (NFR-08).
 | NFR | NFR-01 (volume p95 12.2 s with healthy APIs), NFR-02 (worker restart), NFR-03, 04, 06, 07 (replay suite), 08; NFR-05 for activities and the relay |
 | **Spec 002, D1b** | AS-8.1, 8.4, 8.5 (Summarize); FR-07, FR-08; NFR-02 (15 s, owner); AS-10.4, 10.5 for the assistant |
 | **Spec 002, D1** | AS-1.1, 1.5, 2.1, 2.3, 2.5, 2.6, 10.1–10.3 (2.2 in part: the in-progress note; disabling refused actions waits for D2) (10.3's waive is T304's `AS_3_2`), 10.9; FR-11; NFR-04, NFR-05 |
-| **Spec 002, D3** | AS-3.1–3.5, AS-10.3's waive; FR-06 (every API reason has a message); FR-10 for stip writes |
+| **Spec 002, D3 and D3b** | AS-3.1–3.5, AS-8.3 (with 8.4, 8.5), AS-10.3's waive; FR-06 (every API reason has a message); FR-10 for stip writes |
 
 ---
 

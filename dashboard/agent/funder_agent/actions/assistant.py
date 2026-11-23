@@ -54,4 +54,31 @@ async def suggest_assignments(api: FunderApi, context: dict[str, Any], service: 
     yield assign_surface(result.mode, result.items, roles), True
 
 
-STREAMED = {"deal.summarize": summarize_deal, "assign.suggest": suggest_assignments}
+DRAFT_WORDS = {"ok": "", "unavailable": "The assistant is unavailable right now. Write the description yourself.",
+               "invalid": "The assistant couldn't produce a draft. Write the description yourself."}
+
+
+async def draft_stip_text(api: FunderApi, context: dict[str, Any], service: Any) -> AsyncIterator[Step]:
+    """``deal.draft_stip`` (AS-8.3): a proposed description for the picked code, written into
+    ``/deal/stipDraft``; the Add stip form shows it for the funder to edit. Nothing is added."""
+    from ..assistant.draft_stip import draft_input
+    from ..surfaces.overview import surface_id
+    version_id, code = int(context["applicationVersionId"]), str(context["code"])
+    put = lambda value: [{"version": VERSION, "updateDataModel": {"surfaceId": surface_id(version_id),
+                                                                  "path": "/deal/stipDraft", "value": value}}]
+    yield put({"code": code, "state": "working", "text": "", "message": "Drafting…"}), False
+    answer = None
+    if await service.available():
+        try:
+            overview = api.overview(context["loanApplicationId"])
+            labels = {c["code"]: c.get("description") or c["code"] for c in api.stip_codes()}
+            data = draft_input(overview, api.stipulations(version_id), api.validation_results(version_id), code, labels.get(code, code))
+        except ApiError as e:
+            yield put({"code": code, "state": "invalid", "text": "", "message": message_for(e.reason)}), True
+            return
+        answer = await service.draft(data)
+    kind = answer.kind if answer else "unavailable"
+    yield put({"code": code, "state": kind, "text": answer.summary if answer else "", "message": DRAFT_WORDS[kind]}), True
+
+
+STREAMED = {"deal.summarize": summarize_deal, "assign.suggest": suggest_assignments, "deal.draft_stip": draft_stip_text}

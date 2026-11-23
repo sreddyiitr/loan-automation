@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {expect, test, type Page} from '@playwright/test';
 import {api, asSeeded, openDeal, overviewOf, seededLa1006, signInAs, takeAs, unassigned, until, watchErrors} from './support';
 
@@ -183,4 +185,27 @@ test('AS_3_5_whenAddingAStipIsntAllowedTheButtonIsDisabledWithTheReason', async 
   } finally {
     await unassigned('LA-1007');
   }
+});
+
+test('AS_8_3_draftStipTextProposesADescriptionTheFunderEditsBeforeAdding', async ({page}) => {
+  const errors = watchErrors(page);
+  const recorded = JSON.parse(readFileSync(fileURLToPath(new URL('../../agent/recordings/draft_stip/LA-1030.json', import.meta.url)), 'utf8'));
+  const deal = await overviewOf('LA-1030');
+  const before = (await (await api('supervisor-1', `/versions/${deal.applicationVersionId}/stipulations`)).json()).length;
+  await signInAs(page, 'supervisor-1');
+  await openDeal(page, 'LA-1030');
+  await page.getByRole('button', {name: 'Add stip'}).click();
+  const form = page.getByRole('group', {name: 'Add stip'});
+  await expect(form.getByRole('button', {name: '✦ Draft'})).toBeDisabled();       // pick a code first
+  await form.getByLabel('Stip code').selectOption('STIP_DEALER_LETTER');
+  await form.getByRole('button', {name: '✦ Draft'}).click();
+  const description = form.getByLabel('Description');
+  await expect(description).toHaveValue(recorded.result);                         // the model's words (replayed)
+  await expect(form).toContainText('Drafted by the assistant');
+  await description.fill(`${recorded.result} Edited by the funder.`);              // it's only a proposal
+  await expect(description).toHaveValue(/Edited by the funder\.$/);
+  await expect(form.getByRole('button', {name: 'Add'})).toBeEnabled();
+  const after = (await (await api('supervisor-1', `/versions/${deal.applicationVersionId}/stipulations`)).json()).length;
+  expect(after).toBe(before);                                                      // drafting adds nothing
+  expect(errors, errors.join('\n')).toEqual([]);
 });
