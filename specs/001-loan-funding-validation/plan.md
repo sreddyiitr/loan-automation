@@ -253,7 +253,7 @@ A Temporal workflow can't serve HTTP itself. The **start-workflow API** is a RES
 | `GET /api/v1/versions/{vid}/audit` | Audit trail | FR-10 |
 | `POST /api/v1/funding-workflows` · `GET …/{vid}` | Trigger API (`X-Trigger-Api-Key`) | FR-03 |
 | `POST /api/v1/external/verify-income` · `POST /api/v1/external/disbursements` | External APIs, served by WireMock locally | FR-11 |
-| `POST /api/v1/dev/applications/{id}/submit` · `/versions` · `/documents` | Dev only (`local`) | FR-16 |
+| `POST /api/v1/dev/applications/{id}/submit` · `/versions` · `/documents` · `/reseed` | Dev only (`local`) | FR-16 (`/reseed`: spec 002 T304) |
 
 ## Testing Strategy (SDD: each acceptance scenario has a test)
 

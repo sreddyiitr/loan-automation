@@ -135,7 +135,7 @@ learning goal for this project. An LLM assistant helps explain a case, but never
 - **AS-3.2** **Satisfy** and **Waive** need a reason. After success the stip shows its new status, and the deal status refreshes. If the deal funds as a result, the overview shows FUNDED without a manual reload.
 - **AS-3.3** For a stip that can't be waived (TILA math, RISC extraction), **Waive is not offered**. The stip explains that a corrected RISC from the dealer is required.
 - **AS-3.4** If another funder resolved the stip first (409 `ALREADY_RESOLVED`), the UI says who and when, and refreshes. It never shows a raw error.
-- **AS-3.5** **Add stip**: the funder picks a code from the list the API provides, writes a description, and confirms. The stip appears as PENDING, and an APPROVED deal moves to STIPULATED. When adding a stip isn't allowed, the button is disabled with the reason.
+- **AS-3.5** **Add stip**: the funder picks a code from the list the API provides (`GET /api/v1/stip-codes`: the eight codes the checks raise, plus manual-only codes that no specialist owns, `STIP_DEALER_LETTER` and `STIP_OTHER`, which route to the catch-all; D-19), writes a description, and confirms. The API refuses any other code with 400 `UNKNOWN_STIP_CODE`. The stip appears as PENDING, and an APPROVED deal moves to STIPULATED. When adding a stip isn't allowed, the button is disabled with the reason.
 
 ### US-4 Check results and mismatches (P1) (source Tab 3)
 - **AS-4.1** Each check (TILA, PRICE, VIN, GAP, INCOME) shows its outcome. A failing or review-needed check lists every comparison as **expected vs actual**, with the mismatching rows highlighted.
@@ -282,5 +282,6 @@ the expected result, for reference:
 | D-16 | **Assignment suggestions** (US-12, owner, 2026-11-21): code decides who may work a deal, the LLM ranks and explains within that, and the supervisor confirms each suggestion. An ADK agent with read-only tools. Built after D2, as slice D2b. |
 | D-17 | **A catch-all funder** (`general-1`, role `GENERAL_FUNDER`; owner, 2026-11-21) works only what no specialist owns: the `GENERAL` kind (a manual stip with no check, or a stip code or hold the kinds table doesn't map). It counts toward "two or more kinds" like any other kind. |
 | D-18 | **The look: clean fintech, light** (owner, 2026-11-21; made richer the same day): a navy top bar and hero band holding the loan search, white cards lifted over it with a blue edge, key facts in tinted tiles, the assistant in its own indigo colour with a ✦, status colours that always come with words (NFR-04); dark mode follows the OS. Styled in the web app only (A2UI v1.0 has no themes); the agent sends structure. Built as slice D1c, before D2. |
+| D-19 | **Manual stip codes come from a fixed list** (owner, 2026-11-22): `GET /api/v1/stip-codes` lists the eight codes the checks raise plus the manual-only `STIP_DEALER_LETTER` and `STIP_OTHER` (both `GENERAL` work). Each entry has a description, the check that raises it (none for manual-only codes) and whether it can be waived. Adding a stip with any other code is refused with 400 `UNKNOWN_STIP_CODE` (spec 001 AS-10.8). |
 
 **Open (owner):** none.

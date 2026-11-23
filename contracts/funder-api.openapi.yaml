@@ -100,6 +100,26 @@ paths:
       summary: The signed-in user
       tags:
       - Funder
+  /api/v1/stip-codes:
+    get:
+      description: "Spec 002 AS-3.5, D-19: the checks' codes, then the manual-only\
+        \ ones; each with words, the checks that raise it and whether it can be waived"
+      operationId: stipCodes
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: {}
+          description: OK
+      security:
+      - bearerAuth: []
+      summary: The stip codes a funder may add
+      tags:
+      - Funder
   /api/v1/users:
     get:
       description: "Spec 002 FR-13 (US-12): supervisor only; openDeals counts the\
@@ -343,7 +363,7 @@ paths:
       - Funder
   /api/v1/versions/{versionId}/stipulations:
     get:
-      description: AS-10.2
+      description: "AS-10.2; each with waivable (AS-8.10, spec 002 AS-3.3)"
       operationId: stips
       parameters:
       - in: path
@@ -369,7 +389,7 @@ paths:
       - Funder
     post:
       description: "AS-10.8: validation_check = NULL; moves PENDING_REVIEW or APPROVED\
-        \ to STIPULATED"
+        \ to STIPULATED; the code must be one of GET /stip-codes (400 UNKNOWN_STIP_CODE)"
       operationId: addStip
       parameters:
       - in: path

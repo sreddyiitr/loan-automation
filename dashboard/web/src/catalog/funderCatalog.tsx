@@ -84,6 +84,7 @@ export const StatusBadgeApi = {
 const TONE: Record<string, string> = {
   DRAFT: 'neutral', PENDING_REVIEW: 'busy', STIPULATED: 'waiting', APPROVED: 'busy',
   FUNDED: 'done', REJECTED: 'refused', EXPIRED: 'refused',
+  PENDING: 'waiting', SATISFIED: 'done', WAIVED: 'done',             // stips (D3)
 };
 
 const StatusBadge = createComponentImplementation(StatusBadgeApi as never, ({props}) => {
@@ -293,12 +294,105 @@ const SuggestionList = createComponentImplementation(SuggestionListApi as never,
   );
 });
 
+// StipList (D3, AS-3.1–3.5): each stip with who raised it and how it was resolved. Satisfy and Waive
+// (Waive only when the API says the stip is waivable) each ask for a reason in place; Add stip picks a
+// code from GET /stip-codes. Every write is the agent's code, after this click (FR-03).
+export const StipListApi = {
+  name: 'StipList',
+  schema: z.object({
+    title: CommonSchemas.DynamicString.optional(),
+    items: CommonSchemas.DynamicValue,
+    codes: CommonSchemas.DynamicValue.optional(),
+    canAdd: CommonSchemas.DynamicValue.optional(),
+    addReason: CommonSchemas.DynamicString.optional(),
+    emptyText: CommonSchemas.DynamicString.optional(),
+    loanApplicationId: CommonSchemas.DynamicValue,
+    applicationVersionId: CommonSchemas.DynamicValue,
+    resolveAction: z.string(),
+    addAction: z.string(),
+  }),
+};
+
+type Stip = {stipId: number; code: string; title: string; description: string; raisedBy: string; status: string;
+  resolved: string; canSatisfy: boolean; canWaive: boolean; note: string};
+
+const StipList = createComponentImplementation(StipListApi as never, ({props, context}) => {
+  const p = props as {title?: string; items?: unknown; codes?: unknown; canAdd?: boolean; addReason?: string;
+    emptyText?: string; loanApplicationId: string; applicationVersionId: number; resolveAction: string; addAction: string};
+  const items = asList<Stip>(p.items);
+  const codes = asList<{value: string; label: string}>(p.codes);
+  const [open, setOpen] = useState<{stipId: number; status: string} | null>(null);
+  const [text, setText] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [code, setCode] = useState('');
+  const send = (name: string, extra: Record<string, unknown>) =>
+    void (context as {dispatchAction: (a: unknown) => Promise<void>}).dispatchAction({event: {name, context:
+      {loanApplicationId: p.loanApplicationId, applicationVersionId: p.applicationVersionId, ...extra}}});
+  const done = () => { setOpen(null); setAdding(false); setText(''); setCode(''); };
+  const reasonBox = (label: string, onYes: () => void) => (
+    <span className="suggestion-confirm" role="group" aria-label={label}>
+      <input className="stip-reason" aria-label="Reason" placeholder="Reason (required)" value={text}
+             onChange={(e) => setText(e.target.value)} autoFocus />
+      <button type="button" className="suggestion-yes" disabled={!text.trim()} onClick={() => { onYes(); done(); }}>Confirm</button>
+      <button type="button" className="suggestion-no" onClick={done}>Cancel</button>
+    </span>
+  );
+  return (
+    <section className="stip-list">
+      {p.title && <h3 className="section-title">{p.title} <span className="count">{items.length}</span></h3>}
+      {items.length === 0 && <p className="work-empty">{p.emptyText ?? 'No stips'}</p>}
+      <ul className="suggestion-list">
+        {items.map((s) => (
+          <li key={s.stipId} className="suggestion" data-stip={s.code} data-status={s.status}>
+            <div className="suggestion-main">
+              <span className="suggestion-head">
+                <span className="work-id">{s.title}</span>
+                <span className={`work-status status-${TONE[s.status] ?? 'neutral'}`}>
+                  <span className="status-dot" aria-hidden="true" />{s.status.toLowerCase()}</span>
+              </span>
+              <span className="suggestion-reason">{s.description}</span>
+              <span className="suggestion-reason">{s.raisedBy}{s.resolved && <> · {s.resolved}</>}</span>
+              {s.note && <span className="suggestion-reason stip-note">{s.note}</span>}
+            </div>
+            {open?.stipId === s.stipId ? reasonBox(`${open.status === 'WAIVED' ? 'Waive' : 'Satisfy'} ${s.code}`,
+              () => send(p.resolveAction, {stipId: s.stipId, status: open.status, reason: text.trim()})) : (
+              <span className="suggestion-confirm">
+                {s.canSatisfy && <button type="button" className="suggestion-assign" aria-label={`Satisfy ${s.code}`}
+                  onClick={() => setOpen({stipId: s.stipId, status: 'SATISFIED'})}>Satisfy</button>}
+                {s.canWaive && <button type="button" className="suggestion-no" aria-label={`Waive ${s.code}`}
+                  onClick={() => setOpen({stipId: s.stipId, status: 'WAIVED'})}>Waive</button>}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {adding ? (
+        <div className="suggestion-confirm" role="group" aria-label="Add stip">
+          <select aria-label="Stip code" value={code} onChange={(e) => setCode(e.target.value)}>
+            <option value="">Pick a code…</option>
+            {codes.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+          <input className="stip-reason" aria-label="Description" placeholder="Description (required)" value={text}
+                 onChange={(e) => setText(e.target.value)} />
+          <button type="button" className="suggestion-yes" disabled={!code || !text.trim()}
+                  onClick={() => { send(p.addAction, {code, description: text.trim()}); done(); }}>Add</button>
+          <button type="button" className="suggestion-no" onClick={done}>Cancel</button>
+        </div>
+      ) : (
+        <button type="button" className="suggestion-assign" disabled={!p.canAdd} title={p.canAdd ? undefined : p.addReason}
+                onClick={() => setAdding(true)}>Add stip</button>
+      )}
+      {!p.canAdd && p.addReason && <p className="work-empty">{p.addReason}</p>}
+    </section>
+  );
+});
+
 // The published web_core (0.15.0) rejects a per-component "@catalogId", so a surface can use only one
 // catalog. Our catalog therefore EXTENDS the Basic Catalog: all 18 basic components and 15 functions,
 // plus ours. Surfaces are created with this catalog's id.
 export const funderCatalog = new Catalog(
   FUNDER_CATALOG_ID,
   '1.0' as never,
-  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline, WorkList, SuggestionList] as never,
+  [...basicCatalog.components.values(), DataTable, StatusBadge, Heading, FactList, CheckList, Timeline, WorkList, SuggestionList, StipList] as never,
   [...basicCatalog.functions.values()] as never,
 );

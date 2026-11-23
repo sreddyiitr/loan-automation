@@ -79,6 +79,10 @@ class FunderApi:
     def stipulations(self, version_id: int) -> list[dict[str, Any]]:
         return self._call("GET", f"/versions/{version_id}/stipulations")
 
+    def stip_codes(self) -> list[dict[str, Any]]:
+        """AS-3.5, D-19: the codes a funder may add."""
+        return self._call("GET", "/stip-codes")
+
     def validation_results(self, version_id: int) -> list[dict[str, Any]]:
         return self._call("GET", f"/versions/{version_id}/validation-results")
 
@@ -94,6 +98,15 @@ class FunderApi:
     def assign(self, version_id: int, funder_id: str) -> dict[str, Any]:
         """AS-2.4: a supervisor's reassign (role rule in D2)."""
         return self._call("PUT", f"/versions/{version_id}/assignee", json={"funderId": funder_id})
+
+    def resolve_stip(self, version_id: int, stip_id: int, status: str, reason: str) -> dict[str, Any]:
+        """AS-3.2: SATISFIED or WAIVED with a reason (409 ALREADY_RESOLVED if someone was first)."""
+        return self._call("PATCH", f"/versions/{version_id}/stipulations/{stip_id}",
+                          json={"status": status, "reason": reason})
+
+    def add_stip(self, version_id: int, code: str, description: str) -> dict[str, Any]:
+        """AS-3.5: a manual stip; the code must be on ``stip_codes`` (400 UNKNOWN_STIP_CODE)."""
+        return self._call("POST", f"/versions/{version_id}/stipulations", json={"code": code, "description": description})
 
     # ------------------------------------------------------------------ helpers
 

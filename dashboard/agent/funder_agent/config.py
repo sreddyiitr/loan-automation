@@ -10,3 +10,6 @@ TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "default")
 # Replay recorded answers instead of calling a model (AS-10.5): a directory, e.g. recordings.
 ASSISTANT_REPLAY = os.environ.get("ASSISTANT_REPLAY", "")
 ASSISTANT_MODELS = os.environ.get("ASSISTANT_MODELS", str(Path(__file__).resolve().parent.parent / "models.yaml"))
+# FR-10 (plan §3): after a write, re-read the deal this often while it's in progress, for up to this long.
+FRESHNESS_INTERVAL_S = float(os.environ.get("FRESHNESS_INTERVAL_S", "2"))
+FRESHNESS_LIMIT_S = float(os.environ.get("FRESHNESS_LIMIT_S", "60"))

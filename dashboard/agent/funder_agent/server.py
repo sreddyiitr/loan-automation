@@ -102,7 +102,33 @@ class FunderAgentExecutor(AgentExecutor):
         text = " ".join(p.root.text for p in (context.message.parts if context.message else [])
                         if isinstance(p.root, TextPart))
         messages = route(bearer(context), text, actions, self.api_factory)
+        settling = next((a for a in actions if a.get("name") in deal.SETTLING), None)
+        if settling:
+            await self._settle(context, event_queue, messages, settling)
+            return
         await event_queue.enqueue_event(new_agent_parts_message(create_a2ui_parts(messages, version=VERSION)))
+
+    async def _settle(self, context: RequestContext, event_queue: EventQueue, first: list[dict[str, Any]],
+                      action: dict[str, Any]) -> None:
+        """FR-10 for a stip write: the reply goes out at once as a "working" update, then each change
+        while the workflow finishes acting on it (``deal.settle``); the task completes with the last
+        one again (a data update, so applying it twice is harmless), for a message/send caller."""
+        task = context.current_task
+        if task is None:
+            task = new_task(context.message)
+            await event_queue.enqueue_event(task)
+        updater = TaskUpdater(event_queue, task.id, task.context_id)
+        parts = lambda messages: create_a2ui_parts(messages, version=VERSION)
+        await updater.update_status(TaskState.working, message=updater.new_agent_message(parts(first)))
+        final: list[dict[str, Any]] = []
+        try:
+            with self.api_factory(bearer(context)) as api:
+                async for update in deal.settle(api, action.get("context", {})):
+                    await updater.update_status(TaskState.working, message=updater.new_agent_message(parts(update)))
+                    final = update
+        except (NotSignedIn, ApiError, KeyError, ValueError) as e:
+            log.info("stopped following the deal after a write: %s", e)
+        await updater.complete(message=updater.new_agent_message(parts(final)) if final else None)
 
     async def _stream(self, context: RequestContext, event_queue: EventQueue, action: dict[str, Any]) -> None:
         """Each step that isn't final goes out at once as a "working" status update (message/stream);

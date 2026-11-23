@@ -11,6 +11,7 @@ import com.funding.domain.routing.Permissions.Action;
 import com.funding.domain.routing.WorkRouting;
 import com.funding.domain.RulesConfig;
 import com.funding.domain.rules.RiscCompleteness;
+import com.funding.domain.StipCodes;
 import com.funding.domain.status.StipWaivers;
 import com.funding.domain.status.VersionStatus;
 import com.funding.persistence.AuditRepository;
@@ -219,9 +220,27 @@ public class FunderService {
         return rows;
     }
 
+    /** AS-10.2, with each stip's {@code waivable} (AS-8.10), so the dashboard never offers Waive on a RISC stip (spec 002 AS-3.3). */
     public List<Map<String, Object>> stips(long versionId) {
         version(versionId);
-        return queries.stips(versionId);
+        return queries.stips(versionId).stream().map(r -> {
+            Map<String, Object> out = new LinkedHashMap<>(r);
+            out.put("waivable", StipWaivers.waivable((String) r.get("stip_code"), (String) r.get("description")));
+            return out;
+        }).toList();
+    }
+
+    /** Spec 002 D-19: the codes a funder may add, in catalog order. */
+    public List<Map<String, Object>> stipCodes() {
+        return StipCodes.catalog().stream().map(c -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("code", c.code());
+            m.put("description", c.description());
+            m.put("raisedBy", c.raisedBy().stream().sorted().map(Enum::name).toList());
+            m.put("manualOnly", c.manualOnly());
+            m.put("waivable", c.waivable().name());
+            return m;
+        }).toList();
     }
 
     public List<Map<String, Object>> results(long versionId, boolean history) {
@@ -282,6 +301,9 @@ public class FunderService {
         String actor = who.id();
         requireText(code, "code");
         requireText(description, "description");
+        if (StipCodes.find(code).isEmpty()) {
+            throw new ApiProblem(HttpStatus.BAD_REQUEST, "UNKNOWN_STIP_CODE", code + " isn't a stip code; see GET /api/v1/stip-codes");
+        }
         Long stipId = tx.execute(s -> {
             VersionRow v = guard(versionId);
             authorize(who, Action.ADD_STIP, v);

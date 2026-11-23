@@ -50,6 +50,11 @@ VERSIONS = [
 ]
 
 
+STIP_CODES = [{"code": "STIP_PRICE_MISMATCH", "description": "Price differs between the RISC and the Buyer's Order"},
+              {"code": "STIP_TILA_MATH_DISCREPANCY", "description": "TILA math doesn't add up"},
+              {"code": "STIP_OTHER", "description": "Something else"}]
+
+
 class FakeFunderApi:
     """Answers like the funder API, records every request, and can refuse with a problem+json reason."""
 
@@ -95,6 +100,22 @@ class FakeFunderApi:
                 return httpx.Response(409, json={"reason": "ALREADY_ASSIGNED", "detail": "taken"})
             self.overview["assignedFunder"] = me
             return httpx.Response(200, json={"assignedFunder": me})
+        if request.method == "GET" and path == "/stip-codes":           # D3, D-19
+            return httpx.Response(200, json=STIP_CODES)
+        if request.method == "PATCH" and "/stipulations/" in path:     # AS-3.2, AS-3.4
+            stip = next(s for s in self.stips if s["stipId"] == int(path.rsplit("/", 1)[1]))
+            if stip["status"] != "PENDING":
+                return httpx.Response(409, json={"reason": "ALREADY_RESOLVED", "detail": "resolved"})
+            body = json.loads(request.content)
+            stip |= {"status": body["status"], "resolutionNote": body["reason"], "resolvedBy": "funder-1"}
+            return httpx.Response(200, json=stip)
+        if request.method == "POST" and path.endswith("/stipulations"):  # AS-3.5
+            body = json.loads(request.content)
+            if body["code"] not in {c["code"] for c in STIP_CODES}:
+                return httpx.Response(400, json={"reason": "UNKNOWN_STIP_CODE", "detail": body["code"]})
+            self.stips.append({"stipId": len(self.stips) + 1, "stipCode": body["code"], "description": body["description"],
+                               "status": "PENDING", "waivable": True})
+            return httpx.Response(201, json=self.stips[-1])
         if request.method == "PUT" and path.endswith("/assignee"):
             self.overview["assignedFunder"] = json.loads(request.content)["funderId"]
             return httpx.Response(200, json={"assignedFunder": self.overview["assignedFunder"]})

@@ -9,6 +9,10 @@ const WEB_PORT = 5174;
 
 export default defineConfig({
   testDir: 'e2e',
+  // One file at a time (T304): the stip tests fund LA-1006 and re-stipulate LA-1030, then put them back
+  // as seeded (the dev reseed). Run beside the other files, they'd race the tests that read those deals
+  // (AS-10.3 reads every seeded status; My work and the assistant read LA-1006 and LA-1030).
+  workers: 1,
   use: {baseURL: `http://localhost:${WEB_PORT}`, headless: true},
   webServer: [
     {

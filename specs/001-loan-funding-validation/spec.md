@@ -115,7 +115,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 - **AS-10.5** List document versions per type with `processed_at` and per-field confidence and bounding box.
 - **AS-10.6** Approve, reject, or re-run errored checks. These become Temporal signals to the version's workflow.
 - **AS-10.7** Writes against a non-latest version, or a version in a terminal status (`FUNDED`, `REJECTED`, `EXPIRED`), are refused with 409.
-- **AS-10.8** A funder can create a manual stip (for example `STIP_PROOF_OF_INCOME`; the owner confirmed this is done from the UI in spec 002, through this API) with `validation_check = NULL`. This moves an `APPROVED`-but-not-yet-disbursed or `PENDING_REVIEW` version to `STIPULATED`.
+- **AS-10.8** A funder can create a manual stip (for example `STIP_PROOF_OF_INCOME`; the owner confirmed this is done from the UI in spec 002, through this API) with `validation_check = NULL`. This moves an `APPROVED`-but-not-yet-disbursed or `PENDING_REVIEW` version to `STIPULATED`. The code must be one the API lists at `GET /api/v1/stip-codes` (spec 002 AS-3.5, D-19); any other code is refused with 400 `UNKNOWN_STIP_CODE`.
 - **AS-10.9** Every funder API call is made by an authenticated user: it carries an OIDC bearer token, and the actor is the token's `sub` (spec 002 FR-09, FR-11). A missing or invalid token returns 401. This replaces the `X-Funder-Id` header, which was a stand-in until auth existed. Errors use RFC 9457 `application/problem+json`.
 
 ## 5. Functional Requirements
@@ -137,7 +137,7 @@ Funders manually cross-check dealer funding packages (RISC, Buyer's Order, GAP A
 | FR-13 | Encrypted SSN/ITIN is excluded from logs and workflow payloads. Activities load it from the DB by version ID. |
 | FR-14 | A required field value that can't be parsed (money, APR, term, date, year), or a missing required application input (stated income, SSN/ITIN token), is treated like a missing field, so the result is NEEDS_REVIEW. Money must match `^-?\d+(\.\d{1,2})?$`. |
 | FR-15 | Ratios such as income variance are compared with exact decimals and are **not rounded** before comparison, so 15.00% passes and 15.01% fails. Values are rounded only for display (2 dp). |
-| FR-16 | Dev-only endpoints (`/api/v1/dev/**`: submit, add version or document) exist only under the `local` profile. Mock control goes through WireMock's admin API, restricted to generated intents. |
+| FR-16 | Dev-only endpoints (`/api/v1/dev/**`: submit, add version or document, and reseed one seeded deal back to its seed, stopping its runs first) exist only under the `local` profile. Mock control goes through WireMock's admin API, restricted to generated intents. |
 | FR-17 | The funder API is documented with OpenAPI (springdoc), because spec 002 (the dashboard) builds on it. |
 | FR-18 | When a rule changes, every mock response of the APIs it consumes is regenerated and re-verified. An expected-outcome flip needs explicit acceptance plus a `RULE-CHANGES.md` entry (constitution P-5). |
 
