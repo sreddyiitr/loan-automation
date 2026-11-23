@@ -24,7 +24,7 @@ from starlette.middleware.cors import CORSMiddleware
 from . import config
 from .actions import deal
 from .actions.assistant import STREAMED
-from .assistant.service import AssignService, SummaryService
+from .assistant.service import AssignService, DraftService, SummaryService
 from .api import ApiError, FunderApi, NotSignedIn, message_for
 from .catalog import BASIC_CATALOG_ID, FUNDER_CATALOG_ID, VERSION
 from .surfaces.notice import notice_surface
@@ -78,6 +78,13 @@ class FunderAgentExecutor(AgentExecutor):
                  assistant: SummaryService | None = None, assigner: "AssignService | None" = None):
         self.card, self.api_factory, self._assistant = card, api_factory, assistant
         self._assigner: AssignService | None = assigner
+        self._drafter: DraftService | None = None
+
+    @property
+    def drafter(self) -> DraftService:
+        if self._drafter is None:
+            self._drafter = DraftService.from_config()
+        return self._drafter
 
     @property
     def assigner(self) -> "AssignService":
@@ -143,7 +150,8 @@ class FunderAgentExecutor(AgentExecutor):
         final: list[dict[str, Any]] = []
         try:
             with self.api_factory(bearer(context)) as api:
-                service = self.assigner if action["name"] == "assign.suggest" else self.assistant
+                service = {"assign.suggest": lambda: self.assigner, "deal.draft_stip": lambda: self.drafter}.get(
+                    action["name"], lambda: self.assistant)()
                 async for messages, is_final in STREAMED[action["name"]](api, action.get("context", {}), service):
                     if is_final:
                         final = messages

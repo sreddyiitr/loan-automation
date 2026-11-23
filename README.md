@@ -135,7 +135,7 @@ Behind that, in more detail (the spec 001 trigger path):
   ![Assignment suggestions](learnings/screenshots/Assignment%20suggestions.png)
 - **Stipulations**: each stip says what raised it and who resolved it, when and why. Satisfy and
   Waive ask for a reason; a RISC stip offers neither and says the dealer must send a corrected
-  RISC. Add stip picks a code from the API's list. After a waive that funds the deal, the page
+  RISC. Add stip picks a code from the API's list, and **✦ Draft** asks the local model for a description you then edit. After a waive that funds the deal, the page
   shows FUNDED a moment later, with no reload.
 - **One command** (`make dashboard`) starts the funding API, the agent and the web app, and
   submits the seeded scenarios.
@@ -165,7 +165,7 @@ scenario through the full trigger path.
 | **Volume** (`make test-functional-volume`: 252 applications at once) | JUnit 5 + Spring Boot on a real port | the same | 1 | ✅ p95 12.2 s with healthy APIs (NFR-01: < 30 s) |
 | Seed gates | `make seed-check` | — | 8 gates | ✅ conformance · coverage · lock · docs · mock contract · mock coverage · mock band oracle · mock lock |
 
-Spec 002 (the funder dashboard) adds **216 agent tests** (pytest) and **29 browser tests**
+Spec 002 (the funder dashboard) adds **218 agent tests** (pytest) and **30 browser tests**
 (Playwright), counted separately; its Java tests are in the 595. None of them needs an AI model:
 they replay answers recorded from it. See
 [Try the funder dashboard](#try-the-funder-dashboard-spec-002-optional).
@@ -555,9 +555,9 @@ with [`uv`](https://docs.astral.sh/uv/) (`brew install uv`) and Node 22 or newer
 ```bash
 make dashboard-preflight   # names each missing tool with its install command (make dashboard runs it too)
 make dashboard             # the funding API, the agent (8091) and the web app (5173); prints the URL
-make test-dashboard        # 216 agent tests, no services and no model needed
+make test-dashboard        # 218 agent tests, no services and no model needed
 cd dashboard/web && npx playwright install chromium   # once
-make test-dashboard-e2e    # 29 browser tests, one file at a time: their own agent and web app, make dashboard's API and sign-in
+make test-dashboard-e2e    # 30 browser tests, one file at a time: their own agent and web app, make dashboard's API and sign-in
 make record-assistant      # re-record the model's answers the tests replay (needs Ollama)
 make demo                  # record the demo to target/demo: demo.mp4, demo.webp, demo.srt (needs ffmpeg)
 ```

@@ -267,7 +267,7 @@ the expected result, for reference:
 | D-1 | Fixed screens are built by code; the LLM is only an assistant. Writes go through the funder API after a click. |
 | D-2 | Agent in **Python** with ADK and `a2ui-adk` (the ADK integration is Python-only); the Java backend stays. |
 | D-3 | **React** renderer, unless the spike finds its v1.0 support incomplete (then Lit or Angular). Transport: A2A, as `a2ui-adk` supports. |
-| D-4 | Plain dashboard first; the assistant (US-8) and generated view (US-9) come last. **Exception:** "Summarize" (AS-8.1, with AS-8.4 and AS-8.5) comes right after the walking skeleton, as slice D1b, to prove the model path early. It's read-only, so it needs no permissions (owner, 2026-11-21). |
+| D-4 | Plain dashboard first; the assistant (US-8) and generated view (US-9) come last. **Exception:** "Summarize" (AS-8.1, with AS-8.4 and AS-8.5) comes right after the walking skeleton, as slice D1b, to prove the model path early. It's read-only, so it needs no permissions (owner, 2026-11-21). **Second exception:** "Draft stip text" (AS-8.3, with AS-8.4 and AS-8.5) comes right after D3, as slice D3b, since it fills D3's Add stip form. It only proposes text; nothing is added until the funder clicks Add (owner, 2026-11-23). "Suggest next step" (AS-8.2) stays in D8: it needs D5's actions. |
 | D-5 | Field views first; the PDF page viewer waits for a document-storage decision. |
 | D-6 | Local OIDC first (a mock provider in Docker); real single sign-on later, as configuration (FR-09). Replaces the earlier HMAC dev-token design (owner, 2026-11-21). |
 | D-7 | **No paid LLM.** Local Gemma (`gemma4:e4b`) through Ollama is the default, and **the model stays swappable through configuration** (FR-07). |

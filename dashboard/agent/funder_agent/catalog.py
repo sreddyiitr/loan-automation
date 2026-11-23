@@ -121,6 +121,7 @@ STIP_LIST = ComponentApi("StipList", {
         "title": _DYNAMIC, "items": _DYNAMIC, "codes": _DYNAMIC, "canAdd": _DYNAMIC, "addReason": _DYNAMIC,
         "emptyText": _DYNAMIC, "loanApplicationId": _DYNAMIC, "applicationVersionId": _DYNAMIC,
         "resolveAction": {"type": "string"}, "addAction": {"type": "string"},
+        "draft": _DYNAMIC, "draftAction": {"type": "string"},
         "weight": {"type": "number"}, "accessibility": {"type": "object"},
     },
     "required": ["id", "component", "items", "resolveAction", "addAction"],
